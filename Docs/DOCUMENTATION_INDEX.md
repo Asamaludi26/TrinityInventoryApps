@@ -28,6 +28,7 @@ Dokumen ini berfungsi sebagai peta navigasi dan referensi cepat untuk seluruh do
 2. [State Management Guide](02_DEVELOPMENT_GUIDES/STATE_MANAGEMENT_GUIDE.md) - Zustand stores
 3. [Design System](03_STANDARDS_AND_PROCEDURES/DESIGN_SYSTEM.md) - UI components
 4. [Design Tokens](03_STANDARDS_AND_PROCEDURES/DESIGN_TOKENS.md) - Variabel desain
+5. [Frontend-Backend Integration Plan](02_DEVELOPMENT_GUIDES/FRONTEND_BACKEND_INTEGRATION_PLAN.md) - 🆕 Roadmap integrasi
 
 ### 🔧 DevOps / SysAdmin
 
@@ -79,7 +80,8 @@ Docs/
 │   ├── BACKEND_GUIDE.md            # NestJS development
 │   ├── BACKEND_INTEGRATION_BLUEPRINT.md # Integration checklist
 │   ├── BACKEND_IMPLEMENTATION_PROMPT.md # AI prompts for backend
-│   ├── DESIGN_TOKEN_MIGRATION.md   # 🆕 Color system migration guide
+│   ├── FRONTEND_BACKEND_INTEGRATION_PLAN.md # 🆕 Integration roadmap
+│   ├── DESIGN_TOKEN_MIGRATION.md   # Color system migration guide
 │   ├── API_REFERENCE.md            # REST API documentation
 │   ├── API_ERROR_CODES.md          # Error code catalog
 │   ├── STATE_MANAGEMENT_GUIDE.md   # Zustand store patterns
