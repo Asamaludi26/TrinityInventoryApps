@@ -117,24 +117,28 @@ Rilis major yang fokus pada infrastruktur integrasi frontend-backend dengan TanS
 Untuk menggunakan fitur baru:
 
 1. **API Calls**: Ganti langsung store calls dengan TanStack Query hooks
+
    ```tsx
    // Before (store)
    const { assets, fetchAssets } = useAssetStore();
-   useEffect(() => { fetchAssets(); }, []);
-   
+   useEffect(() => {
+     fetchAssets();
+   }, []);
+
    // After (query)
    const { data: assets, isLoading } = useAssets();
    ```
 
 2. **Forms**: Gunakan `useZodForm` untuk form validation
+
    ```tsx
    const form = useZodForm(createAssetSchema, { defaultValues: {...} });
    ```
 
 3. **Navigation**: Gunakan constants dari `routes.tsx`
    ```tsx
-   import { ROUTES, buildRoute } from './routes';
-   navigate(buildRoute.assetDetail('asset-123'));
+   import { ROUTES, buildRoute } from "./routes";
+   navigate(buildRoute.assetDetail("asset-123"));
    ```
 
 ---

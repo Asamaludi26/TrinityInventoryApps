@@ -71,7 +71,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       // Ensure status has a default value
       const submitData = {
         ...data,
-        status: data.status || ('Active' as const),
+        status: data.status || ("Active" as const),
       };
 
       if (isEditMode && customer) {
