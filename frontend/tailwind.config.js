@@ -4,6 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
+        // ==== LEGACY ALIASES (for backward compatibility) ====
+        // These map the old `tm-` prefix to the new color system
+        // TODO: Migrate components to use new naming convention
+        "tm-primary": "#2563eb", // = primary-600
+        "tm-primary-hover": "#1d4ed8", // = primary-700
+        "tm-accent": "#3b82f6", // = primary-500
+        "tm-secondary": "#64748b", // = secondary-500
+        "tm-light": "#f9fafb", // = gray-50
+        "tm-dark": "#111827", // = gray-900
+
         // Primary Colors
         primary: {
           50: "#eff6ff",
