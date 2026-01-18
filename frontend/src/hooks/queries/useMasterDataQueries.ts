@@ -1,7 +1,7 @@
 /**
  * Master Data Query Hooks
  *
- * TanStack Query hooks for users, customers, divisions, categories, and stock.
+ * TanStack Query hooks for users, customers, divisions, and categories.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,7 +10,6 @@ import {
   customersApi,
   divisionsApi,
   categoriesApi,
-  stockApi,
 } from "../../services/api/master-data.api";
 import type {
   User,
@@ -18,7 +17,6 @@ import type {
   Division,
   AssetCategory,
   CustomerStatus,
-  StockMovement,
 } from "../../types";
 
 // Query keys
@@ -42,12 +40,6 @@ export const divisionKeys = {
 export const categoryKeys = {
   all: ["categories"] as const,
   lists: () => [...categoryKeys.all, "list"] as const,
-};
-
-export const stockKeys = {
-  all: ["stock"] as const,
-  lists: () => [...stockKeys.all, "list"] as const,
-  byAsset: (assetId: string) => [...stockKeys.all, "asset", assetId] as const,
 };
 
 // --- USERS ---
@@ -248,31 +240,6 @@ export function useUpdateCategories() {
       categoriesApi.update(categories),
     onSuccess: (updatedCategories) => {
       queryClient.setQueryData(categoryKeys.lists(), updatedCategories);
-    },
-  });
-}
-
-// --- STOCK MOVEMENTS ---
-
-export function useStockMovements(filters?: {
-  assetName?: string;
-  brand?: string;
-}) {
-  return useQuery({
-    queryKey: stockKeys.lists(),
-    queryFn: () => stockApi.getMovements(filters?.assetName, filters?.brand),
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-export function useRecordStockMovement() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (movement: Omit<StockMovement, "id" | "balanceAfter">) =>
-      stockApi.recordMovement(movement),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: stockKeys.all });
     },
   });
 }

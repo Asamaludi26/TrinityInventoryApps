@@ -457,4 +457,44 @@ export const returnsApi = {
       verifiedBy,
     });
   },
+
+  /**
+   * Create new return document
+   */
+  create: async (returnData: AssetReturn): Promise<AssetReturn> => {
+    if (USE_MOCK) {
+      return mockDelay(() => {
+        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
+        const updated = [returnData, ...returns];
+        saveToStorage("app_returns", updated);
+        return returnData;
+      });
+    }
+
+    return apiClient.post<AssetReturn>("/returns", returnData);
+  },
+
+  /**
+   * Update return document
+   */
+  update: async (
+    id: string,
+    data: Partial<AssetReturn>,
+  ): Promise<AssetReturn> => {
+    if (USE_MOCK) {
+      return mockDelay(() => {
+        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
+        const index = returns.findIndex((r) => r.id === id);
+        if (index === -1)
+          throw new ApiError("Return document tidak ditemukan.", 404);
+
+        const updated = { ...returns[index], ...data };
+        returns[index] = updated;
+        saveToStorage("app_returns", returns);
+        return updated;
+      });
+    }
+
+    return apiClient.patch<AssetReturn>(`/returns/${id}`, data);
+  },
 };

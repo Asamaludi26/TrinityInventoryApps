@@ -8,6 +8,10 @@
 // Core client and utilities
 export { apiClient, ApiError, USE_MOCK, API_URL } from "./client";
 
+// Unified data loading
+export { unifiedApi, mockStorage } from "./unified.api";
+export type { UnifiedAppData } from "./unified.api";
+
 // Domain-specific APIs
 export { authApi } from "./auth.api";
 export { assetsApi } from "./assets.api";
@@ -24,5 +28,6 @@ export {
   customersApi,
   divisionsApi,
   categoriesApi,
-  stockApi,
 } from "./master-data.api";
+export { stockApi } from "./stock.api";
+export { notificationsApi } from "./notifications.api";

@@ -160,7 +160,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
 
             const baseClasses =
               "w-9 h-9 rounded-full transition-colors duration-150 flex items-center justify-center font-medium";
-            let specificClasses = isSelected
+            const specificClasses = isSelected
               ? "bg-primary-600 text-white hover:bg-primary-700"
               : isToday
                 ? "bg-gray-100 text-primary-600 hover:bg-gray-200"

@@ -1,11 +1,25 @@
-
-import { create } from 'zustand';
-import { Handover, Dismantle, Maintenance, Installation, ItemStatus, AssetStatus, AssetCondition, CustomerStatus } from '../types';
-import * as api from '../services/api';
-import { useNotificationStore } from './useNotificationStore';
-import { useMasterDataStore } from './useMasterDataStore';
-import { useAssetStore } from './useAssetStore';
-import { useAuthStore } from './useAuthStore';
+import { create } from "zustand";
+import {
+  Handover,
+  Dismantle,
+  Maintenance,
+  Installation,
+  ItemStatus,
+  AssetStatus,
+  AssetCondition,
+  CustomerStatus,
+} from "../types";
+import {
+  handoversApi,
+  installationsApi,
+  maintenancesApi,
+  dismantlesApi,
+  unifiedApi,
+} from "../services/api";
+import { useNotificationStore } from "./useNotificationStore";
+import { useMasterDataStore } from "./useMasterDataStore";
+import { useAssetStore } from "./useAssetStore";
+import { useAuthStore } from "./useAuthStore";
 
 interface TransactionState {
   handovers: Handover[];
@@ -32,37 +46,44 @@ interface TransactionState {
   deleteInstallation: (id: string) => Promise<void>;
 }
 
-const notifyRecipient = (userName: string, type: string, refId: string, message: string) => {
-    const users = useMasterDataStore.getState().users;
-    const currentUser = useAuthStore.getState().currentUser;
-    const recipient = users.find(u => u.name === userName);
-    
-    if (recipient && currentUser) {
-        useNotificationStore.getState().addSystemNotification({
-            recipientId: recipient.id,
-            actorName: currentUser.name,
-            type: type,
-            referenceId: refId,
-            message: message
-        });
-    }
+const notifyRecipient = (
+  userName: string,
+  type: string,
+  refId: string,
+  message: string,
+) => {
+  const users = useMasterDataStore.getState().users;
+  const currentUser = useAuthStore.getState().currentUser;
+  const recipient = users.find((u) => u.name === userName);
+
+  if (recipient && currentUser) {
+    useNotificationStore.getState().addSystemNotification({
+      recipientId: recipient.id,
+      actorName: currentUser.name,
+      type: type,
+      referenceId: refId,
+      message: message,
+    });
+  }
 };
 
 const notifyAdmins = (type: string, refId: string, message: string) => {
-    const users = useMasterDataStore.getState().users;
-    const currentUser = useAuthStore.getState().currentUser;
-    if (!currentUser) return;
-    
-    users.filter(u => u.role === 'Admin Logistik' || u.role === 'Super Admin').forEach(admin => {
-         if (admin.id !== currentUser.id) {
-             useNotificationStore.getState().addSystemNotification({
-                recipientId: admin.id,
-                actorName: currentUser.name,
-                type: type,
-                referenceId: refId,
-                message: message
-            });
-         }
+  const users = useMasterDataStore.getState().users;
+  const currentUser = useAuthStore.getState().currentUser;
+  if (!currentUser) return;
+
+  users
+    .filter((u) => u.role === "Admin Logistik" || u.role === "Super Admin")
+    .forEach((admin) => {
+      if (admin.id !== currentUser.id) {
+        useNotificationStore.getState().addSystemNotification({
+          recipientId: admin.id,
+          actorName: currentUser.name,
+          type: type,
+          referenceId: refId,
+          message: message,
+        });
+      }
     });
 };
 
@@ -74,145 +95,228 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
   isLoading: false,
 
   refreshAll: async () => {
-      await get().fetchTransactions();
+    await get().fetchTransactions();
   },
 
   fetchTransactions: async () => {
     set({ isLoading: true });
     try {
-      const data = await api.fetchAllData();
-      set({ 
+      const data = await unifiedApi.refreshTransactions();
+      set({
         handovers: data.handovers,
         dismantles: data.dismantles,
         maintenances: data.maintenances,
         installations: data.installations,
-        isLoading: false 
+        isLoading: false,
       });
     } catch (error) {
+      console.error("[TransactionStore] fetchTransactions failed:", error);
       set({ isLoading: false });
     }
   },
 
   addHandover: async (handover) => {
-    const current = get().handovers;
-    const updated = [handover, ...current];
-    await api.updateData('app_handovers', updated);
-    set({ handovers: updated });
-
-    notifyRecipient(handover.penerima, 'ASSET_HANDED_OVER', handover.id, `menyerahkan ${handover.items.length} item aset kepada Anda.`);
+    try {
+      const createdHandover = await handoversApi.create(handover);
+      set((state) => ({ handovers: [createdHandover, ...state.handovers] }));
+      notifyRecipient(
+        createdHandover.penerima,
+        "ASSET_HANDED_OVER",
+        createdHandover.id,
+        `menyerahkan ${createdHandover.items.length} item aset kepada Anda.`,
+      );
+    } catch (error) {
+      console.error("[TransactionStore] addHandover failed:", error);
+      throw error;
+    }
   },
-  
+
   deleteHandover: async (id) => {
-      const current = get().handovers;
-      const updated = current.filter(h => h.id !== id);
-      await api.updateData('app_handovers', updated);
-      set({ handovers: updated });
+    try {
+      await handoversApi.delete(id);
+      set((state) => ({
+        handovers: state.handovers.filter((h) => h.id !== id),
+      }));
+    } catch (error) {
+      console.error("[TransactionStore] deleteHandover failed:", error);
+      throw error;
+    }
   },
 
   addDismantle: async (dismantle) => {
-    const current = get().dismantles;
-    const updated = [dismantle, ...current];
-    await api.updateData('app_dismantles', updated);
-    set({ dismantles: updated });
-    
-    notifyAdmins('STATUS_CHANGE', dismantle.id, `melakukan dismantle aset dari pelanggan ${dismantle.customerName}`);
+    try {
+      const createdDismantle = await dismantlesApi.create(dismantle);
+      set((state) => ({ dismantles: [createdDismantle, ...state.dismantles] }));
+      notifyAdmins(
+        "STATUS_CHANGE",
+        createdDismantle.id,
+        `melakukan dismantle aset dari pelanggan ${createdDismantle.customerName}`,
+      );
+    } catch (error) {
+      console.error("[TransactionStore] addDismantle failed:", error);
+      throw error;
+    }
   },
 
   // INTELLIGENT DISMANTLE UPDATE
   updateDismantle: async (id, data) => {
-    const current = get().dismantles;
-    const oldDismantle = current.find(d => d.id === id);
-    const updated = current.map(d => d.id === id ? { ...d, ...data } : d);
-    await api.updateData('app_dismantles', updated);
-    set({ dismantles: updated });
+    const oldDismantle = get().dismantles.find((d) => d.id === id);
 
-    // Jika Status COMPLETED, jalankan logika pengembalian stok cerdas
-    if (data.status === ItemStatus.COMPLETED && oldDismantle) {
+    try {
+      const updatedDismantle = await dismantlesApi.update(id, data);
+      set((state) => ({
+        dismantles: state.dismantles.map((d) =>
+          d.id === id ? updatedDismantle : d,
+        ),
+      }));
+
+      // Jika Status COMPLETED, jalankan logika pengembalian stok cerdas
+      if (data.status === ItemStatus.COMPLETED && oldDismantle) {
         const { updateAsset, assets } = useAssetStore.getState();
         const { updateCustomer } = useMasterDataStore.getState();
-        
+
         // 1. Tentukan Status Target berdasarkan Kondisi
-        const isGood = [AssetCondition.GOOD, AssetCondition.USED_OKAY, AssetCondition.BRAND_NEW].includes(oldDismantle.retrievedCondition);
-        const targetStatus = isGood ? AssetStatus.IN_STORAGE : AssetStatus.DAMAGED;
-        
+        const isGood = [
+          AssetCondition.GOOD,
+          AssetCondition.USED_OKAY,
+          AssetCondition.BRAND_NEW,
+        ].includes(oldDismantle.retrievedCondition);
+        const targetStatus = isGood
+          ? AssetStatus.IN_STORAGE
+          : AssetStatus.DAMAGED;
+
         await updateAsset(oldDismantle.assetId, {
-             status: targetStatus,
-             condition: oldDismantle.retrievedCondition,
-             currentUser: null,
-             location: isGood ? 'Gudang Inventori' : 'Gudang (Rusak)',
-             isDismantled: true,
-             dismantleInfo: { 
-                 customerId: oldDismantle.customerId, 
-                 customerName: oldDismantle.customerName, 
-                 dismantleDate: oldDismantle.dismantleDate, 
-                 dismantleId: oldDismantle.id 
-             }
+          status: targetStatus,
+          condition: oldDismantle.retrievedCondition,
+          currentUser: null,
+          location: isGood ? "Gudang Inventori" : "Gudang (Rusak)",
+          isDismantled: true,
+          dismantleInfo: {
+            customerId: oldDismantle.customerId,
+            customerName: oldDismantle.customerName,
+            dismantleDate: oldDismantle.dismantleDate,
+            dismantleId: oldDismantle.id,
+          },
         });
-        
+
         // 2. Cek status pelanggan (apakah masih ada aset lain?)
-        // Logic manual karena store assets mungkin belum refresh
-        const remainingAssets = assets.filter(a => 
-             a.currentUser === oldDismantle.customerId && 
-             a.status === AssetStatus.IN_USE && 
-             a.id !== oldDismantle.assetId
+        const remainingAssets = assets.filter(
+          (a) =>
+            a.currentUser === oldDismantle.customerId &&
+            a.status === AssetStatus.IN_USE &&
+            a.id !== oldDismantle.assetId,
         );
 
         if (remainingAssets.length === 0) {
-              await updateCustomer(oldDismantle.customerId, { status: CustomerStatus.INACTIVE });
-              useNotificationStore.getState().addToast('Status pelanggan otomatis diubah menjadi Non-Aktif karena tidak ada aset tersisa.', 'info');
+          await updateCustomer(oldDismantle.customerId, {
+            status: CustomerStatus.INACTIVE,
+          });
+          useNotificationStore
+            .getState()
+            .addToast(
+              "Status pelanggan otomatis diubah menjadi Non-Aktif karena tidak ada aset tersisa.",
+              "info",
+            );
         }
+      }
+    } catch (error) {
+      console.error("[TransactionStore] updateDismantle failed:", error);
+      throw error;
     }
   },
 
   deleteDismantle: async (id) => {
-      const current = get().dismantles;
-      const updated = current.filter(d => d.id !== id);
-      await api.updateData('app_dismantles', updated);
-      set({ dismantles: updated });
+    try {
+      await dismantlesApi.delete(id);
+      set((state) => ({
+        dismantles: state.dismantles.filter((d) => d.id !== id),
+      }));
+    } catch (error) {
+      console.error("[TransactionStore] deleteDismantle failed:", error);
+      throw error;
+    }
   },
 
   addMaintenance: async (maintenance) => {
-    const current = get().maintenances;
-    const updated = [maintenance, ...current];
-    await api.updateData('app_maintenances', updated);
-    set({ maintenances: updated });
-    
-    if (maintenance.priority === 'Tinggi') {
-         notifyAdmins('REPAIR_STARTED', maintenance.id, `membuat tiket maintenance PRIORITAS TINGGI`);
+    try {
+      const createdMaintenance = await maintenancesApi.create(maintenance);
+      set((state) => ({
+        maintenances: [createdMaintenance, ...state.maintenances],
+      }));
+
+      if (createdMaintenance.priority === "Tinggi") {
+        notifyAdmins(
+          "REPAIR_STARTED",
+          createdMaintenance.id,
+          `membuat tiket maintenance PRIORITAS TINGGI`,
+        );
+      }
+    } catch (error) {
+      console.error("[TransactionStore] addMaintenance failed:", error);
+      throw error;
     }
   },
 
   updateMaintenance: async (id, data) => {
-    const current = get().maintenances;
-    const updated = current.map(m => m.id === id ? { ...m, ...data } : m);
-    await api.updateData('app_maintenances', updated);
-    set({ maintenances: updated });
-    
-    if (data.status === ItemStatus.COMPLETED) {
-         notifyAdmins('REPAIR_COMPLETED', id, 'telah menyelesaikan tiket maintenance');
+    try {
+      const updatedMaintenance = await maintenancesApi.update(id, data);
+      set((state) => ({
+        maintenances: state.maintenances.map((m) =>
+          m.id === id ? updatedMaintenance : m,
+        ),
+      }));
+
+      if (data.status === ItemStatus.COMPLETED) {
+        notifyAdmins(
+          "REPAIR_COMPLETED",
+          id,
+          "telah menyelesaikan tiket maintenance",
+        );
+      }
+    } catch (error) {
+      console.error("[TransactionStore] updateMaintenance failed:", error);
+      throw error;
     }
   },
 
   deleteMaintenance: async (id) => {
-      const current = get().maintenances;
-      const updated = current.filter(m => m.id !== id);
-      await api.updateData('app_maintenances', updated);
-      set({ maintenances: updated });
+    try {
+      await maintenancesApi.delete(id);
+      set((state) => ({
+        maintenances: state.maintenances.filter((m) => m.id !== id),
+      }));
+    } catch (error) {
+      console.error("[TransactionStore] deleteMaintenance failed:", error);
+      throw error;
+    }
   },
 
   addInstallation: async (installation) => {
-    const current = get().installations;
-    const updated = [installation, ...current];
-    await api.updateData('app_installations', updated);
-    set({ installations: updated });
-    
-    notifyAdmins('STATUS_CHANGE', installation.id, `telah menyelesaikan instalasi di ${installation.customerName}`);
+    try {
+      const createdInstallation = await installationsApi.create(installation);
+      set((state) => ({
+        installations: [createdInstallation, ...state.installations],
+      }));
+      notifyAdmins(
+        "STATUS_CHANGE",
+        createdInstallation.id,
+        `telah menyelesaikan instalasi di ${createdInstallation.customerName}`,
+      );
+    } catch (error) {
+      console.error("[TransactionStore] addInstallation failed:", error);
+      throw error;
+    }
   },
 
   deleteInstallation: async (id) => {
-      const current = get().installations;
-      const updated = current.filter(i => i.id !== id);
-      await api.updateData('app_installations', updated);
-      set({ installations: updated });
-  }
+    try {
+      await installationsApi.delete(id);
+      set((state) => ({
+        installations: state.installations.filter((i) => i.id !== id),
+      }));
+    } catch (error) {
+      console.error("[TransactionStore] deleteInstallation failed:", error);
+      throw error;
+    }
+  },
 }));
