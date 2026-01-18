@@ -1,10 +1,4 @@
-import {
-  IsOptional,
-  IsEnum,
-  IsNumber,
-  IsString,
-  IsObject,
-} from "class-validator";
+import { IsOptional, IsEnum, IsNumber, IsString, IsObject } from 'class-validator';
 
 export class ItemAdjustmentDto {
   @IsNumber()
@@ -16,8 +10,8 @@ export class ItemAdjustmentDto {
 }
 
 export class ApproveRequestDto {
-  @IsEnum(["logistic", "purchase"])
-  approvalType: "logistic" | "purchase";
+  @IsEnum(['logistic', 'purchase'])
+  approvalType: 'logistic' | 'purchase';
 
   @IsOptional()
   @IsObject()

@@ -412,7 +412,7 @@ export const sanitizePermissions = (permissions: Permission[], role: UserRole): 
     
     // 1. Filter out restricted permissions from input
     // Ini memastikan user tidak bisa punya akses yang dilarang
-    let cleanPermissions = permissions.filter(p => !restricted.includes(p));
+    const cleanPermissions = permissions.filter(p => !restricted.includes(p));
 
     // 2. Inject mandatory permissions (only if NOT restricted)
     // Ini menangani kasus konflik konfigurasi: Restriction wins.

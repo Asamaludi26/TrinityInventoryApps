@@ -84,7 +84,6 @@ export {
   customerKeys,
   divisionKeys,
   categoryKeys,
-  stockKeys,
   useUsers,
   useUser,
   useCreateUser,
@@ -103,6 +102,14 @@ export {
   useDeleteDivision,
   useCategories,
   useUpdateCategories,
-  useStockMovements,
-  useRecordStockMovement,
 } from "./useMasterDataQueries";
+
+// Stock hooks
+export {
+  stockKeys,
+  useStockMovements,
+  useStockLedger,
+  useStockItemHistory,
+  useStockAvailability,
+  useRecordStockMovement,
+} from "./useStockQueries";

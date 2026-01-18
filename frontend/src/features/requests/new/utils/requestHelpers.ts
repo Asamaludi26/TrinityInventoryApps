@@ -39,14 +39,14 @@ export const prepareInitialItems = (
 
   return rawItems.map((item, idx) => {
     // 1. Cari Kategori dan Tipe berdasarkan Nama Item
-    let category = categories.find(c => 
+    const category = categories.find(c => 
       c.types.some(t => t.standardItems?.some(si => 
         si.name.toLowerCase() === item.name.toLowerCase() && 
         si.brand.toLowerCase() === item.brand.toLowerCase()
       ))
     );
     
-    let type = category?.types.find(t => 
+    const type = category?.types.find(t => 
       t.standardItems?.some(si => 
         si.name.toLowerCase() === item.name.toLowerCase() && 
         si.brand.toLowerCase() === item.brand.toLowerCase()
@@ -69,7 +69,7 @@ export const prepareInitialItems = (
     const stockCount = stockInfo.availableSmart; 
     
     // 4. Kalkulasi Kebutuhan
-    let targetStock = item.threshold ?? DEFAULT_RESTOCK_TARGET;
+    const targetStock = item.threshold ?? DEFAULT_RESTOCK_TARGET;
     // Jika restock measurement (Hasbal), threshold biasanya dalam unit fisik (e.g. 2 Drum).
     // Jadi perbandingan langsung aman.
     

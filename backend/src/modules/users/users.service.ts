@@ -1,28 +1,42 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateUserDto } from "./dto/create-user.dto";
-import { UpdateUserDto } from "./dto/update-user.dto";
-import { UserRole } from "@prisma/client";
-import * as bcrypt from "bcrypt";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
-    // Hash password if provided plain
-    const password = createUserDto.password.startsWith("$2")
-      ? createUserDto.password // Already hashed
-      : await bcrypt.hash(createUserDto.password, 10);
+    // Check if email already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: createUserDto.email },
+    });
+    if (existingUser) {
+      throw new BadRequestException('Email sudah terdaftar');
+    }
+
+    // Validate division exists if provided
+    if (createUserDto.divisionId) {
+      const division = await this.prisma.division.findUnique({
+        where: { id: createUserDto.divisionId },
+      });
+      if (!division) {
+        throw new BadRequestException(
+          `Division dengan ID ${createUserDto.divisionId} tidak ditemukan`,
+        );
+      }
+    }
+
+    // Always hash the password - never accept pre-hashed passwords
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
     return this.prisma.user.create({
       data: {
         ...createUserDto,
-        password,
+        password: hashedPassword,
         role: createUserDto.role || UserRole.STAFF,
       },
       include: {
@@ -54,8 +68,8 @@ export class UsersService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -67,13 +81,15 @@ export class UsersService {
         include: {
           division: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.count({ where }),
     ]);
 
     // Remove password from response
-    const sanitizedUsers = users.map(({ password, ...user }) => user);
+    const sanitizedUsers = users.map(
+      ({ password: _password, ...user }: { password: string; [key: string]: unknown }) => user,
+    );
 
     return {
       data: sanitizedUsers,
@@ -123,7 +139,7 @@ export class UsersService {
       },
     });
 
-    const { password, ...result } = updated;
+    const { password: _password, ...result } = updated;
     return result;
   }
 

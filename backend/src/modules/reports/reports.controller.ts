@@ -1,16 +1,11 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { ReportsService } from "./reports.service";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
-import { Roles } from "../auth/decorators/roles.decorator";
-import {
-  UserRole,
-  AssetStatus,
-  AssetCondition,
-  RequestStatus,
-} from "@prisma/client";
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ReportsService } from './reports.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole, AssetStatus, AssetCondition, RequestStatus } from '@prisma/client';
 
-@Controller("reports")
+@Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.ADMIN_PURCHASE)
 export class ReportsController {
@@ -20,15 +15,15 @@ export class ReportsController {
    * GET /api/reports/assets/inventory
    * Get asset inventory report
    */
-  @Get("assets/inventory")
+  @Get('assets/inventory')
   async getAssetInventoryReport(
-    @Query("status") status?: AssetStatus,
-    @Query("condition") condition?: AssetCondition,
-    @Query("categoryId") categoryId?: string,
-    @Query("typeId") typeId?: string,
-    @Query("modelId") modelId?: string,
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
+    @Query('status') status?: AssetStatus,
+    @Query('condition') condition?: AssetCondition,
+    @Query('categoryId') categoryId?: string,
+    @Query('typeId') typeId?: string,
+    @Query('modelId') modelId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.reportsService.getAssetInventoryReport({
       status,
@@ -45,27 +40,24 @@ export class ReportsController {
    * GET /api/reports/assets/movements
    * Get asset movement report
    */
-  @Get("assets/movements")
+  @Get('assets/movements')
   async getAssetMovementReport(
-    @Query("startDate") startDate: string,
-    @Query("endDate") endDate: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
   ) {
-    return this.reportsService.getAssetMovementReport(
-      new Date(startDate),
-      new Date(endDate),
-    );
+    return this.reportsService.getAssetMovementReport(new Date(startDate), new Date(endDate));
   }
 
   /**
    * GET /api/reports/requests
    * Get request summary report
    */
-  @Get("requests")
+  @Get('requests')
   async getRequestReport(
-    @Query("status") status?: RequestStatus,
-    @Query("requestedBy") requestedBy?: string,
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
+    @Query('status') status?: RequestStatus,
+    @Query('requestedBy') requestedBy?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.reportsService.getRequestReport({
       status,
@@ -79,11 +71,8 @@ export class ReportsController {
    * GET /api/reports/loans
    * Get loan status report
    */
-  @Get("loans")
-  async getLoanReport(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
-  ) {
+  @Get('loans')
+  async getLoanReport(@Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
     return this.reportsService.getLoanReport(
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
@@ -94,8 +83,8 @@ export class ReportsController {
    * GET /api/reports/customers
    * Get customer report
    */
-  @Get("customers")
-  async getCustomerReport(@Query("customerId") customerId?: string) {
+  @Get('customers')
+  async getCustomerReport(@Query('customerId') customerId?: string) {
     return this.reportsService.getCustomerReport(customerId);
   }
 
@@ -103,10 +92,10 @@ export class ReportsController {
    * GET /api/reports/maintenances
    * Get maintenance history report
    */
-  @Get("maintenances")
+  @Get('maintenances')
   async getMaintenanceReport(
-    @Query("startDate") startDate?: string,
-    @Query("endDate") endDate?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.reportsService.getMaintenanceReport(
       startDate ? new Date(startDate) : undefined,

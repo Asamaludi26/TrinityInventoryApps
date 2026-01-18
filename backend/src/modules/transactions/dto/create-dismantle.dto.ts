@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsDateString,
-  IsOptional,
-  IsArray,
-} from "class-validator";
+import { IsString, IsNotEmpty, IsDateString, IsOptional, IsArray } from 'class-validator';
 
 export class CreateDismantleDto {
   @IsNotEmpty()

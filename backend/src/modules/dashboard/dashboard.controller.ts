@@ -1,8 +1,8 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { DashboardService } from "./dashboard.service";
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { DashboardService } from './dashboard.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller("dashboard")
+@Controller('dashboard')
 @UseGuards(JwtAuthGuard)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
@@ -11,7 +11,7 @@ export class DashboardController {
    * GET /api/dashboard/summary
    * Get comprehensive dashboard summary with all key metrics
    */
-  @Get("summary")
+  @Get('summary')
   async getSummary() {
     return this.dashboardService.getSummary();
   }
@@ -20,7 +20,7 @@ export class DashboardController {
    * GET /api/dashboard/stock-summary
    * Get stock summary grouped by model
    */
-  @Get("stock-summary")
+  @Get('stock-summary')
   async getStockSummary() {
     return this.dashboardService.getStockSummary();
   }
@@ -29,7 +29,7 @@ export class DashboardController {
    * GET /api/dashboard/trends
    * Get monthly trends for the last 6 months
    */
-  @Get("trends")
+  @Get('trends')
   async getMonthlyTrends() {
     return this.dashboardService.getMonthlyTrends();
   }
@@ -38,8 +38,8 @@ export class DashboardController {
    * GET /api/dashboard/low-stock-alerts
    * Get items with stock below threshold
    */
-  @Get("low-stock-alerts")
-  async getLowStockAlerts(@Query("threshold") threshold?: string) {
+  @Get('low-stock-alerts')
+  async getLowStockAlerts(@Query('threshold') threshold?: string) {
     const thresholdNum = threshold ? parseInt(threshold, 10) : 5;
     return this.dashboardService.getLowStockAlerts(thresholdNum);
   }
@@ -48,8 +48,8 @@ export class DashboardController {
    * GET /api/dashboard/upcoming-returns
    * Get loans due for return in the next N days
    */
-  @Get("upcoming-returns")
-  async getUpcomingReturns(@Query("days") days?: string) {
+  @Get('upcoming-returns')
+  async getUpcomingReturns(@Query('days') days?: string) {
     const daysNum = days ? parseInt(days, 10) : 7;
     return this.dashboardService.getUpcomingReturns(daysNum);
   }

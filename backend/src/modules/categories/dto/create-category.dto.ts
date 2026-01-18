@@ -1,13 +1,7 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsBoolean,
-  IsArray,
-} from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray } from 'class-validator';
 
 export class CreateCategoryDto {
-  @IsNotEmpty({ message: "Nama kategori wajib diisi" })
+  @IsNotEmpty({ message: 'Nama kategori wajib diisi' })
   @IsString()
   name: string;
 

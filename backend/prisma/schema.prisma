@@ -42,14 +42,19 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+
+  @@index([role])
+  @@index([divisionId])
+  @@index([deletedAt])
 }
 
 enum UserRole {
-  SUPER_ADMIN
-  ADMIN_LOGISTIK
-  ADMIN_PURCHASE
-  STAFF
-  TEKNISI
+  SUPER_ADMIN     // Full system access
+  ADMIN_LOGISTIK  // Logistics management
+  ADMIN_PURCHASE  // Procurement management
+  LEADER          // Team leader with approval rights
+  STAFF           // Regular staff
+  TEKNISI         // Field technician
 }
 
 // =============================================================================
@@ -173,19 +178,26 @@ model Asset {
 }
 
 enum AssetStatus {
-  IN_STORAGE     // Available in warehouse
-  IN_USE         // Deployed/in use
-  ON_LOAN        // Temporarily loaned
-  UNDER_REPAIR   // Being repaired
-  DAMAGED        // Damaged, needs assessment
-  DISPOSED       // Written off/disposed
+  IN_STORAGE       // Available in warehouse
+  IN_USE           // Deployed/in use
+  ON_LOAN          // Temporarily loaned
+  IN_CUSTODY       // Held by staff (custody)
+  UNDER_REPAIR     // Being repaired internally
+  OUT_FOR_SERVICE  // Sent out for external service
+  DAMAGED          // Damaged, needs assessment
+  AWAITING_RETURN  // Pending return from loan/customer
+  CONSUMED         // Fully consumed (for measurement items)
+  DISPOSED         // Written off/disposed
 }
 
 enum AssetCondition {
+  BRAND_NEW     // Factory new
   GOOD          // Working perfectly
+  USED_OKAY     // Used but still functional
   MINOR_DAMAGE  // Minor issues, still usable
   MAJOR_DAMAGE  // Significant issues
   BROKEN        // Not functional
+  FOR_PARTS     // Only usable for spare parts
 }
 
 // =============================================================================
@@ -228,6 +240,10 @@ model Request {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([requesterId])
+  @@index([requestDate])
 }
 
 model RequestItem {
@@ -303,11 +319,20 @@ model LoanRequest {
   approver       String?
   approvalDate   DateTime?
   
+  // Rejection
+  rejectedBy     String?
+  rejectionReason String?
+  rejectionDate  DateTime?
+  
   // Return tracking
   assetReturns   AssetReturn[]
   
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+  @@index([requesterId])
+  @@index([requestDate])
 }
 
 model AssetReturn {
@@ -364,6 +389,10 @@ model Handover {
   
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
+
+  @@index([status])
+  @@index([handoverDate])
+  @@index([receiverName])
 }
 
 model HandoverItem {
@@ -541,6 +570,11 @@ model StockMovement {
   notes         String?
   
   createdAt     DateTime         @default(now())
+
+  @@index([assetId])
+  @@index([movementType])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
 }
 
 enum MovementType {

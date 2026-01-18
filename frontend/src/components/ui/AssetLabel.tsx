@@ -2,8 +2,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Asset } from '../../types';
 
-declare var QRCode: any;
-declare var JsBarcode: any;
+declare let QRCode: any;
+declare let JsBarcode: any;
 
 interface AssetLabelProps {
     asset: Asset;

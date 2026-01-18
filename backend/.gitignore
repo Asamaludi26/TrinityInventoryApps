@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+
+# Build output
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Uploads (but keep directory)
+uploads/*
+!uploads/.gitignore
+
+# Build cache
+.tsbuildinfo
+*.tsbuildinfo
+
+# Debug
+*.map

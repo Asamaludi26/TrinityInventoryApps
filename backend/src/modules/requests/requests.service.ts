@@ -1,20 +1,17 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { AssetsService } from "../assets/assets.service";
-import { CreateRequestDto } from "./dto/create-request.dto";
-import { UpdateRequestDto } from "./dto/update-request.dto";
-import { ApproveRequestDto } from "./dto/approve-request.dto";
-import { RegisterAssetsDto } from "./dto/register-assets.dto";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { AssetsService } from '../assets/assets.service';
+import { CreateRequestDto } from './dto/create-request.dto';
+import { UpdateRequestDto } from './dto/update-request.dto';
+import { ApproveRequestDto } from './dto/approve-request.dto';
+import { RegisterAssetsDto } from './dto/register-assets.dto';
 import {
   RequestStatus,
   ItemApprovalStatus,
   AllocationTarget,
   AssetStatus,
-} from "@prisma/client";
+  Prisma,
+} from '@prisma/client';
 
 @Injectable()
 export class RequestsService {
@@ -29,24 +26,22 @@ export class RequestsService {
   private async generateDocNumber(): Promise<string> {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
     const prefix = `RO-${year}-${month}${day}-`;
 
     const lastRequest = await this.prisma.request.findFirst({
       where: { docNumber: { startsWith: prefix } },
-      orderBy: { docNumber: "desc" },
+      orderBy: { docNumber: 'desc' },
     });
 
     let sequence = 1;
     if (lastRequest) {
-      const lastSequence = parseInt(
-        lastRequest.docNumber.split("-").pop() || "0",
-      );
+      const lastSequence = parseInt(lastRequest.docNumber.split('-').pop() || '0');
       sequence = lastSequence + 1;
     }
 
-    return `${prefix}${sequence.toString().padStart(4, "0")}`;
+    return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 
   /**
@@ -58,7 +53,7 @@ export class RequestsService {
 
     // Check stock availability for each item
     const itemsWithStatus = await Promise.all(
-      createRequestDto.items.map(async (item) => {
+      createRequestDto.items.map(async item => {
         const stockCheck = await this.assetsService.checkAvailability(
           item.itemName,
           item.itemTypeBrand,
@@ -71,8 +66,8 @@ export class RequestsService {
         if (stockCheck.isSufficient) {
           status = ItemApprovalStatus.STOCK_ALLOCATED;
           reason = stockCheck.isFragmented
-            ? "Stok tersedia (terpecah di beberapa batch)"
-            : "Stok tersedia di gudang";
+            ? 'Stok tersedia (terpecah di beberapa batch)'
+            : 'Stok tersedia di gudang';
         } else {
           status = ItemApprovalStatus.PROCUREMENT_NEEDED;
           reason = `Stok kurang ${stockCheck.deficit} unit, perlu pengadaan`;
@@ -89,14 +84,13 @@ export class RequestsService {
 
     // Determine initial request status
     const allStockAvailable = itemsWithStatus.every(
-      (item) => item.status === ItemApprovalStatus.STOCK_ALLOCATED,
+      item => item.status === ItemApprovalStatus.STOCK_ALLOCATED,
     );
 
     let initialStatus: RequestStatus;
-    const allocationTarget =
-      createRequestDto.allocationTarget || AllocationTarget.USAGE;
+    const allocationTarget = createRequestDto.allocationTarget || AllocationTarget.USAGE;
 
-    if (allStockAvailable && createRequestDto.orderType === "REGULAR_STOCK") {
+    if (allStockAvailable && createRequestDto.orderType === 'REGULAR_STOCK') {
       if (allocationTarget === AllocationTarget.INVENTORY) {
         // Restock request with available stock - unusual, complete immediately
         initialStatus = RequestStatus.COMPLETED;
@@ -123,7 +117,7 @@ export class RequestsService {
         project: createRequestDto.project,
         allocationTarget,
         items: {
-          create: itemsWithStatus.map((item) => ({
+          create: itemsWithStatus.map(item => ({
             itemName: item.itemName,
             itemTypeBrand: item.itemTypeBrand,
             quantity: item.quantity,
@@ -145,9 +139,9 @@ export class RequestsService {
     // Log activity
     await this.prisma.activityLog.create({
       data: {
-        entityType: "Request",
+        entityType: 'Request',
         entityId: request.id,
-        action: "CREATE",
+        action: 'CREATE',
         changes: { status: initialStatus, itemCount: itemsWithStatus.length },
         performedBy: `User#${requesterId}`,
       },
@@ -165,21 +159,13 @@ export class RequestsService {
     dateFrom?: string;
     dateTo?: string;
   }) {
-    const {
-      skip = 0,
-      take = 50,
-      status,
-      requesterId,
-      division,
-      dateFrom,
-      dateTo,
-    } = params || {};
+    const { skip = 0, take = 50, status, requesterId, division, dateFrom, dateTo } = params || {};
 
     const where: any = {};
 
     if (status) where.status = status;
     if (requesterId) where.requesterId = requesterId;
-    if (division) where.division = { contains: division, mode: "insensitive" };
+    if (division) where.division = { contains: division, mode: 'insensitive' };
 
     if (dateFrom || dateTo) {
       where.requestDate = {};
@@ -198,7 +184,7 @@ export class RequestsService {
             select: { id: true, name: true, email: true },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.request.count({ where }),
     ]);
@@ -250,20 +236,16 @@ export class RequestsService {
    * Review/Approve request with partial approval support
    * Implements logic from BACKEND_GUIDE.md Section 6.6.B
    */
-  async approveRequest(
-    id: string,
-    dto: ApproveRequestDto,
-    approverName: string,
-  ) {
+  async approveRequest(id: string, dto: ApproveRequestDto, approverName: string) {
     const request = await this.findOne(id);
 
     if (request.status !== RequestStatus.PENDING) {
-      throw new BadRequestException("Request tidak dalam status PENDING");
+      throw new BadRequestException('Request tidak dalam status PENDING');
     }
 
     // Update item statuses
     const updatedItems = await Promise.all(
-      request.items.map(async (item) => {
+      request.items.map(async item => {
         const adjustment = dto.itemAdjustments?.[item.id];
 
         if (!adjustment) {
@@ -291,14 +273,12 @@ export class RequestsService {
     );
 
     // Determine next status
-    const allRejected = updatedItems.every(
-      (item) => item.status === ItemApprovalStatus.REJECTED,
-    );
+    const allRejected = updatedItems.every(item => item.status === ItemApprovalStatus.REJECTED);
 
     let nextStatus: RequestStatus;
     if (allRejected) {
       nextStatus = RequestStatus.REJECTED;
-    } else if (dto.approvalType === "logistic") {
+    } else if (dto.approvalType === 'logistic') {
       nextStatus = RequestStatus.LOGISTIC_APPROVED;
     } else {
       nextStatus = RequestStatus.PURCHASE_APPROVED;
@@ -309,7 +289,7 @@ export class RequestsService {
       status: nextStatus,
     };
 
-    if (dto.approvalType === "logistic") {
+    if (dto.approvalType === 'logistic') {
       updateData.logisticApprover = approverName;
       updateData.logisticApprovalDate = new Date();
     } else {
@@ -326,9 +306,9 @@ export class RequestsService {
     // Log activity
     await this.prisma.activityLog.create({
       data: {
-        entityType: "Request",
+        entityType: 'Request',
         entityId: id,
-        action: "APPROVED",
+        action: 'APPROVED',
         changes: { previousStatus: request.status, newStatus: nextStatus },
         performedBy: approverName,
       },
@@ -341,11 +321,7 @@ export class RequestsService {
    * Register assets from approved request (Request to Asset conversion)
    * Implements logic from BACKEND_GUIDE.md Section 6.6.C
    */
-  async registerAssets(
-    id: string,
-    dto: RegisterAssetsDto,
-    performedBy: string,
-  ) {
+  async registerAssets(id: string, dto: RegisterAssetsDto, performedBy: string) {
     const request = await this.findOne(id);
 
     const validStatuses: RequestStatus[] = [
@@ -355,11 +331,11 @@ export class RequestsService {
     ];
 
     if (!validStatuses.includes(request.status)) {
-      throw new BadRequestException("Request belum siap untuk registrasi aset");
+      throw new BadRequestException('Request belum siap untuk registrasi aset');
     }
 
     // Use transaction for atomic operation
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdAssets = [];
 
       for (const assetData of dto.assets) {
@@ -369,16 +345,16 @@ export class RequestsService {
 
         const lastAsset = await tx.asset.findFirst({
           where: { id: { startsWith: prefix } },
-          orderBy: { id: "desc" },
+          orderBy: { id: 'desc' },
         });
 
         let sequence = 1;
         if (lastAsset) {
-          const lastSeq = parseInt(lastAsset.id.split("-").pop() || "0");
+          const lastSeq = parseInt(lastAsset.id.split('-').pop() || '0');
           sequence = lastSeq + 1;
         }
 
-        const assetId = `${prefix}${sequence.toString().padStart(4, "0")}`;
+        const assetId = `${prefix}${sequence.toString().padStart(4, '0')}`;
 
         const asset = await tx.asset.create({
           data: {
@@ -387,12 +363,10 @@ export class RequestsService {
             brand: assetData.brand,
             serialNumber: assetData.serialNumber,
             status: AssetStatus.IN_STORAGE,
-            location: "Gudang",
+            location: 'Gudang',
             woRoIntNumber: request.id,
             purchasePrice: assetData.purchasePrice,
-            purchaseDate: assetData.purchaseDate
-              ? new Date(assetData.purchaseDate)
-              : null,
+            purchaseDate: assetData.purchaseDate ? new Date(assetData.purchaseDate) : null,
             vendor: assetData.vendor,
           },
         });
@@ -401,8 +375,7 @@ export class RequestsService {
       }
 
       // Update registration tracking
-      const currentPartial =
-        (request.partiallyRegisteredItems as Record<string, number>) || {};
+      const currentPartial = (request.partiallyRegisteredItems as Record<string, number>) || {};
 
       for (const assetData of dto.assets) {
         const itemId = assetData.requestItemId?.toString();
@@ -416,10 +389,7 @@ export class RequestsService {
         (sum, item) => sum + (item.approvedQuantity || item.quantity),
         0,
       );
-      const totalRegistered = Object.values(currentPartial).reduce(
-        (sum, v) => sum + v,
-        0,
-      );
+      const totalRegistered = Object.values(currentPartial).reduce((sum, v) => sum + v, 0);
       const isFullyRegistered = totalRegistered >= totalApproved;
 
       await tx.request.update({
@@ -427,18 +397,16 @@ export class RequestsService {
         data: {
           partiallyRegisteredItems: currentPartial,
           isRegistered: isFullyRegistered,
-          status: isFullyRegistered
-            ? RequestStatus.AWAITING_HANDOVER
-            : request.status,
+          status: isFullyRegistered ? RequestStatus.AWAITING_HANDOVER : request.status,
         },
       });
 
       // Log activity
       await tx.activityLog.create({
         data: {
-          entityType: "Request",
+          entityType: 'Request',
           entityId: id,
-          action: "ASSETS_REGISTERED",
+          action: 'ASSETS_REGISTERED',
           changes: { assetsCreated: createdAssets.length, isFullyRegistered },
           performedBy,
         },
@@ -455,11 +423,8 @@ export class RequestsService {
   async reject(id: string, reason: string, rejectedBy: string) {
     const request = await this.findOne(id);
 
-    if (
-      request.status === RequestStatus.REJECTED ||
-      request.status === RequestStatus.COMPLETED
-    ) {
-      throw new BadRequestException("Request sudah dalam status final");
+    if (request.status === RequestStatus.REJECTED || request.status === RequestStatus.COMPLETED) {
+      throw new BadRequestException('Request sudah dalam status final');
     }
 
     return this.prisma.request.update({

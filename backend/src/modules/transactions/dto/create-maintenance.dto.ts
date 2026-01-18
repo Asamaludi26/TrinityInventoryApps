@@ -1,13 +1,5 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsDateString,
-  IsOptional,
-  IsArray,
-  IsEnum,
-  IsNumber,
-} from "class-validator";
-import { MaintenanceType } from "@prisma/client";
+import { IsString, IsNotEmpty, IsDateString, IsOptional, IsArray, IsEnum } from 'class-validator';
+import { MaintenanceType } from '@prisma/client';
 
 export class CreateMaintenanceDto {
   @IsNotEmpty()

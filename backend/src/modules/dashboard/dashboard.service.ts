@@ -1,11 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import {
-  AssetStatus,
-  RequestStatus,
-  LoanStatus,
-  CustomerStatus,
-} from "@prisma/client";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { AssetStatus, RequestStatus, LoanStatus, CustomerStatus } from '@prisma/client';
 
 export interface DashboardSummary {
   assets: {
@@ -78,14 +73,14 @@ export class DashboardService {
     ] = await Promise.all([
       // Asset statistics
       this.prisma.asset.groupBy({
-        by: ["status"],
+        by: ['status'],
         _count: { id: true },
         where: { deletedAt: null },
       }),
 
       // Request statistics
       this.prisma.request.groupBy({
-        by: ["status"],
+        by: ['status'],
         _count: { id: true },
       }),
 
@@ -98,7 +93,7 @@ export class DashboardService {
 
       // Loan statistics
       this.prisma.loanRequest.groupBy({
-        by: ["status"],
+        by: ['status'],
         _count: { id: true },
       }),
 
@@ -112,7 +107,7 @@ export class DashboardService {
 
       // Customer statistics
       this.prisma.customer.groupBy({
-        by: ["status"],
+        by: ['status'],
         _count: { id: true },
         where: { deletedAt: null },
       }),
@@ -120,7 +115,7 @@ export class DashboardService {
       // Recent activities (last 10)
       this.prisma.activityLog.findMany({
         take: 10,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           action: true,
@@ -133,7 +128,7 @@ export class DashboardService {
     ]);
 
     // Process asset stats
-    const assetCounts = this.aggregateGroupBy(assetStats, "status");
+    const assetCounts = this.aggregateGroupBy(assetStats, 'status');
     const assets = {
       total: Object.values(assetCounts).reduce((a, b) => a + b, 0),
       inStorage: assetCounts[AssetStatus.IN_STORAGE] || 0,
@@ -143,7 +138,7 @@ export class DashboardService {
     };
 
     // Process request stats
-    const requestCounts = this.aggregateGroupBy(requestStats, "status");
+    const requestCounts = this.aggregateGroupBy(requestStats, 'status');
     const requests = {
       total: Object.values(requestCounts).reduce((a, b) => a + b, 0),
       pending: requestCounts[RequestStatus.PENDING] || 0,
@@ -155,7 +150,7 @@ export class DashboardService {
     };
 
     // Process loan stats
-    const loanCounts = this.aggregateGroupBy(loanStats, "status");
+    const loanCounts = this.aggregateGroupBy(loanStats, 'status');
     const loans = {
       total: Object.values(loanCounts).reduce((a, b) => a + b, 0),
       active: loanCounts[LoanStatus.APPROVED] || 0,
@@ -164,7 +159,7 @@ export class DashboardService {
     };
 
     // Process customer stats
-    const customerCounts = this.aggregateGroupBy(customerStats, "status");
+    const customerCounts = this.aggregateGroupBy(customerStats, 'status');
     const customers = {
       total: Object.values(customerCounts).reduce((a, b) => a + b, 0),
       active: customerCounts[CustomerStatus.ACTIVE] || 0,
@@ -198,9 +193,9 @@ export class DashboardService {
       },
     });
 
-    return models.map((model) => {
+    return models.map(model => {
       const statusCounts: Record<string, number> = {};
-      model.assets.forEach((asset) => {
+      model.assets.forEach(asset => {
         statusCounts[asset.status] = (statusCounts[asset.status] || 0) + 1;
       });
 
@@ -228,9 +223,9 @@ export class DashboardService {
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-      const monthStr = date.toLocaleString("id-ID", {
-        month: "short",
-        year: "numeric",
+      const monthStr = date.toLocaleString('id-ID', {
+        month: 'short',
+        year: 'numeric',
       });
 
       const [requests, handovers, installations] = await Promise.all([
@@ -285,8 +280,8 @@ export class DashboardService {
     });
 
     return models
-      .filter((model) => model._count.assets < threshold)
-      .map((model) => ({
+      .filter(model => model._count.assets < threshold)
+      .map(model => ({
         modelId: model.id,
         modelName: model.name,
         brand: model.brand,
@@ -317,20 +312,17 @@ export class DashboardService {
           select: { id: true, name: true, email: true },
         },
       },
-      orderBy: { expectedReturn: "asc" },
+      orderBy: { expectedReturn: 'asc' },
     });
   }
 
   /**
    * Helper to aggregate groupBy results
    */
-  private aggregateGroupBy(
-    results: any[],
-    key: string,
-  ): Record<string, number> {
+  private aggregateGroupBy(results: any[], key: string): Record<string, number> {
     const counts: Record<string, number> = {};
-    results.forEach((r) => {
-      const keyValue = r[key] || "unknown";
+    results.forEach(r => {
+      const keyValue = r[key] || 'unknown';
       counts[keyValue] = r._count?.id || 0;
     });
     return counts;

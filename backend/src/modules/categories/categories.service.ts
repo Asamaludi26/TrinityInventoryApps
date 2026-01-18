@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateCategoryDto } from "./dto/create-category.dto";
-import { CreateTypeDto } from "./dto/create-type.dto";
-import { CreateModelDto } from "./dto/create-model.dto";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateTypeDto } from './dto/create-type.dto';
+import { CreateModelDto } from './dto/create-model.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -28,7 +28,7 @@ export class CategoriesService {
           },
         },
       },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -81,7 +81,7 @@ export class CategoriesService {
     return this.prisma.assetType.findMany({
       where,
       include: { category: true, models: { where: { deletedAt: null } } },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -129,7 +129,7 @@ export class CategoriesService {
     return this.prisma.assetModel.findMany({
       where,
       include: { type: { include: { category: true } } },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
   }
 

@@ -1,28 +1,28 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateCustomerDto } from "./dto/create-customer.dto";
-import { UpdateCustomerDto } from "./dto/update-customer.dto";
-import { CustomerStatus } from "@prisma/client";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { CustomerStatus } from '@prisma/client';
 
 @Injectable()
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
 
   private async generateCustomerId(): Promise<string> {
-    const prefix = "CUST-";
+    const prefix = 'CUST-';
 
     const lastCustomer = await this.prisma.customer.findFirst({
       where: { id: { startsWith: prefix } },
-      orderBy: { id: "desc" },
+      orderBy: { id: 'desc' },
     });
 
     let sequence = 1;
     if (lastCustomer) {
-      const lastSeq = parseInt(lastCustomer.id.replace(prefix, ""));
+      const lastSeq = parseInt(lastCustomer.id.replace(prefix, ''));
       if (!isNaN(lastSeq)) sequence = lastSeq + 1;
     }
 
-    return `${prefix}${sequence.toString().padStart(4, "0")}`;
+    return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 
   async create(dto: CreateCustomerDto) {
@@ -52,9 +52,9 @@ export class CustomersService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { id: { contains: search, mode: "insensitive" } },
-        { address: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search, mode: 'insensitive' } },
+        { address: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -63,7 +63,7 @@ export class CustomersService {
         where,
         skip,
         take,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.customer.count({ where }),
     ]);

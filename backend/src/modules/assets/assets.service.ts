@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateAssetDto, CreateBulkAssetsDto } from "./dto/create-asset.dto";
-import { UpdateAssetDto } from "./dto/update-asset.dto";
-import { ConsumeStockDto } from "./dto/consume-stock.dto";
-import { AssetStatus, MovementType } from "@prisma/client";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateAssetDto, CreateBulkAssetsDto } from './dto/create-asset.dto';
+import { UpdateAssetDto } from './dto/update-asset.dto';
+import { ConsumeStockDto } from './dto/consume-stock.dto';
+import { AssetStatus, MovementType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class AssetsService {
@@ -22,16 +18,16 @@ export class AssetsService {
 
     const lastAsset = await this.prisma.asset.findFirst({
       where: { id: { startsWith: prefix } },
-      orderBy: { id: "desc" },
+      orderBy: { id: 'desc' },
     });
 
     let sequence = 1;
     if (lastAsset) {
-      const lastSequence = parseInt(lastAsset.id.split("-").pop() || "0");
+      const lastSequence = parseInt(lastAsset.id.split('-').pop() || '0');
       sequence = lastSequence + 1;
     }
 
-    return `${prefix}${sequence.toString().padStart(4, "0")}`;
+    return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 
   async create(createAssetDto: CreateAssetDto) {
@@ -51,10 +47,10 @@ export class AssetsService {
         assetId: asset.id,
         movementType: MovementType.RECEIVED,
         quantity: createAssetDto.quantity || 1,
-        unit: "Unit",
-        referenceType: "REGISTRATION",
-        performedBy: "SYSTEM",
-        notes: "Asset registered",
+        unit: 'Unit',
+        referenceType: 'REGISTRATION',
+        performedBy: 'SYSTEM',
+        notes: 'Asset registered',
       },
     });
 
@@ -62,34 +58,64 @@ export class AssetsService {
   }
 
   async createBulk(dto: CreateBulkAssetsDto) {
-    const assets = [];
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const assets = [];
 
-    for (const item of dto.items) {
-      const id = await this.generateAssetId();
-      assets.push({
-        ...item,
-        id,
+      // Validate all models exist
+      const modelIds = [...new Set(dto.items.map(i => i.modelId).filter(Boolean))] as number[];
+      if (modelIds.length > 0) {
+        const existingModels = await tx.assetModel.findMany({
+          where: { id: { in: modelIds } },
+          select: { id: true },
+        });
+        const existingModelIds = new Set(existingModels.map(m => m.id));
+        const missingModels = modelIds.filter(id => !existingModelIds.has(id));
+        if (missingModels.length > 0) {
+          throw new BadRequestException(`Model tidak ditemukan: ${missingModels.join(', ')}`);
+        }
+      }
+
+      // Check serial number uniqueness
+      const serialNumbers = dto.items.map(i => i.serialNumber).filter(Boolean);
+      if (serialNumbers.length > 0) {
+        const existingSerials = await tx.asset.findMany({
+          where: { serialNumber: { in: serialNumbers as string[] } },
+          select: { serialNumber: true },
+        });
+        if (existingSerials.length > 0) {
+          throw new BadRequestException(
+            `Serial number sudah terdaftar: ${existingSerials.map(a => a.serialNumber).join(', ')}`,
+          );
+        }
+      }
+
+      for (const item of dto.items) {
+        const id = await this.generateAssetId();
+        assets.push({
+          ...item,
+          id,
+        });
+      }
+
+      await tx.asset.createMany({
+        data: assets,
       });
-    }
 
-    await this.prisma.asset.createMany({
-      data: assets,
+      // Log movements
+      await tx.stockMovement.createMany({
+        data: assets.map(asset => ({
+          assetId: asset.id,
+          movementType: MovementType.RECEIVED,
+          quantity: asset.quantity || 1,
+          unit: 'Unit',
+          referenceType: 'BULK_REGISTRATION',
+          performedBy: dto.performedBy || 'SYSTEM',
+          notes: dto.notes || 'Bulk asset registration',
+        })),
+      });
+
+      return { created: assets.length, ids: assets.map(a => a.id) };
     });
-
-    // Log movements
-    await this.prisma.stockMovement.createMany({
-      data: assets.map((asset) => ({
-        assetId: asset.id,
-        movementType: MovementType.RECEIVED,
-        quantity: asset.quantity || 1,
-        unit: "Unit",
-        referenceType: "BULK_REGISTRATION",
-        performedBy: dto.performedBy || "SYSTEM",
-        notes: dto.notes || "Bulk asset registration",
-      })),
-    });
-
-    return { created: assets.length, ids: assets.map((a) => a.id) };
   }
 
   async findAll(params?: {
@@ -102,33 +128,24 @@ export class AssetsService {
     customerId?: string;
     search?: string;
   }) {
-    const {
-      skip = 0,
-      take = 50,
-      status,
-      name,
-      brand,
-      location,
-      customerId,
-      search,
-    } = params || {};
+    const { skip = 0, take = 50, status, name, brand, location, customerId, search } = params || {};
 
     const where: any = {
       deletedAt: null,
     };
 
     if (status) where.status = status;
-    if (name) where.name = { contains: name, mode: "insensitive" };
-    if (brand) where.brand = { contains: brand, mode: "insensitive" };
-    if (location) where.location = { contains: location, mode: "insensitive" };
+    if (name) where.name = { contains: name, mode: 'insensitive' };
+    if (brand) where.brand = { contains: brand, mode: 'insensitive' };
+    if (location) where.location = { contains: location, mode: 'insensitive' };
     if (customerId) where.customerId = customerId;
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { brand: { contains: search, mode: "insensitive" } },
-        { serialNumber: { contains: search, mode: "insensitive" } },
-        { id: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { brand: { contains: search, mode: 'insensitive' } },
+        { serialNumber: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -138,7 +155,7 @@ export class AssetsService {
         skip,
         take,
         include: { model: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.asset.count({ where }),
     ]);
@@ -154,7 +171,7 @@ export class AssetsService {
           include: { type: { include: { category: true } } },
         },
         maintenances: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           take: 5,
         },
       },
@@ -189,9 +206,9 @@ export class AssetsService {
     // Log activity
     await this.prisma.activityLog.create({
       data: {
-        entityType: "Asset",
+        entityType: 'Asset',
         entityId: id,
-        action: "STATUS_CHANGE",
+        action: 'STATUS_CHANGE',
         changes: { status: { old: previousStatus, new: status } },
         performedBy,
       },
@@ -215,8 +232,8 @@ export class AssetsService {
   async checkAvailability(name: string, brand: string, quantity: number) {
     const assets = await this.prisma.asset.findMany({
       where: {
-        name: { equals: name, mode: "insensitive" },
-        brand: { equals: brand, mode: "insensitive" },
+        name: { equals: name, mode: 'insensitive' },
+        brand: { equals: brand, mode: 'insensitive' },
         status: AssetStatus.IN_STORAGE,
         deletedAt: null,
       },
@@ -251,63 +268,69 @@ export class AssetsService {
   }
 
   /**
-   * Consume stock (for installation/maintenance)
+   * Consume stock (for installation/maintenance) - atomic operation
    */
   async consumeStock(dto: ConsumeStockDto) {
-    const results = [];
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const results = [];
 
-    for (const item of dto.items) {
-      const assets = await this.prisma.asset.findMany({
-        where: {
-          name: { equals: item.itemName, mode: "insensitive" },
-          brand: { equals: item.brand, mode: "insensitive" },
-          status: AssetStatus.IN_STORAGE,
-          deletedAt: null,
-        },
-        orderBy: { currentBalance: "desc" }, // Use largest stock first
-      });
+      for (const item of dto.items) {
+        // Lock rows for update to prevent race conditions
+        const assets = await tx.asset.findMany({
+          where: {
+            name: { equals: item.itemName, mode: 'insensitive' },
+            brand: { equals: item.brand, mode: 'insensitive' },
+            status: AssetStatus.IN_STORAGE,
+            deletedAt: null,
+          },
+          orderBy: { currentBalance: 'desc' }, // Use largest stock first
+        });
 
-      let remaining = item.quantity;
+        let remaining = item.quantity;
 
-      for (const asset of assets) {
-        if (remaining <= 0) break;
+        for (const asset of assets) {
+          if (remaining <= 0) break;
 
-        if (asset.currentBalance !== null) {
-          const consume = Math.min(asset.currentBalance, remaining);
-          const newBalance = asset.currentBalance - consume;
+          if (asset.currentBalance !== null) {
+            const consume = Math.min(asset.currentBalance, remaining);
+            const newBalance = asset.currentBalance - consume;
 
-          await this.prisma.asset.update({
-            where: { id: asset.id },
-            data: { currentBalance: newBalance },
-          });
+            await tx.asset.update({
+              where: { id: asset.id },
+              data: {
+                currentBalance: newBalance,
+                status: newBalance === 0 ? AssetStatus.CONSUMED : AssetStatus.IN_STORAGE,
+              },
+            });
 
-          await this.prisma.stockMovement.create({
-            data: {
-              assetId: asset.id,
-              movementType: MovementType.CONSUMED,
-              quantity: consume,
-              unit: item.unit,
-              previousBalance: asset.currentBalance,
-              newBalance,
-              referenceType: dto.context.referenceType,
-              referenceId: dto.context.referenceId,
-              performedBy: dto.context.technician || "SYSTEM",
-            },
-          });
+            await tx.stockMovement.create({
+              data: {
+                assetId: asset.id,
+                movementType: MovementType.CONSUMED,
+                quantity: consume,
+                unit: item.unit,
+                previousBalance: asset.currentBalance,
+                newBalance,
+                referenceType: dto.context.referenceType,
+                referenceId: dto.context.referenceId,
+                performedBy: dto.context.technician || 'SYSTEM',
+              },
+            });
 
-          remaining -= consume;
-          results.push({ assetId: asset.id, consumed: consume });
+            remaining -= consume;
+            results.push({ assetId: asset.id, consumed: consume });
+          }
+        }
+
+        if (remaining > 0) {
+          throw new BadRequestException(
+            `Stok tidak cukup untuk ${item.itemName} ${item.brand}. Kurang: ${remaining} ${item.unit}`,
+          );
         }
       }
 
-      if (remaining > 0) {
-        throw new BadRequestException(
-          `Stok tidak cukup untuk ${item.itemName} ${item.brand}. Kurang: ${remaining} ${item.unit}`,
-        );
-      }
-    }
-
-    return { success: true, consumed: results };
+      return { success: true, consumed: results };
+    });
   }
 
   /**
@@ -327,10 +350,8 @@ export class AssetsService {
       },
     });
 
-    const summary: Record<
-      string,
-      { name: string; brand: string; total: number; count: number }
-    > = {};
+    const summary: Record<string, { name: string; brand: string; total: number; count: number }> =
+      {};
 
     for (const asset of assets) {
       const key = `${asset.name}|${asset.brand}`;

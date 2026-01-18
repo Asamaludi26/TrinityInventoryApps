@@ -1,10 +1,15 @@
 /**
  * API Client with Interceptors
  * Centralized fetch wrapper for all API calls
+ *
+ * NOTE: To avoid circular dependency, we use lazy imports for stores.
+ * Stores are only accessed at runtime, not at module load time.
  */
 
-import { useAuthStore } from "../../stores/useAuthStore";
-import { useNotificationStore } from "../../stores/useNotificationStore";
+// Lazy import functions to break circular dependency
+const getAuthStore = () => require("../../stores/useAuthStore").useAuthStore;
+const getNotificationStore = () =>
+  require("../../stores/useNotificationStore").useNotificationStore;
 
 // --- CONFIGURATION ---
 const getEnv = () => {
@@ -84,7 +89,11 @@ class ApiClient {
       }
       // Network error
       const message = "Koneksi jaringan bermasalah. Periksa internet Anda.";
-      useNotificationStore.getState().addToast(message, "error");
+      try {
+        getNotificationStore().getState().addToast(message, "error");
+      } catch (e) {
+        console.error("[ApiClient] Network error:", message);
+      }
       throw new ApiError(message, 0, "NETWORK_ERROR");
     }
   }
@@ -106,7 +115,11 @@ class ApiClient {
 
     // Handle 401 Unauthorized - Global redirect
     if (response.status === 401) {
-      useAuthStore.getState().logout();
+      try {
+        getAuthStore().getState().logout();
+      } catch (e) {
+        console.error("[ApiClient] Failed to logout:", e);
+      }
       // Don't throw, just redirect
       if (typeof window !== "undefined") {
         window.location.href = "/login";
@@ -120,9 +133,13 @@ class ApiClient {
 
     // Handle 403 Forbidden
     if (response.status === 403) {
-      useNotificationStore
-        .getState()
-        .addToast("Anda tidak memiliki izin untuk aksi ini.", "error");
+      try {
+        getNotificationStore()
+          .getState()
+          .addToast("Anda tidak memiliki izin untuk aksi ini.", "error");
+      } catch (e) {
+        console.error("[ApiClient] 403 Forbidden");
+      }
       throw new ApiError(
         "Akses ditolak.",
         403,
@@ -143,9 +160,13 @@ class ApiClient {
 
     // Handle server errors (5xx)
     if (response.status >= 500) {
-      useNotificationStore
-        .getState()
-        .addToast("Terjadi kesalahan server. Coba lagi nanti.", "error");
+      try {
+        getNotificationStore()
+          .getState()
+          .addToast("Terjadi kesalahan server. Coba lagi nanti.", "error");
+      } catch (e) {
+        console.error("[ApiClient] Server error");
+      }
       throw new ApiError("Server error.", response.status, "SERVER_ERROR");
     }
 

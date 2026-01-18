@@ -1,17 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateReturnDto } from "./dto/create-return.dto";
-import { ProcessReturnDto } from "./dto/process-return.dto";
-import {
-  AssetReturnStatus,
-  LoanStatus,
-  AssetStatus,
-  AssetCondition,
-} from "@prisma/client";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateReturnDto } from './dto/create-return.dto';
+import { ProcessReturnDto } from './dto/process-return.dto';
+import { AssetReturnStatus, LoanStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ReturnsService {
@@ -20,21 +11,21 @@ export class ReturnsService {
   private async generateDocNumber(): Promise<string> {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `RTN-${year}-${month}-`;
 
     const lastReturn = await this.prisma.assetReturn.findFirst({
       where: { docNumber: { startsWith: prefix } },
-      orderBy: { docNumber: "desc" },
+      orderBy: { docNumber: 'desc' },
     });
 
     let sequence = 1;
     if (lastReturn) {
-      const lastSeq = parseInt(lastReturn.docNumber.split("-").pop() || "0");
+      const lastSeq = parseInt(lastReturn.docNumber.split('-').pop() || '0');
       sequence = lastSeq + 1;
     }
 
-    return `${prefix}${sequence.toString().padStart(4, "0")}`;
+    return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 
   async create(dto: CreateReturnDto) {
@@ -46,7 +37,37 @@ export class ReturnsService {
     });
 
     if (!loan) {
-      throw new NotFoundException("Loan request tidak ditemukan");
+      throw new NotFoundException('Loan request tidak ditemukan');
+    }
+
+    // Validate loan status - can only return if ON_LOAN
+    // Note: Partially returned loans are still ON_LOAN until all assets are returned
+    if (loan.status !== LoanStatus.ON_LOAN) {
+      throw new BadRequestException(
+        `Tidak dapat membuat return untuk loan dengan status ${loan.status}. ` +
+          `Status harus ON_LOAN`,
+      );
+    }
+
+    // Validate asset ownership - all items must belong to the loan's assigned assets
+    const assignedAssets = (loan.assignedAssets as Record<string, string[]>) || {};
+    const allAssignedIds = new Set(Object.values(assignedAssets).flat());
+    const returnedAssets = new Set(loan.returnedAssets || []);
+
+    const invalidItems = dto.items.filter(item => {
+      // Check if asset was assigned to this loan
+      if (!allAssignedIds.has(item.assetId)) return true;
+      // Check if asset was already returned
+      if (returnedAssets.has(item.assetId)) return true;
+      return false;
+    });
+
+    if (invalidItems.length > 0) {
+      const invalidIds = invalidItems.map(i => i.assetId);
+      throw new BadRequestException(
+        `Asset berikut tidak valid untuk return: ${invalidIds.join(', ')}. ` +
+          `Asset mungkin tidak di-assign ke loan ini atau sudah dikembalikan.`,
+      );
     }
 
     return this.prisma.assetReturn.create({
@@ -56,7 +77,7 @@ export class ReturnsService {
         loanRequestId: dto.loanRequestId,
         status: AssetReturnStatus.PENDING,
         returnDate: new Date(dto.returnDate),
-        items: dto.items,
+        items: dto.items.map(item => ({ ...item })),
       },
       include: {
         loanRequest: true,
@@ -71,7 +92,7 @@ export class ReturnsService {
     return this.prisma.assetReturn.findMany({
       where,
       include: { loanRequest: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -95,10 +116,10 @@ export class ReturnsService {
     const returnDoc = await this.findOne(id);
 
     if (returnDoc.status !== AssetReturnStatus.PENDING) {
-      throw new BadRequestException("Return sudah diproses");
+      throw new BadRequestException('Return sudah diproses');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update accepted assets to IN_STORAGE
       if (dto.acceptedAssetIds.length > 0) {
         await tx.asset.updateMany({
@@ -106,7 +127,7 @@ export class ReturnsService {
           data: {
             status: AssetStatus.IN_STORAGE,
             currentUserId: null,
-            location: "Gudang",
+            location: 'Gudang',
           },
         });
       }
@@ -138,8 +159,7 @@ export class ReturnsService {
       const newReturned = [...currentReturned, ...dto.acceptedAssetIds];
 
       // Check if all assets returned
-      const assignedAssets =
-        (loan?.assignedAssets as Record<string, string[]>) || {};
+      const assignedAssets = (loan?.assignedAssets as Record<string, string[]>) || {};
       const totalAssigned = Object.values(assignedAssets).flat().length;
       const allReturned = newReturned.length >= totalAssigned;
 

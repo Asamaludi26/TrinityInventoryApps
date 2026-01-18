@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { NotificationType } from "@prisma/client";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { NotificationType } from '@prisma/client';
 
 export interface CreateNotificationDto {
   recipientId: number;
@@ -36,10 +36,10 @@ export class NotificationsService {
    */
   async createBulk(
     recipientIds: number[],
-    notification: Omit<CreateNotificationDto, "recipientId">,
+    notification: Omit<CreateNotificationDto, 'recipientId'>,
   ) {
     return this.prisma.notification.createMany({
-      data: recipientIds.map((recipientId) => ({
+      data: recipientIds.map(recipientId => ({
         recipientId,
         type: notification.type,
         title: notification.title,
@@ -73,7 +73,7 @@ export class NotificationsService {
     const [notifications, total] = await Promise.all([
       this.prisma.notification.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -169,16 +169,12 @@ export class NotificationsService {
   /**
    * Notify about new request
    */
-  async notifyNewRequest(
-    adminUserIds: number[],
-    requestId: string,
-    requesterName: string,
-  ) {
+  async notifyNewRequest(adminUserIds: number[], requestId: string, requesterName: string) {
     return this.createBulk(adminUserIds, {
       type: NotificationType.REQUEST_CREATED,
-      title: "Permintaan Baru",
+      title: 'Permintaan Baru',
       message: `${requesterName} membuat permintaan baru`,
-      referenceType: "request",
+      referenceType: 'request',
       referenceId: requestId,
     });
   }
@@ -186,17 +182,13 @@ export class NotificationsService {
   /**
    * Notify about request approval
    */
-  async notifyRequestApproved(
-    recipientId: number,
-    requestId: string,
-    approverName: string,
-  ) {
+  async notifyRequestApproved(recipientId: number, requestId: string, approverName: string) {
     return this.create({
       recipientId,
       type: NotificationType.REQUEST_APPROVED,
-      title: "Permintaan Disetujui",
+      title: 'Permintaan Disetujui',
       message: `Permintaan Anda telah disetujui oleh ${approverName}`,
-      referenceType: "request",
+      referenceType: 'request',
       referenceId: requestId,
     });
   }
@@ -204,17 +196,13 @@ export class NotificationsService {
   /**
    * Notify about loan approval
    */
-  async notifyLoanApproved(
-    recipientId: number,
-    loanId: string,
-    approverName: string,
-  ) {
+  async notifyLoanApproved(recipientId: number, loanId: string, approverName: string) {
     return this.create({
       recipientId,
       type: NotificationType.LOAN_APPROVED,
-      title: "Pinjaman Disetujui",
+      title: 'Pinjaman Disetujui',
       message: `Pinjaman Anda telah disetujui oleh ${approverName}`,
-      referenceType: "loan",
+      referenceType: 'loan',
       referenceId: loanId,
     });
   }
@@ -222,17 +210,13 @@ export class NotificationsService {
   /**
    * Notify about maintenance due
    */
-  async notifyMaintenanceDue(
-    technicianId: number,
-    assetId: string,
-    assetName: string,
-  ) {
+  async notifyMaintenanceDue(technicianId: number, assetId: string, assetName: string) {
     return this.create({
       recipientId: technicianId,
       type: NotificationType.MAINTENANCE_DUE,
-      title: "Jadwal Maintenance",
+      title: 'Jadwal Maintenance',
       message: `${assetName} memerlukan maintenance`,
-      referenceType: "asset",
+      referenceType: 'asset',
       referenceId: assetId,
     });
   }

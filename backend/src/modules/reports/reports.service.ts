@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { AssetStatus, AssetCondition, RequestStatus } from "@prisma/client";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { AssetStatus, AssetCondition, RequestStatus } from '@prisma/client';
 
 export interface AssetReportFilters {
   status?: AssetStatus;
@@ -54,13 +54,13 @@ export class ReportsService {
           },
         },
       },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
 
     // Group by category for summary
     const summary: Record<string, any> = {};
-    assets.forEach((asset) => {
-      const categoryName = asset.model?.type?.category?.name || "Uncategorized";
+    assets.forEach(asset => {
+      const categoryName = asset.model?.type?.category?.name || 'Uncategorized';
       if (!summary[categoryName]) {
         summary[categoryName] = {
           total: 0,
@@ -80,7 +80,7 @@ export class ReportsService {
       filters,
       totalAssets: assets.length,
       summary,
-      assets: assets.map((a) => ({
+      assets: assets.map(a => ({
         id: a.id,
         name: a.name,
         brand: a.brand,
@@ -104,12 +104,12 @@ export class ReportsService {
       where: {
         createdAt: { gte: startDate, lte: endDate },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     // Summary by movement type
     const summaryByType: Record<string, number> = {};
-    movements.forEach((m) => {
+    movements.forEach(m => {
       summaryByType[m.movementType] = (summaryByType[m.movementType] || 0) + 1;
     });
 
@@ -118,7 +118,7 @@ export class ReportsService {
       period: { startDate, endDate },
       totalMovements: movements.length,
       summaryByType,
-      movements: movements.map((m) => ({
+      movements: movements.map(m => ({
         id: m.id,
         assetId: m.assetId,
         movementType: m.movementType,
@@ -147,7 +147,7 @@ export class ReportsService {
     if (filters?.status) where.status = filters.status;
     if (filters?.requestedBy) {
       where.requester = {
-        name: { contains: filters.requestedBy, mode: "insensitive" },
+        name: { contains: filters.requestedBy, mode: 'insensitive' },
       };
     }
     if (filters?.startDate || filters?.endDate) {
@@ -162,12 +162,12 @@ export class ReportsService {
         requester: { select: { id: true, name: true, email: true } },
         items: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     // Summary by status
     const summaryByStatus: Record<string, number> = {};
-    requests.forEach((r) => {
+    requests.forEach(r => {
       summaryByStatus[r.status] = (summaryByStatus[r.status] || 0) + 1;
     });
 
@@ -176,7 +176,7 @@ export class ReportsService {
       filters,
       totalRequests: requests.length,
       summaryByStatus,
-      requests: requests.map((r) => ({
+      requests: requests.map(r => ({
         id: r.id,
         docNumber: r.docNumber,
         division: r.division,
@@ -211,20 +211,17 @@ export class ReportsService {
       include: {
         requester: { select: { id: true, name: true, email: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     const now = new Date();
     const overdue = loans.filter(
-      (l) =>
-        l.status === "APPROVED" &&
-        l.expectedReturn &&
-        new Date(l.expectedReturn) < now,
+      l => l.status === 'APPROVED' && l.expectedReturn && new Date(l.expectedReturn) < now,
     );
 
     // Summary by status
     const summaryByStatus: Record<string, number> = {};
-    loans.forEach((l) => {
+    loans.forEach(l => {
       summaryByStatus[l.status] = (summaryByStatus[l.status] || 0) + 1;
     });
 
@@ -234,7 +231,7 @@ export class ReportsService {
       totalLoans: loans.length,
       overdueCount: overdue.length,
       summaryByStatus,
-      loans: loans.map((l) => ({
+      loans: loans.map(l => ({
         id: l.id,
         docNumber: l.docNumber,
         requester: l.requester?.name,
@@ -242,10 +239,7 @@ export class ReportsService {
         purpose: l.purpose,
         requestDate: l.requestDate,
         expectedReturn: l.expectedReturn,
-        isOverdue:
-          l.status === "APPROVED" &&
-          l.expectedReturn &&
-          new Date(l.expectedReturn) < now,
+        isOverdue: l.status === 'APPROVED' && l.expectedReturn && new Date(l.expectedReturn) < now,
       })),
     };
   }
@@ -265,12 +259,12 @@ export class ReportsService {
 
     const customers = await this.prisma.customer.findMany({
       where,
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
 
     // Get installed assets count per customer
     const customerAssets = await Promise.all(
-      customers.map(async (c) => {
+      customers.map(async c => {
         const assetCount = await this.prisma.asset.count({
           where: { customerId: c.id },
         });
@@ -289,7 +283,7 @@ export class ReportsService {
     return {
       generatedAt: new Date(),
       totalCustomers: customers.length,
-      customers: customers.map((c) => ({
+      customers: customers.map(c => ({
         id: c.id,
         name: c.name,
         address: c.address,
@@ -325,7 +319,7 @@ export class ReportsService {
           select: { id: true, name: true, brand: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     // Summary by type
@@ -343,7 +337,7 @@ export class ReportsService {
       totalMaintenances: maintenances.length,
       totalCost,
       summaryByType,
-      maintenances: maintenances.map((m) => ({
+      maintenances: maintenances.map(m => ({
         id: m.id,
         docNumber: m.docNumber,
         assetId: m.assetId,

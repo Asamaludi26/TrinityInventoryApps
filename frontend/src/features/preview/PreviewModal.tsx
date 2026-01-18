@@ -106,17 +106,21 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
   const [history, setHistory] = useState<PreviewData[]>([]);
 
   useEffect(() => {
-    if (
-      previewData &&
-      !history.some(
-        (h) => h.id === previewData.id && h.type === previewData.type,
-      )
-    ) {
-      setHistory((prev) => [...prev, previewData]);
-    } else if (!previewData) {
+    if (previewData) {
+      setHistory((prev) => {
+        // Check if this item already exists in history
+        const alreadyExists = prev.some(
+          (h) => h.id === previewData.id && h.type === previewData.type,
+        );
+        if (alreadyExists) {
+          return prev; // No change - prevent re-render
+        }
+        return [...prev, previewData];
+      });
+    } else {
       setHistory([]);
     }
-  }, [previewData, history]);
+  }, [previewData]); // Remove 'history' from dependencies
 
   const handleBreadcrumbClick = (index: number) => {
     setHistory((prev) => prev.slice(0, index + 1));

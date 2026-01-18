@@ -4,7 +4,7 @@ import { ParsedScanResult } from '../types';
 // Universal parser for QR and Barcodes
 export const parseScanData = (data: string): ParsedScanResult => {
     const raw = data.trim();
-    let result: ParsedScanResult = { raw };
+    const result: ParsedScanResult = { raw };
 
     // Regex patterns
     const MAC_REGEX = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{12})$/;

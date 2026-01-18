@@ -74,7 +74,7 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
     permissionKey: Permission,
     checked: boolean,
   ) => {
-    let updatedPermissions = new Set(currentPermissions);
+    const updatedPermissions = new Set(currentPermissions);
 
     if (checked) {
       // 1. Add current
@@ -112,7 +112,7 @@ export const PermissionManager: React.FC<PermissionManagerProps> = ({
     groupPermissions: Permission[],
     isAllChecked: boolean,
   ) => {
-    let updatedPermissions = new Set(currentPermissions);
+    const updatedPermissions = new Set(currentPermissions);
 
     // Hanya operasikan permission yang diizinkan untuk role ini
     const allowedGroupPermissions = groupPermissions.filter(
