@@ -81,6 +81,7 @@ Docs/
 │   ├── BACKEND_INTEGRATION_BLUEPRINT.md # Integration checklist
 │   ├── BACKEND_IMPLEMENTATION_PROMPT.md # AI prompts for backend
 │   ├── FRONTEND_BACKEND_INTEGRATION_PLAN.md # 🆕 Integration roadmap
+│   ├── API_REFACTORING_REPORT.md   # 🆕 API refactoring documentation
 │   ├── DESIGN_TOKEN_MIGRATION.md   # Color system migration guide
 │   ├── API_REFERENCE.md            # REST API documentation
 │   ├── API_ERROR_CODES.md          # Error code catalog
