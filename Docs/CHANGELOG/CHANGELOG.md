@@ -18,6 +18,61 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [2.0.0] - 2025-01-XX
+
+### 🎉 Backend Implementation Release
+
+Implementasi lengkap backend NestJS dengan Prisma ORM dan PostgreSQL.
+
+> **Dokumentasi lengkap**: Lihat [backend-v1.0.0.md](releases/backend-v1.0.0.md)
+
+### Added
+
+#### Core Infrastructure
+
+- NestJS Framework dengan CORS, ValidationPipe, global prefix `/api`
+- Prisma ORM v7.2.0 dengan PostgreSQL adapter
+- Database schema 20+ models (sesuai DATABASE_SCHEMA.md)
+- JWT Authentication dengan Passport.js
+
+#### API Modules
+
+- **Auth** (`/api/auth`) - Login, register, token verification
+- **Users** (`/api/users`, `/api/divisions`) - User & division management
+- **Assets** (`/api/assets`) - CRUD, bulk create, stock consume, availability check
+- **Requests** (`/api/requests`) - Multi-item requests, partial approval, asset registration
+- **Loans** (`/api/loan-requests`, `/api/returns`) - Loan tracking, batch return processing
+- **Transactions** (`/api/transactions`) - Handovers, installations, dismantles, maintenances
+- **Customers** (`/api/customers`) - Customer management
+- **Categories** (`/api/categories`) - 3-tier hierarchy (category → type → model)
+- **Dashboard** (`/api/dashboard`) - Statistics, stock summary, trends, low-stock alerts
+- **Notifications** (`/api/notifications`) - User notifications with read/unread tracking
+- **Activity Logs** (`/api/activity-logs`) - Audit trail for all entity changes
+- **Reports** (`/api/reports`) - Asset inventory, movements, requests, loans, maintenances
+
+#### Database Seed
+
+- 4 Divisions, 5 Users, 3 Categories, 3 Types, 3 Models
+- Sample assets dan customers
+
+### Technical Changes
+
+- Prisma 7 adapter-based configuration
+- JWT numeric seconds expiry (dari string)
+- Proper Prisma nested write untuk request items
+
+### Problems Resolved
+
+- Prisma 7 breaking changes (datasource url)
+- Missing @types/pg declarations
+- @nestjs/mapped-types module not found
+- JWT signOptions type mismatch
+- UpdateUserDto password property missing
+- RequestStatus include type narrowing
+- Prisma nested update type mismatch
+
+---
+
 ## [1.3.0] - 2025-01-20
 
 ### 🚀 Frontend-Backend Integration Infrastructure Release

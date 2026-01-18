@@ -1,0 +1,609 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// USER MANAGEMENT
+// =============================================================================
+
+model Division {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  users     User[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model User {
+  id                       Int       @id @default(autoincrement())
+  email                    String    @unique
+  password                 String    // bcrypt hashed
+  name                     String
+  role                     UserRole  @default(STAFF)
+  divisionId               Int?
+  division                 Division? @relation(fields: [divisionId], references: [id])
+  permissions              String[]  @default([])
+  passwordResetRequested   Boolean   @default(false)
+  passwordResetRequestDate DateTime?
+  
+  // Relations
+  requests     Request[]
+  loanRequests LoanRequest[]
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN_LOGISTIK
+  ADMIN_PURCHASE
+  STAFF
+  TEKNISI
+}
+
+// =============================================================================
+// ASSET MASTER DATA (Categories, Types, Models)
+// =============================================================================
+
+model AssetCategory {
+  id                    Int         @id @default(autoincrement())
+  name                  String      @unique
+  isCustomerInstallable Boolean     @default(false)
+  associatedDivisions   Int[]       @default([])
+  types                 AssetType[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  deletedAt             DateTime?
+}
+
+model AssetType {
+  id              Int           @id @default(autoincrement())
+  categoryId      Int
+  category        AssetCategory @relation(fields: [categoryId], references: [id])
+  name            String
+  classification  AssetClassification @default(ASSET)
+  trackingMethod  TrackingMethod      @default(INDIVIDUAL)
+  unitOfMeasure   String              @default("Unit")
+  models          AssetModel[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  @@unique([categoryId, name])
+}
+
+model AssetModel {
+  id                Int       @id @default(autoincrement())
+  typeId            Int
+  type              AssetType @relation(fields: [typeId], references: [id])
+  name              String
+  brand             String
+  
+  // Bulk Configuration (for measurement/count items)
+  bulkType          BulkType?
+  unitOfMeasure     String?   // Physical unit (Hasbal, Box)
+  baseUnitOfMeasure String?   // Content unit (Meter, Pcs)
+  quantityPerUnit   Float?    // e.g., 1 Hasbal = 1000 Meter
+  
+  assets            Asset[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  @@unique([typeId, name, brand])
+}
+
+enum AssetClassification {
+  ASSET     // Individual tracked items (routers, laptops)
+  MATERIAL  // Bulk/consumable items (cables, screws)
+}
+
+enum TrackingMethod {
+  INDIVIDUAL  // Each unit has unique ID
+  BULK        // Tracked by quantity/measurement
+}
+
+enum BulkType {
+  COUNT       // Simple count (50 pcs)
+  MEASUREMENT // Length/weight based (1000 meters)
+}
+
+// =============================================================================
+// ASSET INVENTORY (Instances)
+// =============================================================================
+
+model Asset {
+  id             String      @id // Custom ID: "AST-2025-001"
+  name           String
+  brand          String
+  modelId        Int?
+  model          AssetModel? @relation(fields: [modelId], references: [id])
+  serialNumber   String?     @unique
+  macAddress     String?
+  
+  // Status & Condition
+  status         AssetStatus    @default(IN_STORAGE)
+  condition      AssetCondition @default(GOOD)
+  
+  // Measurement / Bulk Tracking
+  initialBalance Float?      // Initial capacity (e.g., 1000 Meter)
+  currentBalance Float?      // Remaining stock (e.g., 850 Meter)
+  quantity       Int?        // For count items (e.g., 50 Pcs)
+  
+  // Location / Assignment
+  location       String?     // "Gudang A", "Rak 1"
+  locationDetail String?
+  currentUserId  Int?        // User ID if assigned to staff
+  customerId     String?     // Customer ID if installed at customer
+  
+  // Financial
+  purchasePrice   Decimal?   @db.Decimal(15, 2)
+  purchaseDate    DateTime?
+  vendor          String?
+  poNumber        String?
+  invoiceNumber   String?
+  warrantyEndDate DateTime?
+  
+  // Reference
+  woRoIntNumber   String?    // Source document reference (RO/HO)
+  isDismantled    Boolean    @default(false)
+  
+  // Relations
+  handoverItems   HandoverItem[]
+  maintenances    Maintenance[]
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  @@index([status])
+  @@index([name, brand])
+  @@index([customerId])
+}
+
+enum AssetStatus {
+  IN_STORAGE     // Available in warehouse
+  IN_USE         // Deployed/in use
+  ON_LOAN        // Temporarily loaned
+  UNDER_REPAIR   // Being repaired
+  DAMAGED        // Damaged, needs assessment
+  DISPOSED       // Written off/disposed
+}
+
+enum AssetCondition {
+  GOOD          // Working perfectly
+  MINOR_DAMAGE  // Minor issues, still usable
+  MAJOR_DAMAGE  // Significant issues
+  BROKEN        // Not functional
+}
+
+// =============================================================================
+// REQUEST & PROCUREMENT
+// =============================================================================
+
+model Request {
+  id               String        @id // "RO-2025-001"
+  docNumber        String        @unique
+  requesterId      Int
+  requester        User          @relation(fields: [requesterId], references: [id])
+  division         String
+  status           RequestStatus @default(PENDING)
+  requestDate      DateTime
+  
+  // Order Details
+  orderType        OrderType     @default(REGULAR_STOCK)
+  justification    String?
+  project          String?
+  allocationTarget AllocationTarget @default(USAGE)
+  
+  items            RequestItem[]
+  
+  // Approval Info
+  logisticApprover     String?
+  logisticApprovalDate DateTime?
+  finalApprover        String?
+  finalApprovalDate    DateTime?
+  rejectedBy           String?
+  rejectionReason      String?
+  rejectionDate        DateTime?
+  
+  // Procurement
+  totalValue       Decimal?      @db.Decimal(15, 2)
+  purchaseDetails  Json?         // Stores pricing info per item
+  
+  // Registration tracking
+  isRegistered              Boolean @default(false)
+  partiallyRegisteredItems  Json?   // { itemId: registeredCount }
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RequestItem {
+  id            Int     @id @default(autoincrement())
+  requestId     String
+  request       Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  itemName      String
+  itemTypeBrand String
+  quantity      Int
+  unit          String?
+  
+  // Approval Status
+  status           ItemApprovalStatus?
+  approvedQuantity Int?
+  reason           String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum RequestStatus {
+  PENDING              // Awaiting review
+  LOGISTIC_APPROVED    // Approved by logistics
+  LOGISTIC_REJECTED    // Rejected by logistics
+  PURCHASE_APPROVED    // Approved by purchase
+  PURCHASE_REJECTED    // Rejected by purchase
+  ORDERED              // Order placed with vendor
+  ARRIVED              // Items received
+  AWAITING_HANDOVER    // Ready for handover
+  COMPLETED            // Fully processed
+  REJECTED             // Fully rejected
+}
+
+enum OrderType {
+  REGULAR_STOCK  // Normal stock request
+  URGENT         // Urgent request
+  PROJECT_BASED  // For specific project
+}
+
+enum AllocationTarget {
+  USAGE      // Direct use by requester
+  INVENTORY  // Restock warehouse
+}
+
+enum ItemApprovalStatus {
+  APPROVED           // Fully approved
+  REJECTED           // Rejected
+  PARTIAL            // Partially approved
+  STOCK_ALLOCATED    // Stock available from warehouse
+  PROCUREMENT_NEEDED // Needs to be purchased
+}
+
+// =============================================================================
+// LOAN REQUESTS & RETURNS
+// =============================================================================
+
+model LoanRequest {
+  id             String           @id // "RL-2025-001"
+  docNumber      String           @unique
+  requesterId    Int
+  requester      User             @relation(fields: [requesterId], references: [id])
+  status         LoanStatus       @default(PENDING)
+  requestDate    DateTime
+  purpose        String?
+  expectedReturn DateTime?
+  
+  items          Json             // Array of { id, itemName, brand, quantity }
+  assignedAssets Json?            // Map: { itemId: [assetIds] }
+  returnedAssets String[]         @default([])
+  
+  // Approval
+  approver       String?
+  approvalDate   DateTime?
+  
+  // Return tracking
+  assetReturns   AssetReturn[]
+  
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model AssetReturn {
+  id             String              @id // "RTN-2025-001"
+  docNumber      String              @unique
+  loanRequestId  String
+  loanRequest    LoanRequest         @relation(fields: [loanRequestId], references: [id])
+  status         AssetReturnStatus   @default(PENDING)
+  returnDate     DateTime
+  
+  items          Json                // Array of { assetId, condition, notes }
+  
+  // Processing
+  processedBy    String?
+  processedDate  DateTime?
+  
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+enum LoanStatus {
+  PENDING       // Awaiting approval
+  APPROVED      // Approved, assets assigned
+  REJECTED      // Request rejected
+  ON_LOAN       // Items currently loaned
+  RETURNED      // All items returned
+}
+
+enum AssetReturnStatus {
+  PENDING    // Return request submitted
+  APPROVED   // Return accepted
+  REJECTED   // Return rejected (e.g., missing items)
+}
+
+// =============================================================================
+// TRANSACTIONS (Operational)
+// =============================================================================
+
+model Handover {
+  id           String          @id // "HO-2025-001"
+  docNumber    String          @unique
+  handoverDate DateTime
+  
+  // Parties
+  giverName    String          // Person handing over
+  giverType    PartyType       @default(INTERNAL)
+  receiverName String          // Person receiving
+  receiverType PartyType       @default(INTERNAL)
+  
+  status       HandoverStatus  @default(DRAFT)
+  notes        String?
+  
+  items        HandoverItem[]
+  
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model HandoverItem {
+  id         Int      @id @default(autoincrement())
+  handoverId String
+  handover   Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id])
+  
+  quantity   Int      @default(1)
+  notes      String?
+  
+  createdAt  DateTime @default(now())
+}
+
+enum PartyType {
+  INTERNAL  // Staff/employee
+  CUSTOMER  // External customer
+  VENDOR    // Supplier
+}
+
+enum HandoverStatus {
+  DRAFT      // Being prepared
+  COMPLETED  // Handover done
+  CANCELLED  // Cancelled
+}
+
+model Installation {
+  id              String            @id // "INST-2025-001"
+  docNumber       String            @unique
+  installDate     DateTime
+  customerId      String
+  customerName    String
+  technician      String
+  status          InstallationStatus @default(COMPLETED)
+  
+  assetsInstalled Json              // Array of { assetId, name, serialNumber }
+  materialsUsed   Json?             // Array of { itemName, quantity, unit }
+  
+  notes           String?
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum InstallationStatus {
+  SCHEDULED   // Planned
+  IN_PROGRESS // Currently installing
+  COMPLETED   // Done
+  CANCELLED   // Cancelled
+}
+
+model Dismantle {
+  id             String          @id // "DSM-2025-001"
+  docNumber      String          @unique
+  dismantleDate  DateTime
+  customerId     String
+  customerName   String
+  technician     String
+  status         DismantleStatus @default(PENDING)
+  
+  assetsRetrieved Json           // Array of { assetId, name, condition }
+  
+  // Warehouse receipt
+  receivedBy     String?
+  receivedDate   DateTime?
+  
+  notes          String?
+  
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+enum DismantleStatus {
+  PENDING     // Submitted, awaiting pickup
+  IN_TRANSIT  // Being transported
+  RECEIVED    // Received at warehouse
+  COMPLETED   // Processed and restocked
+}
+
+model Maintenance {
+  id               String            @id // "MNT-2025-001"
+  docNumber        String            @unique
+  maintenanceDate  DateTime
+  assetId          String
+  asset            Asset             @relation(fields: [assetId], references: [id])
+  type             MaintenanceType
+  status           MaintenanceStatus @default(IN_PROGRESS)
+  
+  // Details
+  problemDescription String?
+  actionTaken        String?
+  technician         String
+  
+  // Swap details (if replacement)
+  replacementAssetId String?
+  
+  // Materials used
+  materialsUsed      Json?           // Array of { itemName, quantity, unit }
+  
+  // Costs
+  laborCost          Decimal?        @db.Decimal(15, 2)
+  partsCost          Decimal?        @db.Decimal(15, 2)
+  
+  completedDate      DateTime?
+  notes              String?
+  
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+enum MaintenanceType {
+  PREVENTIVE  // Scheduled maintenance
+  CORRECTIVE  // Fix after failure
+  SWAP        // Device replacement
+}
+
+enum MaintenanceStatus {
+  SCHEDULED   // Planned
+  IN_PROGRESS // Being worked on
+  COMPLETED   // Done
+  CANCELLED   // Cancelled
+}
+
+// =============================================================================
+// CUSTOMERS
+// =============================================================================
+
+model Customer {
+  id           String        @id // "CUST-001" or CID format
+  name         String
+  address      String?
+  phone        String?
+  email        String?
+  status       CustomerStatus @default(ACTIVE)
+  
+  // Service details
+  serviceType  String?       // "Fiber", "Wireless", etc.
+  serviceSpeed String?       // "100Mbps", etc.
+  
+  notes        String?
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+}
+
+enum CustomerStatus {
+  ACTIVE    // Active customer
+  INACTIVE  // Service paused
+  CHURNED   // Cancelled service
+}
+
+// =============================================================================
+// STOCK MOVEMENTS (Audit Log)
+// =============================================================================
+
+model StockMovement {
+  id            Int              @id @default(autoincrement())
+  assetId       String?          // Related asset (if applicable)
+  movementType  MovementType
+  quantity      Float            // Amount moved
+  unit          String?
+  
+  // Context
+  referenceType String?          // "REQUEST", "HANDOVER", "INSTALLATION", etc.
+  referenceId   String?          // Document ID
+  
+  // Balance tracking (for measurement items)
+  previousBalance Float?
+  newBalance      Float?
+  
+  performedBy   String
+  notes         String?
+  
+  createdAt     DateTime         @default(now())
+}
+
+enum MovementType {
+  RECEIVED      // Stock received (from purchase/return)
+  ISSUED        // Stock issued (for handover/installation)
+  CONSUMED      // Material consumed (cables, etc.)
+  ADJUSTED      // Manual adjustment
+  TRANSFERRED   // Moved between locations
+  RETURNED      // Returned from loan/customer
+  DISPOSED      // Written off
+}
+
+// =============================================================================
+// ACTIVITY LOG / AUDIT TRAIL
+// =============================================================================
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  entityType  String   // "Asset", "Request", "User", etc.
+  entityId    String   // ID of the entity
+  action      String   // "CREATE", "UPDATE", "DELETE", "STATUS_CHANGE"
+  
+  changes     Json?    // { field: { old: x, new: y } }
+  performedBy String   // User name or "SYSTEM"
+  
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  recipientId Int
+  type        NotificationType
+  title       String
+  message     String
+  
+  // Reference to related entity
+  referenceType String?
+  referenceId   String?
+  
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  
+  createdAt   DateTime         @default(now())
+
+  @@index([recipientId, isRead])
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  REQUEST_CREATED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+  LOAN_APPROVED
+  ASSET_ASSIGNED
+  MAINTENANCE_DUE
+}

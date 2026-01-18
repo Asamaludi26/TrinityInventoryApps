@@ -1,57 +1,67 @@
-
 ### 6.6. Alur Permintaan Baru (New Request Workflow)
+
+> ✅ **Status: IMPLEMENTED** (v1.0.0)
+>
+> Implementasi lengkap ada di:
+>
+> - `backend/src/modules/requests/requests.service.ts`
+> - `backend/src/modules/requests/dto/`
 
 Fitur "Request Baru" memiliki logika bisnis yang cukup kompleks yang saat ini disimulasikan di frontend (`useRequestStore.ts`). Backend wajib mengimplementasikan logika ini untuk menjamin integritas data.
 
 #### A. Validasi Stok Otomatis (Saat `POST /api/requests`)
-Saat user membuat request, Backend tidak boleh hanya menyimpan data mentah. Backend harus melakukan pengecekan stok *real-time* terhadap tabel `Asset`.
+
+Saat user membuat request, Backend tidak boleh hanya menyimpan data mentah. Backend harus melakukan pengecekan stok _real-time_ terhadap tabel `Asset`.
 
 **Logic Flow:**
+
 1.  Terima payload `CreateRequestDto` (items: `{ name, brand, quantity }[]`).
-2.  Lakukan *Aggregation Query* ke tabel `Asset` untuk menghitung jumlah item dengan status `IN_STORAGE` yang cocok dengan Nama & Brand.
+2.  Lakukan _Aggregation Query_ ke tabel `Asset` untuk menghitung jumlah item dengan status `IN_STORAGE` yang cocok dengan Nama & Brand.
 3.  **Tentukan Status per Item**:
-    *   Jika `Stok Tersedia >= Jumlah Diminta` -> Set item status: `stock_allocated`.
-    *   Jika `Stok Tersedia < Jumlah Diminta` -> Set item status: `procurement_needed`.
+    - Jika `Stok Tersedia >= Jumlah Diminta` -> Set item status: `stock_allocated`.
+    - Jika `Stok Tersedia < Jumlah Diminta` -> Set item status: `procurement_needed`.
 4.  **Tentukan Status Request**:
-    *   Jika **semua** item adalah `stock_allocated` -> Status Request bisa langsung ke `AWAITING_HANDOVER` (atau `PENDING` jika butuh approval manual admin).
-    *   Jika **ada satu saja** item `procurement_needed` -> Status Request wajib `PENDING` (masuk alur pengadaan).
+    - Jika **semua** item adalah `stock_allocated` -> Status Request bisa langsung ke `AWAITING_HANDOVER` (atau `PENDING` jika butuh approval manual admin).
+    - Jika **ada satu saja** item `procurement_needed` -> Status Request wajib `PENDING` (masuk alur pengadaan).
 
 #### B. Logika Persetujuan & Revisi (Partial Approval)
+
 Admin Logistik/Purchase memiliki hak untuk mengubah jumlah yang disetujui (misal: Minta 10, disetujui 5 karena budget/stok).
 
 **Endpoint:** `PATCH /api/requests/:id/review`
 
 **Implementasi Backend:**
+
 ```typescript
 async reviewRequest(id: string, adjustments: Record<itemId, { approvedQty: number, reason: string }>) {
   // 1. Validasi
   const request = await this.prisma.request.findUniqueOrThrow({ where: { id } });
-  
+
   // 2. Update Item Statuses (JSONB Column disarankan untuk fleksibilitas)
   const updatedItemStatuses = {};
   let hasRejection = false;
-  
+
   request.items.forEach(item => {
      const adj = adjustments[item.id];
      if (adj) {
         // Logic penentuan status item berdasarkan qty baru
-        const status = adj.approvedQty === 0 ? 'rejected' 
-                     : adj.approvedQty < item.quantity ? 'partial' 
+        const status = adj.approvedQty === 0 ? 'rejected'
+                     : adj.approvedQty < item.quantity ? 'partial'
                      : 'approved';
-        
-        updatedItemStatuses[item.id] = { 
-           status, 
-           approvedQuantity: adj.approvedQty, 
-           reason: adj.reason 
+
+        updatedItemStatuses[item.id] = {
+           status,
+           approvedQuantity: adj.approvedQty,
+           reason: adj.reason
         };
-        
+
         if (status === 'rejected') hasRejection = true;
      }
   });
 
   // 3. Tentukan Status Dokumen Selanjutnya
   let nextStatus = 'LOGISTIC_APPROVED'; // Default flow
-  
+
   // Cek jika semua item ditolak
   const allRejected = Object.values(updatedItemStatuses).every((s: any) => s.status === 'rejected');
   if (allRejected) nextStatus = 'REJECTED';
@@ -69,6 +79,7 @@ async reviewRequest(id: string, adjustments: Record<itemId, { approvedQty: numbe
 ```
 
 #### C. Staging & Registrasi Aset (Request to Asset Conversion)
+
 Saat barang tiba (`status: ARRIVED`), Admin akan melakukan "Pencatatan Aset". Ini adalah proses mengubah data `RequestItem` menjadi entitas `Asset` fisik dengan Serial Number.
 
 **Endpoint:** `POST /api/requests/:id/register-assets`
@@ -86,13 +97,13 @@ async registerAssetsFromRequest(requestId: string, payload: RegisterAssetDto) {
        status: 'IN_STORAGE', // Default masuk gudang dulu
        woRoIntNumber: requestId // Link ke Request asal
     }));
-    
+
     await tx.asset.createMany({ data: newAssetsData });
 
     // 2. Update Progress Registrasi di Request
     // Backend harus melacak berapa item yang sudah diregistrasi vs total yang disetujui.
     const request = await tx.request.findUnique({ where: { id: requestId } });
-    
+
     // Hitung apakah semua item sudah terpenuhi/dicatat?
     const isFullyRegistered = this.checkFullRegistration(request, payload);
 
@@ -111,6 +122,13 @@ async registerAssetsFromRequest(requestId: string, payload: RegisterAssetDto) {
 
 ### 6.7. Alur Pengembalian Aset (Asset Returns)
 
+> ✅ **Status: IMPLEMENTED** (v1.0.0)
+>
+> Implementasi lengkap ada di:
+>
+> - `backend/src/modules/loans/returns.service.ts`
+> - `backend/src/modules/loans/returns.controller.ts`
+
 Proses pengembalian aset harus ditangani secara transaksional untuk memastikan integritas antara status aset dan dokumen pinjaman.
 
 **Endpoint:** `POST /api/loans/:id/return-batch`
@@ -118,6 +136,7 @@ Proses pengembalian aset harus ditangani secara transaksional untuk memastikan i
 **Deskripsi:** Memproses konfirmasi pengembalian aset dalam jumlah banyak sekaligus.
 
 **Payload:**
+
 ```json
 {
   "loanId": "LREQ-001",
@@ -127,6 +146,7 @@ Proses pengembalian aset harus ditangani secara transaksional untuk memastikan i
 ```
 
 **Implementasi Backend (Prisma Transaction):**
+
 ```typescript
 async processReturnBatch(payload: ReturnBatchDto) {
   return this.prisma.$transaction(async (tx) => {
@@ -146,12 +166,12 @@ async processReturnBatch(payload: ReturnBatchDto) {
 
     // 3. Update Asset Return Documents
     // (Update status dokumen pengajuan pengembalian menjadi APPROVED/REJECTED)
-    
+
     // 4. Update Loan Request Status
     // Cek apakah semua item dalam pinjaman sudah kembali?
     // Jika ya, update LoanRequest.status = 'RETURNED'
     // Jika tidak, biarkan 'ON_LOAN'
-    
+
     // 5. Create Handover (Bukti Terima)
     // Buat satu dokumen Handover untuk semua item yang diterima.
   });
