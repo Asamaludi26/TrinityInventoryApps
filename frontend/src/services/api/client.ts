@@ -83,7 +83,19 @@ class ApiClient {
         return null as T;
       }
 
-      const data = await response.json();
+      const rawData = await response.json();
+
+      // Handle standard API response wrapper { success: boolean, data: T }
+      // This is the common pattern used by the backend
+      let data = rawData;
+      if (
+        rawData &&
+        typeof rawData === "object" &&
+        "success" in rawData &&
+        "data" in rawData
+      ) {
+        data = rawData.data;
+      }
 
       // Handle paginated responses - extract data array if present
       if (
