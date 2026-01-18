@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateAssetDto, CreateBulkAssetsDto } from "./dto/create-asset.dto";
-import { UpdateAssetDto } from "./dto/update-asset.dto";
-import { ConsumeStockDto } from "./dto/consume-stock.dto";
-import { AssetStatus, MovementType } from "@prisma/client";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateAssetDto, CreateBulkAssetsDto } from './dto/create-asset.dto';
+import { UpdateAssetDto } from './dto/update-asset.dto';
+import { ConsumeStockDto } from './dto/consume-stock.dto';
+import { AssetStatus, MovementType } from '@prisma/client';
 
 @Injectable()
 export class AssetsService {
@@ -22,16 +18,16 @@ export class AssetsService {
 
     const lastAsset = await this.prisma.asset.findFirst({
       where: { id: { startsWith: prefix } },
-      orderBy: { id: "desc" },
+      orderBy: { id: 'desc' },
     });
 
     let sequence = 1;
     if (lastAsset) {
-      const lastSequence = parseInt(lastAsset.id.split("-").pop() || "0");
+      const lastSequence = parseInt(lastAsset.id.split('-').pop() || '0');
       sequence = lastSequence + 1;
     }
 
-    return `${prefix}${sequence.toString().padStart(4, "0")}`;
+    return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 
   async create(createAssetDto: CreateAssetDto) {
@@ -51,10 +47,10 @@ export class AssetsService {
         assetId: asset.id,
         movementType: MovementType.RECEIVED,
         quantity: createAssetDto.quantity || 1,
-        unit: "Unit",
-        referenceType: "REGISTRATION",
-        performedBy: "SYSTEM",
-        notes: "Asset registered",
+        unit: 'Unit',
+        referenceType: 'REGISTRATION',
+        performedBy: 'SYSTEM',
+        notes: 'Asset registered',
       },
     });
 
@@ -78,18 +74,18 @@ export class AssetsService {
 
     // Log movements
     await this.prisma.stockMovement.createMany({
-      data: assets.map((asset) => ({
+      data: assets.map(asset => ({
         assetId: asset.id,
         movementType: MovementType.RECEIVED,
         quantity: asset.quantity || 1,
-        unit: "Unit",
-        referenceType: "BULK_REGISTRATION",
-        performedBy: dto.performedBy || "SYSTEM",
-        notes: dto.notes || "Bulk asset registration",
+        unit: 'Unit',
+        referenceType: 'BULK_REGISTRATION',
+        performedBy: dto.performedBy || 'SYSTEM',
+        notes: dto.notes || 'Bulk asset registration',
       })),
     });
 
-    return { created: assets.length, ids: assets.map((a) => a.id) };
+    return { created: assets.length, ids: assets.map(a => a.id) };
   }
 
   async findAll(params?: {
@@ -102,33 +98,24 @@ export class AssetsService {
     customerId?: string;
     search?: string;
   }) {
-    const {
-      skip = 0,
-      take = 50,
-      status,
-      name,
-      brand,
-      location,
-      customerId,
-      search,
-    } = params || {};
+    const { skip = 0, take = 50, status, name, brand, location, customerId, search } = params || {};
 
     const where: any = {
       deletedAt: null,
     };
 
     if (status) where.status = status;
-    if (name) where.name = { contains: name, mode: "insensitive" };
-    if (brand) where.brand = { contains: brand, mode: "insensitive" };
-    if (location) where.location = { contains: location, mode: "insensitive" };
+    if (name) where.name = { contains: name, mode: 'insensitive' };
+    if (brand) where.brand = { contains: brand, mode: 'insensitive' };
+    if (location) where.location = { contains: location, mode: 'insensitive' };
     if (customerId) where.customerId = customerId;
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { brand: { contains: search, mode: "insensitive" } },
-        { serialNumber: { contains: search, mode: "insensitive" } },
-        { id: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { brand: { contains: search, mode: 'insensitive' } },
+        { serialNumber: { contains: search, mode: 'insensitive' } },
+        { id: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -138,7 +125,7 @@ export class AssetsService {
         skip,
         take,
         include: { model: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.asset.count({ where }),
     ]);
@@ -154,7 +141,7 @@ export class AssetsService {
           include: { type: { include: { category: true } } },
         },
         maintenances: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           take: 5,
         },
       },
@@ -189,9 +176,9 @@ export class AssetsService {
     // Log activity
     await this.prisma.activityLog.create({
       data: {
-        entityType: "Asset",
+        entityType: 'Asset',
         entityId: id,
-        action: "STATUS_CHANGE",
+        action: 'STATUS_CHANGE',
         changes: { status: { old: previousStatus, new: status } },
         performedBy,
       },
@@ -215,8 +202,8 @@ export class AssetsService {
   async checkAvailability(name: string, brand: string, quantity: number) {
     const assets = await this.prisma.asset.findMany({
       where: {
-        name: { equals: name, mode: "insensitive" },
-        brand: { equals: brand, mode: "insensitive" },
+        name: { equals: name, mode: 'insensitive' },
+        brand: { equals: brand, mode: 'insensitive' },
         status: AssetStatus.IN_STORAGE,
         deletedAt: null,
       },
@@ -259,12 +246,12 @@ export class AssetsService {
     for (const item of dto.items) {
       const assets = await this.prisma.asset.findMany({
         where: {
-          name: { equals: item.itemName, mode: "insensitive" },
-          brand: { equals: item.brand, mode: "insensitive" },
+          name: { equals: item.itemName, mode: 'insensitive' },
+          brand: { equals: item.brand, mode: 'insensitive' },
           status: AssetStatus.IN_STORAGE,
           deletedAt: null,
         },
-        orderBy: { currentBalance: "desc" }, // Use largest stock first
+        orderBy: { currentBalance: 'desc' }, // Use largest stock first
       });
 
       let remaining = item.quantity;
@@ -291,7 +278,7 @@ export class AssetsService {
               newBalance,
               referenceType: dto.context.referenceType,
               referenceId: dto.context.referenceId,
-              performedBy: dto.context.technician || "SYSTEM",
+              performedBy: dto.context.technician || 'SYSTEM',
             },
           });
 
@@ -327,10 +314,8 @@ export class AssetsService {
       },
     });
 
-    const summary: Record<
-      string,
-      { name: string; brand: string; total: number; count: number }
-    > = {};
+    const summary: Record<string, { name: string; brand: string; total: number; count: number }> =
+      {};
 
     for (const asset of assets) {
       const key = `${asset.name}|${asset.brand}`;

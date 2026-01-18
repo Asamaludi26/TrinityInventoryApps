@@ -302,7 +302,119 @@ Refer to: `Docs/02_DEVELOPMENT_GUIDES/TROUBLESHOOTING.md`
 
 ---
 
-## 7. INTERACTION STYLE
+## 7. 📝 MANDATORY SESSION DOCUMENTATION (NEW v1.2.0)
+
+> **⚠️ WAJIB DIPATUHI**: Dokumentasi ini HARUS dibuat di SETIAP sesi pengembangan.
+
+### A. Development Updates (Per Session)
+
+**SETIAP SESI pengembangan WAJIB membuat dokumentasi update:**
+
+1. **Backend Updates**:
+   - Lokasi: `Docs/Develop/backend/YYYY-MM-DD_deskripsi.md`
+   - Isi: Semua perubahan file, konfigurasi, dependencies backend
+   - Format nama file: `2026-01-18_pnpm-migration.md`
+
+2. **Frontend Updates**:
+   - Lokasi: `Docs/Develop/frontend/YYYY-MM-DD_deskripsi.md`
+   - Isi: Semua perubahan komponen, hooks, stores frontend
+   - Format nama file: `2026-01-18_auth-refactor.md`
+
+3. **Template Update Session** (WAJIB diikuti):
+
+   ```markdown
+   # [Judul Update]
+
+   **Tanggal**: YYYY-MM-DD
+   **Sesi**: [Deskripsi sesi]
+   **Author**: Agent/Developer
+
+   ## 📝 Ringkasan
+
+   [Deskripsi singkat]
+
+   ## 🔄 Perubahan
+
+   ### File Baru
+
+   - `path/to/file.ts` - Deskripsi
+
+   ### File Dimodifikasi
+
+   - `path/to/file.ts` - Perubahan
+
+   ## 📦 Dependencies
+
+   ### Ditambahkan
+
+   - `package@version` - Alasan
+
+   ## ⚙️ Konfigurasi
+
+   [Perubahan config]
+
+   ## 📌 Catatan
+
+   [Catatan penting]
+   ```
+
+### B. Error Documentation (WAJIB saat ada error)
+
+**Setiap kali menemui dan memperbaiki error, WAJIB dokumentasikan:**
+
+1. **Backend Errors**: `Docs/ErrorHandling/backend/YYYY-MM-DD_error-name.md`
+2. **Frontend Errors**: `Docs/ErrorHandling/frontend/YYYY-MM-DD_error-name.md`
+3. **Database Errors**: `Docs/ErrorHandling/database/YYYY-MM-DD_error-name.md`
+4. **Infrastructure Errors**: `Docs/ErrorHandling/infrastructure/YYYY-MM-DD_error-name.md`
+
+**Template Error Documentation**:
+
+```markdown
+# 🐛 [Nama Error]
+
+**Tanggal Ditemukan**: YYYY-MM-DD
+**Severity**: Critical / High / Medium / Low
+**Status**: Resolved
+
+## 📝 Deskripsi Error
+
+[Jelaskan error]
+
+## 📸 Error Message
+
+\`\`\`
+[Error message/stack trace]
+\`\`\`
+
+## 🔎 Root Cause
+
+[Penyebab error]
+
+## ✅ Solusi
+
+[Langkah perbaikan]
+
+## 🛡️ Pencegahan
+
+[Cara mencegah error terulang]
+```
+
+### C. Documentation Reference Locations
+
+| Tipe Dokumentasi | Lokasi                               | Kapan Dibuat                |
+| ---------------- | ------------------------------------ | --------------------------- |
+| Backend Updates  | `Docs/Develop/backend/`              | Setiap sesi backend         |
+| Frontend Updates | `Docs/Develop/frontend/`             | Setiap sesi frontend        |
+| Error Backend    | `Docs/ErrorHandling/backend/`        | Saat ada error backend      |
+| Error Frontend   | `Docs/ErrorHandling/frontend/`       | Saat ada error frontend     |
+| Error Database   | `Docs/ErrorHandling/database/`       | Saat ada error DB           |
+| Error Infra      | `Docs/ErrorHandling/infrastructure/` | Saat ada error infra        |
+| Changelog        | `Docs/CHANGELOG/CHANGELOG.md`        | Setiap perubahan signifikan |
+| Release Notes    | `Docs/CHANGELOG/releases/`           | Setiap release              |
+
+---
+
+## 8. INTERACTION STYLE
 
 - **Language**: Respond in **Indonesian** (Bahasa Indonesia) for explanations, but keep code comments and variable names in **English**.
 - **Tone**: Professional, Direct, Technical.
@@ -311,7 +423,7 @@ Refer to: `Docs/02_DEVELOPMENT_GUIDES/TROUBLESHOOTING.md`
 
 ---
 
-## 8. SPECIFIC WORKFLOWS
+## 9. SPECIFIC WORKFLOWS
 
 ### Migrating Mock to Real Backend
 
@@ -334,29 +446,44 @@ When asked to implement a backend feature that currently exists as a frontend mo
 
 ---
 
-## 9. SESSION CHECKLIST
+## 10. SESSION CHECKLIST (UPDATED v1.2.0)
 
-Before starting any development session, ensure:
+### ✅ Before Starting Development Session
 
 - [ ] Read `Docs/DOCUMENTATION_INDEX.md` for navigation
-- [ ] Check relevant feature documentation in `Docs/06_FEATURES/`
+- [ ] Check `Docs/Develop/backend/` atau `Docs/Develop/frontend/` untuk update terakhir
+- [ ] Check `Docs/ErrorHandling/` untuk error yang belum resolved
 - [ ] Review `Docs/CHANGELOG/CHANGELOG.md` for recent changes
+- [ ] Check relevant feature documentation in `Docs/06_FEATURES/`
 - [ ] Understand the current state of the codebase
 - [ ] Plan changes before implementing
-- [ ] Update documentation after significant changes
 
-After completing any development session, ensure:
+### ✅ After Completing Development Session (MANDATORY)
 
+- [ ] **Buat file update session** di `Docs/Develop/backend/` atau `Docs/Develop/frontend/`
+- [ ] **Dokumentasikan semua error** yang ditemui di `Docs/ErrorHandling/`
 - [ ] Update `Docs/CHANGELOG/CHANGELOG.md` with changes made
 - [ ] Create release notes in `Docs/CHANGELOG/releases/` (if applicable)
 - [ ] Update `Docs/03_STANDARDS_AND_PROCEDURES/COMPONENT_API_SPEC.md` (if new UI components)
 - [ ] Update feature documentation in `Docs/06_FEATURES/` (if feature changes)
 - [ ] Verify all new components have proper TypeScript types
 - [ ] Check for console errors and warnings
+- [ ] Update README file in `Docs/Develop/backend/` atau `Docs/Develop/frontend/` dengan link ke file baru
+
+### ⚠️ Dokumentasi Yang WAJIB Dibuat
+
+| Kondisi                      | Dokumentasi Yang Harus Dibuat               |
+| ---------------------------- | ------------------------------------------- |
+| Perubahan kode backend       | `Docs/Develop/backend/YYYY-MM-DD_*.md`      |
+| Perubahan kode frontend      | `Docs/Develop/frontend/YYYY-MM-DD_*.md`     |
+| Error ditemukan & diperbaiki | `Docs/ErrorHandling/[area]/YYYY-MM-DD_*.md` |
+| Fitur baru                   | CHANGELOG.md + Feature docs                 |
+| Breaking change              | CHANGELOG.md + Migration guide              |
+| Komponen UI baru             | COMPONENT_API_SPEC.md                       |
 
 ---
 
-## 10. ADR (Architecture Decision Records)
+## 11. ADR (Architecture Decision Records)
 
 All architectural decisions are documented in `Docs/01_CONCEPT_AND_ARCHITECTURE/ADR/`:
 

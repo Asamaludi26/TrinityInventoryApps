@@ -4,7 +4,26 @@ import {
   IsOptional,
   IsDateString,
   IsArray,
-} from "class-validator";
+  IsNumber,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class LoanItemDto {
+  @IsNumber()
+  id: number;
+
+  @IsNotEmpty()
+  @IsString()
+  itemName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  brand: string;
+
+  @IsNumber()
+  quantity: number;
+}
 
 export class CreateLoanDto {
   @IsNotEmpty()
@@ -20,10 +39,7 @@ export class CreateLoanDto {
   expectedReturn?: string;
 
   @IsArray()
-  items: Array<{
-    id: number;
-    itemName: string;
-    brand: string;
-    quantity: number;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => LoanItemDto)
+  items: LoanItemDto[];
 }

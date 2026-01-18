@@ -303,6 +303,11 @@ model LoanRequest {
   approver       String?
   approvalDate   DateTime?
   
+  // Rejection
+  rejectedBy     String?
+  rejectionReason String?
+  rejectionDate  DateTime?
+  
   // Return tracking
   assetReturns   AssetReturn[]
   

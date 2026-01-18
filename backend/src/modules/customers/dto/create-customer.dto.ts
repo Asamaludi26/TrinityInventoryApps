@@ -1,18 +1,12 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEnum,
-  IsEmail,
-} from "class-validator";
-import { CustomerStatus } from "@prisma/client";
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsEmail } from 'class-validator';
+import { CustomerStatus } from '@prisma/client';
 
 export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   id?: string;
 
-  @IsNotEmpty({ message: "Nama customer wajib diisi" })
+  @IsNotEmpty({ message: 'Nama customer wajib diisi' })
   @IsString()
   name: string;
 
@@ -25,7 +19,7 @@ export class CreateCustomerDto {
   phone?: string;
 
   @IsOptional()
-  @IsEmail({}, { message: "Format email tidak valid" })
+  @IsEmail({}, { message: 'Format email tidak valid' })
   email?: string;
 
   @IsOptional()

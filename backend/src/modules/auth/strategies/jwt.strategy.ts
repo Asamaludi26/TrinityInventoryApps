@@ -1,9 +1,9 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { PassportStrategy } from "@nestjs/passport";
-import { ExtractJwt, Strategy } from "passport-jwt";
-import { ConfigService } from "@nestjs/config";
-import { UsersService } from "../../users/users.service";
-import { JwtPayload } from "../auth.service";
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../../users/users.service';
+import { JwtPayload } from '../auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -11,9 +11,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
     private usersService: UsersService,
   ) {
-    const secretOrKey = configService.get<string>("JWT_SECRET");
+    const secretOrKey = configService.get<string>('JWT_SECRET');
     if (!secretOrKey) {
-      throw new Error("JWT_SECRET must be defined");
+      throw new Error('JWT_SECRET must be defined');
     }
 
     super({
@@ -27,7 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.usersService.findOne(payload.sub);
 
     if (!user || user.deletedAt) {
-      throw new UnauthorizedException("User tidak ditemukan atau tidak aktif");
+      throw new UnauthorizedException('User tidak ditemukan atau tidak aktif');
     }
 
     return {

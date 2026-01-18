@@ -1,18 +1,12 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEnum,
-  IsNumber,
-} from "class-validator";
-import { AssetClassification, TrackingMethod } from "@prisma/client";
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import { AssetClassification, TrackingMethod } from '@prisma/client';
 
 export class CreateTypeDto {
   @IsNotEmpty()
   @IsNumber()
   categoryId: number;
 
-  @IsNotEmpty({ message: "Nama tipe wajib diisi" })
+  @IsNotEmpty({ message: 'Nama tipe wajib diisi' })
   @IsString()
   name: string;
 

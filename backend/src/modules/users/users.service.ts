@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateUserDto } from "./dto/create-user.dto";
-import { UpdateUserDto } from "./dto/update-user.dto";
-import { UserRole } from "@prisma/client";
-import * as bcrypt from "bcrypt";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -15,7 +11,7 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
     // Hash password if provided plain
-    const password = createUserDto.password.startsWith("$2")
+    const password = createUserDto.password.startsWith('$2')
       ? createUserDto.password // Already hashed
       : await bcrypt.hash(createUserDto.password, 10);
 
@@ -54,8 +50,8 @@ export class UsersService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -67,13 +63,13 @@ export class UsersService {
         include: {
           division: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.count({ where }),
     ]);
 
     // Remove password from response
-    const sanitizedUsers = users.map(({ password, ...user }) => user);
+    const sanitizedUsers = users.map(({ password: _password, ...user }) => user);
 
     return {
       data: sanitizedUsers,
@@ -123,7 +119,7 @@ export class UsersService {
       },
     });
 
-    const { password, ...result } = updated;
+    const { password: _password, ...result } = updated;
     return result;
   }
 

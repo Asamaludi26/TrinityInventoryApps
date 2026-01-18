@@ -1,8 +1,8 @@
-import { Module } from "@nestjs/common";
-import { UsersService } from "./users.service";
-import { UsersController } from "./users.controller";
-import { DivisionsController } from "./divisions.controller";
-import { DivisionsService } from "./divisions.service";
+import { Module } from '@nestjs/common';
+import { UsersService } from './users.service';
+import { UsersController } from './users.controller';
+import { DivisionsController } from './divisions.controller';
+import { DivisionsService } from './divisions.service';
 
 @Module({
   controllers: [UsersController, DivisionsController],

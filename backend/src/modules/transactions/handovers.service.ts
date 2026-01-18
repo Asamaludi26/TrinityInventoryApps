@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateHandoverDto } from "./dto/create-handover.dto";
-import { HandoverStatus, AssetStatus } from "@prisma/client";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateHandoverDto } from './dto/create-handover.dto';
+import { HandoverStatus, AssetStatus } from '@prisma/client';
 
 @Injectable()
 export class HandoversService {
@@ -10,28 +10,28 @@ export class HandoversService {
   private async generateDocNumber(): Promise<string> {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `HO-${year}-${month}-`;
 
     const last = await this.prisma.handover.findFirst({
       where: { docNumber: { startsWith: prefix } },
-      orderBy: { docNumber: "desc" },
+      orderBy: { docNumber: 'desc' },
     });
 
     let seq = 1;
     if (last) {
-      const lastSeq = parseInt(last.docNumber.split("-").pop() || "0");
+      const lastSeq = parseInt(last.docNumber.split('-').pop() || '0');
       seq = lastSeq + 1;
     }
 
-    return `${prefix}${seq.toString().padStart(4, "0")}`;
+    return `${prefix}${seq.toString().padStart(4, '0')}`;
   }
 
   async create(dto: CreateHandoverDto) {
     const docNumber = await this.generateDocNumber();
 
     // Create handover with items
-    const handover = await this.prisma.$transaction(async (tx) => {
+    const handover = await this.prisma.$transaction(async tx => {
       const ho = await tx.handover.create({
         data: {
           id: docNumber,
@@ -44,7 +44,7 @@ export class HandoversService {
           status: HandoverStatus.COMPLETED,
           notes: dto.notes,
           items: {
-            create: dto.items.map((item) => ({
+            create: dto.items.map(item => ({
               assetId: item.assetId,
               quantity: item.quantity || 1,
               notes: item.notes,
@@ -55,7 +55,7 @@ export class HandoversService {
       });
 
       // Update asset statuses
-      const assetIds = dto.items.map((i) => i.assetId);
+      const assetIds = dto.items.map(i => i.assetId);
       await tx.asset.updateMany({
         where: { id: { in: assetIds } },
         data: { status: AssetStatus.IN_USE },
@@ -75,7 +75,7 @@ export class HandoversService {
         skip,
         take,
         include: { items: { include: { asset: true } } },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.handover.count(),
     ]);

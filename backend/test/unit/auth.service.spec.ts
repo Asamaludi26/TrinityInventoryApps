@@ -1,8 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
+import { AuthService } from '../../src/modules/auth/auth.service';
+import { UsersService } from '../../src/modules/users/users.service';
 import { UnauthorizedException } from '@nestjs/common';
+
+// Mock bcrypt module
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn().mockResolvedValue('hashedpassword'),
+}));
+
+// Import after mocking
 import * as bcrypt from 'bcrypt';
 
 describe('AuthService', () => {
@@ -53,7 +61,7 @@ describe('AuthService', () => {
   describe('validateUser', () => {
     it('should return user if credentials are valid', async () => {
       usersService.findByEmail.mockResolvedValue(mockUser as any);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       const result = await service.validateUser('test@example.com', 'password');
 
@@ -71,7 +79,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException if password is invalid', async () => {
       usersService.findByEmail.mockResolvedValue(mockUser as any);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.validateUser('test@example.com', 'wrongpassword')).rejects.toThrow(
         UnauthorizedException,
@@ -82,7 +90,7 @@ describe('AuthService', () => {
   describe('login', () => {
     it('should return user and token on successful login', async () => {
       usersService.findByEmail.mockResolvedValue(mockUser as any);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       const result = await service.login({
         email: 'test@example.com',

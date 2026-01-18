@@ -5,8 +5,8 @@ import {
   IsOptional,
   IsNumber,
   IsDateString,
-} from "class-validator";
-import { Type } from "class-transformer";
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 class AssetRegistrationDto {
   @IsString()

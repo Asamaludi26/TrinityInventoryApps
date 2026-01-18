@@ -1,31 +1,31 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type EntityType =
-  | "asset"
-  | "request"
-  | "loan"
-  | "handover"
-  | "installation"
-  | "dismantle"
-  | "maintenance"
-  | "customer"
-  | "user"
-  | "category"
-  | "type"
-  | "model";
+  | 'asset'
+  | 'request'
+  | 'loan'
+  | 'handover'
+  | 'installation'
+  | 'dismantle'
+  | 'maintenance'
+  | 'customer'
+  | 'user'
+  | 'category'
+  | 'type'
+  | 'model';
 
 export type ActionType =
-  | "CREATE"
-  | "UPDATE"
-  | "DELETE"
-  | "APPROVE"
-  | "REJECT"
-  | "COMPLETE"
-  | "CANCEL"
-  | "LOGIN"
-  | "LOGOUT"
-  | "STATUS_CHANGE";
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'COMPLETE'
+  | 'CANCEL'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'STATUS_CHANGE';
 
 export interface LogActivityOptions {
   entityType: string;
@@ -88,7 +88,7 @@ export class ActivityLogsService {
     if (options?.performedBy) {
       where.performedBy = {
         contains: options.performedBy,
-        mode: "insensitive",
+        mode: 'insensitive',
       };
     }
 
@@ -105,7 +105,7 @@ export class ActivityLogsService {
     const [logs, total] = await Promise.all([
       this.prisma.activityLog.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -132,7 +132,7 @@ export class ActivityLogsService {
         entityType,
         entityId,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -141,7 +141,7 @@ export class ActivityLogsService {
    */
   async getRecent(limit = 10) {
     return this.prisma.activityLog.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
         id: true,
@@ -162,7 +162,7 @@ export class ActivityLogsService {
       where: {
         performedBy: userName,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       take: limit,
     });
   }
@@ -187,9 +187,9 @@ export class ActivityLogsService {
 
   async logAssetCreated(assetId: string, performedBy: string, assetData?: any) {
     return this.log({
-      entityType: "asset",
+      entityType: 'asset',
       entityId: assetId,
-      action: "CREATE",
+      action: 'CREATE',
       performedBy,
       changes: assetData,
     });
@@ -197,51 +197,39 @@ export class ActivityLogsService {
 
   async logAssetUpdated(assetId: string, performedBy: string, changes?: any) {
     return this.log({
-      entityType: "asset",
+      entityType: 'asset',
       entityId: assetId,
-      action: "UPDATE",
+      action: 'UPDATE',
       performedBy,
       changes,
     });
   }
 
-  async logRequestCreated(
-    requestId: string,
-    performedBy: string,
-    details?: any,
-  ) {
+  async logRequestCreated(requestId: string, performedBy: string, details?: any) {
     return this.log({
-      entityType: "request",
+      entityType: 'request',
       entityId: requestId,
-      action: "CREATE",
+      action: 'CREATE',
       performedBy,
       changes: details,
     });
   }
 
-  async logRequestApproved(
-    requestId: string,
-    performedBy: string,
-    details?: any,
-  ) {
+  async logRequestApproved(requestId: string, performedBy: string, details?: any) {
     return this.log({
-      entityType: "request",
+      entityType: 'request',
       entityId: requestId,
-      action: "APPROVE",
+      action: 'APPROVE',
       performedBy,
       changes: details,
     });
   }
 
-  async logRequestRejected(
-    requestId: string,
-    performedBy: string,
-    reason: string,
-  ) {
+  async logRequestRejected(requestId: string, performedBy: string, reason: string) {
     return this.log({
-      entityType: "request",
+      entityType: 'request',
       entityId: requestId,
-      action: "REJECT",
+      action: 'REJECT',
       performedBy,
       changes: { reason },
     });
@@ -249,18 +237,18 @@ export class ActivityLogsService {
 
   async logUserLogin(userId: number, userName: string) {
     return this.log({
-      entityType: "user",
+      entityType: 'user',
       entityId: userId.toString(),
-      action: "LOGIN",
+      action: 'LOGIN',
       performedBy: userName,
     });
   }
 
   async logUserLogout(userId: number, userName: string) {
     return this.log({
-      entityType: "user",
+      entityType: 'user',
       entityId: userId.toString(),
-      action: "LOGOUT",
+      action: 'LOGOUT',
       performedBy: userName,
     });
   }

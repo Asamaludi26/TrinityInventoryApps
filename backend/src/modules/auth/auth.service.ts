@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-} from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
-import { UsersService } from "../users/users.service";
-import { LoginDto } from "./dto/login.dto";
-import { RegisterDto } from "./dto/register.dto";
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 export interface JwtPayload {
   sub: number;
@@ -42,17 +38,17 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
-      throw new UnauthorizedException("Email atau password salah");
+      throw new UnauthorizedException('Email atau password salah');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException("Email atau password salah");
+      throw new UnauthorizedException('Email atau password salah');
     }
 
     if (user.deletedAt) {
-      throw new UnauthorizedException("Akun tidak aktif");
+      throw new UnauthorizedException('Akun tidak aktif');
     }
 
     return user;
@@ -93,7 +89,7 @@ export class AuthService {
     // Check if email exists
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     if (existingUser) {
-      throw new BadRequestException("Email sudah terdaftar");
+      throw new BadRequestException('Email sudah terdaftar');
     }
 
     // Hash password
@@ -137,7 +133,7 @@ export class AuthService {
       const user = await this.usersService.findOne(payload.sub);
 
       if (!user || user.deletedAt) {
-        throw new UnauthorizedException("Token tidak valid");
+        throw new UnauthorizedException('Token tidak valid');
       }
 
       return {
@@ -149,7 +145,7 @@ export class AuthService {
         permissions: user.permissions,
       };
     } catch {
-      throw new UnauthorizedException("Token tidak valid atau expired");
+      throw new UnauthorizedException('Token tidak valid atau expired');
     }
   }
 
@@ -161,11 +157,11 @@ export class AuthService {
 
     if (!user) {
       // Don't reveal if email exists
-      return { message: "Jika email terdaftar, admin akan menghubungi Anda" };
+      return { message: 'Jika email terdaftar, admin akan menghubungi Anda' };
     }
 
     await this.usersService.markPasswordResetRequested(user.id);
 
-    return { message: "Permintaan reset password telah dikirim ke admin" };
+    return { message: 'Permintaan reset password telah dikirim ke admin' };
   }
 }

@@ -4,7 +4,37 @@ import {
   IsDateString,
   IsOptional,
   IsArray,
-} from "class-validator";
+  IsNumber,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class InstalledAssetDto {
+  @IsNotEmpty()
+  @IsString()
+  assetId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  serialNumber?: string;
+}
+
+export class MaterialUsedDto {
+  @IsNotEmpty()
+  @IsString()
+  itemName: string;
+
+  @IsNumber()
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+}
 
 export class CreateInstallationDto {
   @IsNotEmpty()
@@ -24,19 +54,15 @@ export class CreateInstallationDto {
   technician: string;
 
   @IsArray()
-  assetsInstalled: Array<{
-    assetId: string;
-    name: string;
-    serialNumber?: string;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => InstalledAssetDto)
+  assetsInstalled: InstalledAssetDto[];
 
   @IsOptional()
   @IsArray()
-  materialsUsed?: Array<{
-    itemName: string;
-    quantity: number;
-    unit?: string;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => MaterialUsedDto)
+  materialsUsed?: MaterialUsedDto[];
 
   @IsOptional()
   @IsString()

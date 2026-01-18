@@ -7,20 +7,20 @@ import {
   ValidateNested,
   IsNumber,
   IsDateString,
-} from "class-validator";
-import { Type } from "class-transformer";
-import { OrderType, AllocationTarget } from "@prisma/client";
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { OrderType, AllocationTarget } from '@prisma/client';
 
 class RequestItemDto {
-  @IsNotEmpty({ message: "Nama item wajib diisi" })
+  @IsNotEmpty({ message: 'Nama item wajib diisi' })
   @IsString()
   itemName: string;
 
-  @IsNotEmpty({ message: "Tipe/brand wajib diisi" })
+  @IsNotEmpty({ message: 'Tipe/brand wajib diisi' })
   @IsString()
   itemTypeBrand: string;
 
-  @IsNotEmpty({ message: "Jumlah wajib diisi" })
+  @IsNotEmpty({ message: 'Jumlah wajib diisi' })
   @IsNumber()
   quantity: number;
 
@@ -30,11 +30,11 @@ class RequestItemDto {
 }
 
 export class CreateRequestDto {
-  @IsNotEmpty({ message: "Divisi wajib diisi" })
+  @IsNotEmpty({ message: 'Divisi wajib diisi' })
   @IsString()
   division: string;
 
-  @IsNotEmpty({ message: "Tanggal request wajib diisi" })
+  @IsNotEmpty({ message: 'Tanggal request wajib diisi' })
   @IsDateString()
   requestDate: string;
 

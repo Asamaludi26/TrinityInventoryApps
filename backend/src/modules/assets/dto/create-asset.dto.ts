@@ -7,20 +7,20 @@ import {
   IsDateString,
   IsArray,
   ValidateNested,
-} from "class-validator";
-import { Type } from "class-transformer";
-import { AssetStatus, AssetCondition } from "@prisma/client";
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { AssetStatus, AssetCondition } from '@prisma/client';
 
 export class CreateAssetDto {
   @IsOptional()
   @IsString()
   id?: string;
 
-  @IsNotEmpty({ message: "Nama aset wajib diisi" })
+  @IsNotEmpty({ message: 'Nama aset wajib diisi' })
   @IsString()
   name: string;
 
-  @IsNotEmpty({ message: "Brand/merk wajib diisi" })
+  @IsNotEmpty({ message: 'Brand/merk wajib diisi' })
   @IsString()
   brand: string;
 

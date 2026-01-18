@@ -6,9 +6,9 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
-} from "class-validator";
-import { Type } from "class-transformer";
-import { PartyType } from "@prisma/client";
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { PartyType } from '@prisma/client';
 
 class HandoverItemDto {
   @IsNotEmpty()

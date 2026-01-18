@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../../common/prisma/prisma.service";
-import { CreateDivisionDto } from "./dto/create-division.dto";
-import { UpdateDivisionDto } from "./dto/update-division.dto";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { CreateDivisionDto } from './dto/create-division.dto';
+import { UpdateDivisionDto } from './dto/update-division.dto';
 
 @Injectable()
 export class DivisionsService {
@@ -21,7 +21,7 @@ export class DivisionsService {
           select: { users: true },
         },
       },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
   }
 

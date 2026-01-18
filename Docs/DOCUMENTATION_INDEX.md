@@ -131,6 +131,18 @@ Docs/
 │   ├── DEBIAN_13_GUIDE.md
 │   └── scripts/
 │
+├── Develop/                        # 🆕 Development Updates (v1.2.0)
+│   ├── README.md                   # Panduan dokumentasi update
+│   ├── backend/                    # Update backend per sesi
+│   └── frontend/                   # Update frontend per sesi
+│
+├── ErrorHandling/                  # 🆕 Error Documentation (v1.2.0)
+│   ├── README.md                   # Panduan dokumentasi error
+│   ├── backend/                    # Error backend
+│   ├── frontend/                   # Error frontend
+│   ├── database/                   # Error database
+│   └── infrastructure/             # Error infrastructure
+│
 ├── Business/                       # Dokumen Bisnis
 │   ├── perjanjian.md
 │   └── quotation.md
@@ -139,6 +151,25 @@ Docs/
     ├── CHANGELOG.md
     └── releases/
 ```
+
+---
+
+## 🔄 Development Tracking (NEW v1.2.0)
+
+### Recent Updates
+
+| Tanggal    | Area    | File                                                                             | Deskripsi                       |
+| ---------- | ------- | -------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-01-18 | Backend | [pnpm-migration-security](Develop/backend/2026-01-18_pnpm-migration-security.md) | Migrasi pnpm, security features |
+
+### Error Tracking
+
+| Area           | Resolved | Open | Lokasi                                                         |
+| -------------- | -------- | ---- | -------------------------------------------------------------- |
+| Backend        | 0        | 0    | [ErrorHandling/backend/](ErrorHandling/backend/)               |
+| Frontend       | 0        | 0    | [ErrorHandling/frontend/](ErrorHandling/frontend/)             |
+| Database       | 0        | 0    | [ErrorHandling/database/](ErrorHandling/database/)             |
+| Infrastructure | 0        | 0    | [ErrorHandling/infrastructure/](ErrorHandling/infrastructure/) |
 
 ---
 
