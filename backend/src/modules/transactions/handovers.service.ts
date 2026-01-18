@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateHandoverDto } from './dto/create-handover.dto';
-import { HandoverStatus, AssetStatus } from '@prisma/client';
+import { HandoverStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class HandoversService {
@@ -31,7 +31,32 @@ export class HandoversService {
     const docNumber = await this.generateDocNumber();
 
     // Create handover with items
-    const handover = await this.prisma.$transaction(async tx => {
+    const handover = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Validate all assets exist and are available
+      const assetIds = dto.items.map(i => i.assetId);
+      const assets = await tx.asset.findMany({
+        where: {
+          id: { in: assetIds },
+          deletedAt: null,
+        },
+        select: { id: true, status: true },
+      });
+
+      // Check all asset IDs exist
+      const foundIds = new Set(assets.map(a => a.id));
+      const missingIds = assetIds.filter(id => !foundIds.has(id));
+      if (missingIds.length > 0) {
+        throw new BadRequestException(`Asset tidak ditemukan: ${missingIds.join(', ')}`);
+      }
+
+      // Check all assets are available (IN_STORAGE)
+      const unavailableAssets = assets.filter(a => a.status !== AssetStatus.IN_STORAGE);
+      if (unavailableAssets.length > 0) {
+        throw new BadRequestException(
+          `Asset tidak tersedia untuk handover (status bukan IN_STORAGE): ${unavailableAssets.map(a => a.id).join(', ')}`,
+        );
+      }
+
       const ho = await tx.handover.create({
         data: {
           id: docNumber,
@@ -55,10 +80,24 @@ export class HandoversService {
       });
 
       // Update asset statuses
-      const assetIds = dto.items.map(i => i.assetId);
       await tx.asset.updateMany({
         where: { id: { in: assetIds } },
         data: { status: AssetStatus.IN_USE },
+      });
+
+      // Log activity
+      await tx.activityLog.create({
+        data: {
+          entityType: 'Handover',
+          entityId: docNumber,
+          action: 'CREATED',
+          changes: {
+            assetIds,
+            receiver: dto.receiverName,
+            receiverType: dto.receiverType,
+          },
+          performedBy: dto.giverName,
+        },
       });
 
       return ho;

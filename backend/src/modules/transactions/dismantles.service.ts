@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateDismantleDto } from './dto/create-dismantle.dto';
 import { CompleteDismantleDto } from './dto/complete-dismantle.dto';
-import { DismantleStatus, AssetStatus } from '@prisma/client';
+import { DismantleStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class DismantlesService {
@@ -80,7 +80,7 @@ export class DismantlesService {
   async complete(id: string, dto: CompleteDismantleDto, receivedBy: string) {
     const dismantle = await this.findOne(id);
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update dismantle status
       await tx.dismantle.update({
         where: { id },

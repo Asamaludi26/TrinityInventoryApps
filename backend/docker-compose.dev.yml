@@ -7,16 +7,16 @@ services:
     container_name: trinity-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trinity_db
+      POSTGRES_USER: trinity_admin
+      POSTGRES_PASSWORD: 'Tr1n1ty_Db@2026_SecureP4ss!'
+      POSTGRES_DB: trinity_assetflow
     ports:
       - '5432:5432'
     volumes:
       - trinity_postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U trinity_admin -d trinity_assetflow']
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
-import { MaintenanceStatus, AssetStatus } from '@prisma/client';
+import { MaintenanceStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class MaintenancesService {
@@ -30,7 +30,7 @@ export class MaintenancesService {
   async create(dto: CreateMaintenanceDto) {
     const docNumber = await this.generateDocNumber();
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const maintenance = await tx.maintenance.create({
         data: {
           id: docNumber,
@@ -99,7 +99,7 @@ export class MaintenancesService {
   async complete(id: string, actionTaken: string, laborCost?: number, partsCost?: number) {
     const maintenance = await this.findOne(id);
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update maintenance
       await tx.maintenance.update({
         where: { id },

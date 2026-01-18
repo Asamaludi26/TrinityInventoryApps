@@ -3,7 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateAssetDto, CreateBulkAssetsDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 import { ConsumeStockDto } from './dto/consume-stock.dto';
-import { AssetStatus, MovementType } from '@prisma/client';
+import { AssetStatus, MovementType, Prisma } from '@prisma/client';
 
 @Injectable()
 export class AssetsService {
@@ -58,34 +58,64 @@ export class AssetsService {
   }
 
   async createBulk(dto: CreateBulkAssetsDto) {
-    const assets = [];
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const assets = [];
 
-    for (const item of dto.items) {
-      const id = await this.generateAssetId();
-      assets.push({
-        ...item,
-        id,
+      // Validate all models exist
+      const modelIds = [...new Set(dto.items.map(i => i.modelId).filter(Boolean))] as number[];
+      if (modelIds.length > 0) {
+        const existingModels = await tx.assetModel.findMany({
+          where: { id: { in: modelIds } },
+          select: { id: true },
+        });
+        const existingModelIds = new Set(existingModels.map(m => m.id));
+        const missingModels = modelIds.filter(id => !existingModelIds.has(id));
+        if (missingModels.length > 0) {
+          throw new BadRequestException(`Model tidak ditemukan: ${missingModels.join(', ')}`);
+        }
+      }
+
+      // Check serial number uniqueness
+      const serialNumbers = dto.items.map(i => i.serialNumber).filter(Boolean);
+      if (serialNumbers.length > 0) {
+        const existingSerials = await tx.asset.findMany({
+          where: { serialNumber: { in: serialNumbers as string[] } },
+          select: { serialNumber: true },
+        });
+        if (existingSerials.length > 0) {
+          throw new BadRequestException(
+            `Serial number sudah terdaftar: ${existingSerials.map(a => a.serialNumber).join(', ')}`,
+          );
+        }
+      }
+
+      for (const item of dto.items) {
+        const id = await this.generateAssetId();
+        assets.push({
+          ...item,
+          id,
+        });
+      }
+
+      await tx.asset.createMany({
+        data: assets,
       });
-    }
 
-    await this.prisma.asset.createMany({
-      data: assets,
+      // Log movements
+      await tx.stockMovement.createMany({
+        data: assets.map(asset => ({
+          assetId: asset.id,
+          movementType: MovementType.RECEIVED,
+          quantity: asset.quantity || 1,
+          unit: 'Unit',
+          referenceType: 'BULK_REGISTRATION',
+          performedBy: dto.performedBy || 'SYSTEM',
+          notes: dto.notes || 'Bulk asset registration',
+        })),
+      });
+
+      return { created: assets.length, ids: assets.map(a => a.id) };
     });
-
-    // Log movements
-    await this.prisma.stockMovement.createMany({
-      data: assets.map(asset => ({
-        assetId: asset.id,
-        movementType: MovementType.RECEIVED,
-        quantity: asset.quantity || 1,
-        unit: 'Unit',
-        referenceType: 'BULK_REGISTRATION',
-        performedBy: dto.performedBy || 'SYSTEM',
-        notes: dto.notes || 'Bulk asset registration',
-      })),
-    });
-
-    return { created: assets.length, ids: assets.map(a => a.id) };
   }
 
   async findAll(params?: {
@@ -238,63 +268,69 @@ export class AssetsService {
   }
 
   /**
-   * Consume stock (for installation/maintenance)
+   * Consume stock (for installation/maintenance) - atomic operation
    */
   async consumeStock(dto: ConsumeStockDto) {
-    const results = [];
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const results = [];
 
-    for (const item of dto.items) {
-      const assets = await this.prisma.asset.findMany({
-        where: {
-          name: { equals: item.itemName, mode: 'insensitive' },
-          brand: { equals: item.brand, mode: 'insensitive' },
-          status: AssetStatus.IN_STORAGE,
-          deletedAt: null,
-        },
-        orderBy: { currentBalance: 'desc' }, // Use largest stock first
-      });
+      for (const item of dto.items) {
+        // Lock rows for update to prevent race conditions
+        const assets = await tx.asset.findMany({
+          where: {
+            name: { equals: item.itemName, mode: 'insensitive' },
+            brand: { equals: item.brand, mode: 'insensitive' },
+            status: AssetStatus.IN_STORAGE,
+            deletedAt: null,
+          },
+          orderBy: { currentBalance: 'desc' }, // Use largest stock first
+        });
 
-      let remaining = item.quantity;
+        let remaining = item.quantity;
 
-      for (const asset of assets) {
-        if (remaining <= 0) break;
+        for (const asset of assets) {
+          if (remaining <= 0) break;
 
-        if (asset.currentBalance !== null) {
-          const consume = Math.min(asset.currentBalance, remaining);
-          const newBalance = asset.currentBalance - consume;
+          if (asset.currentBalance !== null) {
+            const consume = Math.min(asset.currentBalance, remaining);
+            const newBalance = asset.currentBalance - consume;
 
-          await this.prisma.asset.update({
-            where: { id: asset.id },
-            data: { currentBalance: newBalance },
-          });
+            await tx.asset.update({
+              where: { id: asset.id },
+              data: {
+                currentBalance: newBalance,
+                status: newBalance === 0 ? AssetStatus.CONSUMED : AssetStatus.IN_STORAGE,
+              },
+            });
 
-          await this.prisma.stockMovement.create({
-            data: {
-              assetId: asset.id,
-              movementType: MovementType.CONSUMED,
-              quantity: consume,
-              unit: item.unit,
-              previousBalance: asset.currentBalance,
-              newBalance,
-              referenceType: dto.context.referenceType,
-              referenceId: dto.context.referenceId,
-              performedBy: dto.context.technician || 'SYSTEM',
-            },
-          });
+            await tx.stockMovement.create({
+              data: {
+                assetId: asset.id,
+                movementType: MovementType.CONSUMED,
+                quantity: consume,
+                unit: item.unit,
+                previousBalance: asset.currentBalance,
+                newBalance,
+                referenceType: dto.context.referenceType,
+                referenceId: dto.context.referenceId,
+                performedBy: dto.context.technician || 'SYSTEM',
+              },
+            });
 
-          remaining -= consume;
-          results.push({ assetId: asset.id, consumed: consume });
+            remaining -= consume;
+            results.push({ assetId: asset.id, consumed: consume });
+          }
+        }
+
+        if (remaining > 0) {
+          throw new BadRequestException(
+            `Stok tidak cukup untuk ${item.itemName} ${item.brand}. Kurang: ${remaining} ${item.unit}`,
+          );
         }
       }
 
-      if (remaining > 0) {
-        throw new BadRequestException(
-          `Stok tidak cukup untuk ${item.itemName} ${item.brand}. Kurang: ${remaining} ${item.unit}`,
-        );
-      }
-    }
-
-    return { success: true, consumed: results };
+      return { success: true, consumed: results };
+    });
   }
 
   /**

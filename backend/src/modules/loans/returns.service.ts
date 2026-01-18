@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { ProcessReturnDto } from './dto/process-return.dto';
-import { AssetReturnStatus, LoanStatus, AssetStatus } from '@prisma/client';
+import { AssetReturnStatus, LoanStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ReturnsService {
@@ -38,6 +38,36 @@ export class ReturnsService {
 
     if (!loan) {
       throw new NotFoundException('Loan request tidak ditemukan');
+    }
+
+    // Validate loan status - can only return if ON_LOAN
+    // Note: Partially returned loans are still ON_LOAN until all assets are returned
+    if (loan.status !== LoanStatus.ON_LOAN) {
+      throw new BadRequestException(
+        `Tidak dapat membuat return untuk loan dengan status ${loan.status}. ` +
+          `Status harus ON_LOAN`,
+      );
+    }
+
+    // Validate asset ownership - all items must belong to the loan's assigned assets
+    const assignedAssets = (loan.assignedAssets as Record<string, string[]>) || {};
+    const allAssignedIds = new Set(Object.values(assignedAssets).flat());
+    const returnedAssets = new Set(loan.returnedAssets || []);
+
+    const invalidItems = dto.items.filter(item => {
+      // Check if asset was assigned to this loan
+      if (!allAssignedIds.has(item.assetId)) return true;
+      // Check if asset was already returned
+      if (returnedAssets.has(item.assetId)) return true;
+      return false;
+    });
+
+    if (invalidItems.length > 0) {
+      const invalidIds = invalidItems.map(i => i.assetId);
+      throw new BadRequestException(
+        `Asset berikut tidak valid untuk return: ${invalidIds.join(', ')}. ` +
+          `Asset mungkin tidak di-assign ke loan ini atau sudah dikembalikan.`,
+      );
     }
 
     return this.prisma.assetReturn.create({
@@ -89,7 +119,7 @@ export class ReturnsService {
       throw new BadRequestException('Return sudah diproses');
     }
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update accepted assets to IN_STORAGE
       if (dto.acceptedAssetIds.length > 0) {
         await tx.asset.updateMany({

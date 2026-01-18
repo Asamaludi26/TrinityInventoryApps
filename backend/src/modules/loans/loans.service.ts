@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { ApproveLoanDto } from './dto/approve-loan.dto';
-import { LoanStatus, AssetStatus } from '@prisma/client';
+import { LoanStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class LoansService {
@@ -104,7 +104,35 @@ export class LoansService {
     // Validate and update asset statuses
     const allAssetIds = Object.values(dto.assignedAssetIds).flat();
 
-    await this.prisma.$transaction(async tx => {
+    if (allAssetIds.length === 0) {
+      throw new BadRequestException('Minimal satu asset harus di-assign');
+    }
+
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Validate all assets exist, are available, and not deleted
+      const assets = await tx.asset.findMany({
+        where: {
+          id: { in: allAssetIds },
+          deletedAt: null,
+        },
+        select: { id: true, status: true },
+      });
+
+      // Check all asset IDs exist
+      const foundIds = new Set(assets.map(a => a.id));
+      const missingIds = allAssetIds.filter(id => !foundIds.has(id));
+      if (missingIds.length > 0) {
+        throw new BadRequestException(`Asset tidak ditemukan: ${missingIds.join(', ')}`);
+      }
+
+      // Check all assets are available (IN_STORAGE)
+      const unavailableAssets = assets.filter(a => a.status !== AssetStatus.IN_STORAGE);
+      if (unavailableAssets.length > 0) {
+        throw new BadRequestException(
+          `Asset tidak tersedia (status bukan IN_STORAGE): ${unavailableAssets.map(a => a.id).join(', ')}`,
+        );
+      }
+
       // Update asset statuses to ON_LOAN
       await tx.asset.updateMany({
         where: { id: { in: allAssetIds } },
@@ -121,15 +149,36 @@ export class LoansService {
           approvalDate: new Date(),
         },
       });
+
+      // Log activity
+      await tx.activityLog.create({
+        data: {
+          entityType: 'LoanRequest',
+          entityId: id,
+          action: 'APPROVED',
+          changes: {
+            status: { old: LoanStatus.PENDING, new: LoanStatus.ON_LOAN },
+            assignedAssets: allAssetIds,
+          },
+          performedBy: approverName,
+        },
+      });
     });
 
     return this.findOne(id);
   }
 
   async reject(id: string, reason: string, rejectedBy: string) {
-    await this.findOne(id);
+    const loan = await this.findOne(id);
 
-    return this.prisma.loanRequest.update({
+    // Validate status - can only reject PENDING loans
+    if (loan.status !== LoanStatus.PENDING) {
+      throw new BadRequestException(
+        `Loan request tidak dapat di-reject karena status sudah ${loan.status}`,
+      );
+    }
+
+    const updated = await this.prisma.loanRequest.update({
       where: { id },
       data: {
         status: LoanStatus.REJECTED,
@@ -138,5 +187,21 @@ export class LoansService {
         rejectionDate: new Date(),
       },
     });
+
+    // Log activity
+    await this.prisma.activityLog.create({
+      data: {
+        entityType: 'LoanRequest',
+        entityId: id,
+        action: 'REJECTED',
+        changes: {
+          status: { old: LoanStatus.PENDING, new: LoanStatus.REJECTED },
+          reason,
+        },
+        performedBy: rejectedBy,
+      },
+    });
+
+    return updated;
   }
 }

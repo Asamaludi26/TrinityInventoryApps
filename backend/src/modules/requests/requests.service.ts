@@ -5,7 +5,13 @@ import { CreateRequestDto } from './dto/create-request.dto';
 import { UpdateRequestDto } from './dto/update-request.dto';
 import { ApproveRequestDto } from './dto/approve-request.dto';
 import { RegisterAssetsDto } from './dto/register-assets.dto';
-import { RequestStatus, ItemApprovalStatus, AllocationTarget, AssetStatus } from '@prisma/client';
+import {
+  RequestStatus,
+  ItemApprovalStatus,
+  AllocationTarget,
+  AssetStatus,
+  Prisma,
+} from '@prisma/client';
 
 @Injectable()
 export class RequestsService {
@@ -329,7 +335,7 @@ export class RequestsService {
     }
 
     // Use transaction for atomic operation
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdAssets = [];
 
       for (const assetData of dto.assets) {

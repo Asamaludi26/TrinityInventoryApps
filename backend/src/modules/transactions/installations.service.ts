@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateInstallationDto } from './dto/create-installation.dto';
-import { InstallationStatus, AssetStatus } from '@prisma/client';
+import { InstallationStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class InstallationsService {
@@ -30,7 +30,7 @@ export class InstallationsService {
   async create(dto: CreateInstallationDto) {
     const docNumber = await this.generateDocNumber();
 
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create installation record
       const installation = await tx.installation.create({
         data: {
