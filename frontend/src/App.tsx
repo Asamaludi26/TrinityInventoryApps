@@ -1,14 +1,25 @@
-
 import React, { useState, useEffect, useMemo } from "react";
-import { User, Page, PreviewData, Asset, Request, LoanRequest, AssetReturn } from "./types";
+import {
+  User,
+  Page,
+  PreviewData,
+  Asset,
+  Request,
+  LoanRequest,
+  AssetReturn,
+} from "./types";
 
 // Providers
-import { NotificationProvider, useNotification } from "./providers/NotificationProvider";
+import {
+  NotificationProvider,
+  useNotification,
+} from "./providers/NotificationProvider";
 
 // Layout
 import { MainLayout } from "./components/layout/MainLayout";
 import { PageSkeleton } from "./components/ui/PageSkeleton";
 import { FullPageLoader } from "./components/ui/FullPageLoader";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Feature Components
 import LoginPage from "./features/auth/LoginPage";
@@ -45,7 +56,9 @@ const AppContent: React.FC = () => {
   const setStoreActivePage = useUIStore((state) => state.setActivePage);
   const setPageLoading = useUIStore((state) => state.setPageLoading);
   const pageInitialState = useUIStore((state) => state.pageInitialState);
-  const clearPageInitialState = useUIStore((state) => state.clearPageInitialState);
+  const clearPageInitialState = useUIStore(
+    (state) => state.clearPageInitialState,
+  );
 
   // --- Auth State ---
   const currentUser = useAuthStore((state) => state.currentUser)!;
@@ -62,7 +75,7 @@ const AppContent: React.FC = () => {
         useTransactionStore.getState().fetchTransactions(),
         useMasterDataStore.getState().fetchMasterData(),
         useNotificationStore.getState().fetchNotifications(),
-        new Promise(resolve => setTimeout(resolve, 300)) // Reduced delay significantly for snappier load
+        new Promise((resolve) => setTimeout(resolve, 300)), // Reduced delay significantly for snappier load
       ]);
       setIsDataLoading(false);
     };
@@ -76,17 +89,19 @@ const AppContent: React.FC = () => {
     // OPTIMIZATION: Reduced artificial delay from 600ms to 50ms.
     // This allows just enough time for the loading bar to start rendering without making the app feel sluggish.
     setTimeout(() => {
-        setStoreActivePage(page, initialState);
-        setPageLoading(false);
-    }, 50); 
+      setStoreActivePage(page, initialState);
+      setPageLoading(false);
+    }, 50);
   };
 
   // --- Global Modal States ---
   const [isGlobalScannerOpen, setIsGlobalScannerOpen] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-  
-  const [scanContext, setScanContext] = useState<'global' | 'form'>('global');
-  const [formScanCallback, setFormScanCallback] = useState<((data: any) => void) | null>(null);
+
+  const [scanContext, setScanContext] = useState<"global" | "form">("global");
+  const [formScanCallback, setFormScanCallback] = useState<
+    ((data: any) => void) | null
+  >(null);
 
   const addNotification = useNotification();
 
@@ -106,66 +121,107 @@ const AppContent: React.FC = () => {
   };
 
   const handleScanSuccess = (parsedData: any) => {
-    if (scanContext === 'form' && formScanCallback) {
-        formScanCallback(parsedData);
-        setIsGlobalScannerOpen(false);
-        return;
+    if (scanContext === "form" && formScanCallback) {
+      formScanCallback(parsedData);
+      setIsGlobalScannerOpen(false);
+      return;
     }
-      
+
     if (parsedData.id) {
-        handleShowPreview({ type: 'asset', id: parsedData.id });
+      handleShowPreview({ type: "asset", id: parsedData.id });
     } else {
-        addNotification("Kode aset tidak dikenali.", "error");
+      addNotification("Kode aset tidak dikenali.", "error");
     }
     setIsGlobalScannerOpen(false);
   };
 
   const navigationActions = {
-      onInitiateHandover: (asset: Asset) => { setActivePage('handover', { prefillData: asset }); setPreviewData(null); },
-      onInitiateDismantle: (asset: Asset) => { setActivePage('customer-dismantle', { prefillData: asset }); setPreviewData(null); },
-      onInitiateInstallation: (asset: Asset) => { setActivePage('customer-installation-form', { prefillAsset: asset.id }); setPreviewData(null); },
-      onInitiateRegistrationFromRequest: (request: Request, itemToRegister: any) => { setActivePage('registration', { prefillData: { request, itemToRegister } }); },
-      onInitiateHandoverFromRequest: (request: Request) => { setActivePage('handover', { prefillData: request }); },
-      onInitiateHandoverFromLoan: (loanRequest: LoanRequest) => { setActivePage('handover', { prefillData: loanRequest }); },
-      onReportDamage: () => { setActivePage('stock'); },
-      onStartRepair: () => setActivePage('repair'),
-      onMarkAsRepaired: () => setActivePage('repair'),
-      onDecommission: () => setActivePage('repair'),
-      onReceiveFromRepair: () => setActivePage('repair'),
-      onAddProgressUpdate: () => setActivePage('repair'),
-      onEditItem: (data: PreviewData) => {
-          setPreviewData(null);
-          if (data.type === 'asset') {
-             setActivePage('registration', { itemToEdit: { type: 'asset', id: data.id } }); 
-          }
-          if (data.type === 'customer') setActivePage('customer-edit', { customerId: data.id });
+    onInitiateHandover: (asset: Asset) => {
+      setActivePage("handover", { prefillData: asset });
+      setPreviewData(null);
+    },
+    onInitiateDismantle: (asset: Asset) => {
+      setActivePage("customer-dismantle", { prefillData: asset });
+      setPreviewData(null);
+    },
+    onInitiateInstallation: (asset: Asset) => {
+      setActivePage("customer-installation-form", { prefillAsset: asset.id });
+      setPreviewData(null);
+    },
+    onInitiateRegistrationFromRequest: (
+      request: Request,
+      itemToRegister: any,
+    ) => {
+      setActivePage("registration", {
+        prefillData: { request, itemToRegister },
+      });
+    },
+    onInitiateHandoverFromRequest: (request: Request) => {
+      setActivePage("handover", { prefillData: request });
+    },
+    onInitiateHandoverFromLoan: (loanRequest: LoanRequest) => {
+      setActivePage("handover", { prefillData: loanRequest });
+    },
+    onReportDamage: () => {
+      setActivePage("stock");
+    },
+    onStartRepair: () => setActivePage("repair"),
+    onMarkAsRepaired: () => setActivePage("repair"),
+    onDecommission: () => setActivePage("repair"),
+    onReceiveFromRepair: () => setActivePage("repair"),
+    onAddProgressUpdate: () => setActivePage("repair"),
+    onEditItem: (data: PreviewData) => {
+      setPreviewData(null);
+      if (data.type === "asset") {
+        setActivePage("registration", {
+          itemToEdit: { type: "asset", id: data.id },
+        });
       }
+      if (data.type === "customer")
+        setActivePage("customer-edit", { customerId: data.id });
+    },
   };
 
   if (isDataLoading) {
     return (
-        <>
-            <FullPageLoader message="Sinkronisasi Database..." />
-            <PageSkeleton />
-        </>
+      <>
+        <FullPageLoader message="Sinkronisasi Database..." />
+        <PageSkeleton />
+      </>
     );
   }
 
   const staffRestrictedPages: Page[] = [
-    "registration", "repair", "customers", "customer-new", "customer-edit",
-    "pengaturan-pengguna", "user-form", "division-form", "kategori",
+    "registration",
+    "repair",
+    "customers",
+    "customer-new",
+    "customer-edit",
+    "pengaturan-pengguna",
+    "user-form",
+    "division-form",
+    "kategori",
   ];
 
   const renderPage = () => {
-    if (currentUser.role === "Staff" && staffRestrictedPages.includes(activePage)) {
+    if (
+      currentUser.role === "Staff" &&
+      staffRestrictedPages.includes(activePage)
+    ) {
       // FIX: Pass onBack to avoid dead-end page
-      return <PermissionDeniedPage onBack={() => setActivePage('dashboard')} />;
+      return <PermissionDeniedPage onBack={() => setActivePage("dashboard")} />;
     }
 
     switch (activePage) {
       case "dashboard":
-        return <DashboardPage currentUser={currentUser} setActivePage={setActivePage} onShowPreview={handleShowPreview} />;
-      
+        return (
+          <DashboardPage
+            currentUser={currentUser}
+            setActivePage={setActivePage}
+            onShowPreview={handleShowPreview}
+          />
+        );
+
       case "request":
       case "request-pinjam":
         return (
@@ -174,9 +230,15 @@ const AppContent: React.FC = () => {
             currentUser={currentUser}
             setActivePage={setActivePage}
             onShowPreview={handleShowPreview}
-            onInitiateRegistration={navigationActions.onInitiateRegistrationFromRequest}
-            onInitiateHandoverFromRequest={navigationActions.onInitiateHandoverFromRequest}
-            onInitiateHandoverFromLoan={navigationActions.onInitiateHandoverFromLoan}
+            onInitiateRegistration={
+              navigationActions.onInitiateRegistrationFromRequest
+            }
+            onInitiateHandoverFromRequest={
+              navigationActions.onInitiateHandoverFromRequest
+            }
+            onInitiateHandoverFromLoan={
+              navigationActions.onInitiateHandoverFromLoan
+            }
             initialFilters={pageInitialState}
             onClearInitialFilters={clearPageInitialState}
             setIsGlobalScannerOpen={setIsGlobalScannerOpen}
@@ -236,58 +298,87 @@ const AppContent: React.FC = () => {
           <RepairManagementPage
             currentUser={currentUser}
             onShowPreview={handleShowPreview}
-            onStartRepair={() => {}} onAddProgressUpdate={() => {}} onReceiveFromRepair={() => {}} onCompleteRepair={() => {}} onDecommission={() => {}}
+            onStartRepair={() => {}}
+            onAddProgressUpdate={() => {}}
+            onReceiveFromRepair={() => {}}
+            onCompleteRepair={() => {}}
+            onDecommission={() => {}}
           />
         );
-      
+
       case "return-form": {
-        const loanRequestForReturn = useRequestStore.getState().loanRequests.find(lr => lr.id === pageInitialState?.loanId);
-        
+        const loanRequestForReturn = useRequestStore
+          .getState()
+          .loanRequests.find((lr) => lr.id === pageInitialState?.loanId);
+
         let assetsToReturn: Asset[] = [];
-        if (pageInitialState?.assetIds && Array.isArray(pageInitialState.assetIds)) {
-             assetsToReturn = useAssetStore.getState().assets.filter(a => pageInitialState.assetIds.includes(a.id));
-        } else if (pageInitialState?.assetId) { // Fallback for old logic
-             const asset = useAssetStore.getState().assets.find(a => a.id === pageInitialState.assetId);
-             if (asset) assetsToReturn = [asset];
+        if (
+          pageInitialState?.assetIds &&
+          Array.isArray(pageInitialState.assetIds)
+        ) {
+          assetsToReturn = useAssetStore
+            .getState()
+            .assets.filter((a) => pageInitialState.assetIds.includes(a.id));
+        } else if (pageInitialState?.assetId) {
+          // Fallback for old logic
+          const asset = useAssetStore
+            .getState()
+            .assets.find((a) => a.id === pageInitialState.assetId);
+          if (asset) assetsToReturn = [asset];
         }
 
         return (
-             <ReturnAssetFormPage 
-                currentUser={currentUser}
-                onCancel={() => setActivePage('request-pinjam', { openDetailForId: loanRequestForReturn?.id })}
-                loanRequest={loanRequestForReturn}
-                preselectedAssets={assetsToReturn}
-                onShowPreview={handleShowPreview}
-             />
+          <ReturnAssetFormPage
+            currentUser={currentUser}
+            onCancel={() =>
+              setActivePage("request-pinjam", {
+                openDetailForId: loanRequestForReturn?.id,
+              })
+            }
+            loanRequest={loanRequestForReturn}
+            preselectedAssets={assetsToReturn}
+            onShowPreview={handleShowPreview}
+          />
         );
       }
-        
+
       case "return-detail": {
-          const returnDocument = useRequestStore.getState().returns.find(r => r.id === pageInitialState?.returnId);
-          const loanRequestForDetail = returnDocument ? useRequestStore.getState().loanRequests.find(lr => lr.id === returnDocument.loanRequestId) : undefined;
-          
-          const allReturnDocuments = returnDocument 
-            ? useRequestStore.getState().returns
-                .filter(r => r.docNumber === returnDocument.docNumber)
-            : [];
-      
-          // FIX: Accessing items via flatMap since AssetReturn now has 'items' array, not direct assetId
-          const assetsForReturnDoc = allReturnDocuments
-                .flatMap(r => r.items)
-                .map(item => useAssetStore.getState().assets.find(a => a.id === item.assetId))
-                .filter((a): a is Asset => a !== undefined);
-          
-          return (
-              <ReturnRequestDetailPage
-                currentUser={currentUser}
-                onBackToList={() => setActivePage('request-pinjam', { initialTab: 'returns' })}
-                loanRequest={loanRequestForDetail}
-                returnDocuments={allReturnDocuments}
-                assetsToReturn={assetsForReturnDoc}
-                onShowPreview={handleShowPreview}
-                setActivePage={setActivePage}
-              />
-          );
+        const returnDocument = useRequestStore
+          .getState()
+          .returns.find((r) => r.id === pageInitialState?.returnId);
+        const loanRequestForDetail = returnDocument
+          ? useRequestStore
+              .getState()
+              .loanRequests.find((lr) => lr.id === returnDocument.loanRequestId)
+          : undefined;
+
+        const allReturnDocuments = returnDocument
+          ? useRequestStore
+              .getState()
+              .returns.filter((r) => r.docNumber === returnDocument.docNumber)
+          : [];
+
+        // FIX: Accessing items via flatMap since AssetReturn now has 'items' array, not direct assetId
+        const assetsForReturnDoc = allReturnDocuments
+          .flatMap((r) => r.items)
+          .map((item) =>
+            useAssetStore.getState().assets.find((a) => a.id === item.assetId),
+          )
+          .filter((a): a is Asset => a !== undefined);
+
+        return (
+          <ReturnRequestDetailPage
+            currentUser={currentUser}
+            onBackToList={() =>
+              setActivePage("request-pinjam", { initialTab: "returns" })
+            }
+            loanRequest={loanRequestForDetail}
+            returnDocuments={allReturnDocuments}
+            assetsToReturn={assetsForReturnDoc}
+            onShowPreview={handleShowPreview}
+            setActivePage={setActivePage}
+          />
+        );
       }
 
       case "customers":
@@ -300,12 +391,19 @@ const AppContent: React.FC = () => {
         return (
           <CustomerManagementPage
             subPage={
-              activePage === 'customers' ? 'list' :
-              activePage === 'customer-new' ? 'new' :
-              activePage === 'customer-edit' ? 'edit' :
-              activePage === 'customer-installation-form' ? 'installation' :
-              activePage === 'customer-maintenance-form' ? 'maintenance' :
-              activePage === 'customer-dismantle' ? 'dismantle' : 'detail'
+              activePage === "customers"
+                ? "list"
+                : activePage === "customer-new"
+                  ? "new"
+                  : activePage === "customer-edit"
+                    ? "edit"
+                    : activePage === "customer-installation-form"
+                      ? "installation"
+                      : activePage === "customer-maintenance-form"
+                        ? "maintenance"
+                        : activePage === "customer-dismantle"
+                          ? "dismantle"
+                          : "detail"
             }
             currentUser={currentUser}
             setActivePage={setActivePage}
@@ -342,27 +440,41 @@ const AppContent: React.FC = () => {
             editingDivision={pageInitialState?.editingDivision || null}
           />
         );
-      
+
       case "user-detail":
         return (
-           <UserDetailPage
-             currentUser={currentUser}
-             pageInitialState={pageInitialState}
-             onBack={() => setActivePage("pengaturan-pengguna")}
-             onEdit={() => setActivePage("user-form", { editingUser: useMasterDataStore.getState().users.find(u => u.id === pageInitialState?.userId) })}
-             onShowAssetPreview={(id) => handleShowPreview({ type: 'asset', id })}
-           />
+          <UserDetailPage
+            currentUser={currentUser}
+            pageInitialState={pageInitialState}
+            onBack={() => setActivePage("pengaturan-pengguna")}
+            onEdit={() =>
+              setActivePage("user-form", {
+                editingUser: useMasterDataStore
+                  .getState()
+                  .users.find((u) => u.id === pageInitialState?.userId),
+              })
+            }
+            onShowAssetPreview={(id) =>
+              handleShowPreview({ type: "asset", id })
+            }
+          />
         );
-      
+
       case "division-detail":
-         return (
-            <DivisionDetailPage 
-                pageInitialState={pageInitialState}
-                onBack={() => setActivePage("pengaturan-pengguna")}
-                onEdit={() => setActivePage("division-form", { editingDivisionId: pageInitialState?.divisionId })}
-                onViewMember={(uid) => setActivePage('user-detail', { userId: uid })}
-            />
-         );
+        return (
+          <DivisionDetailPage
+            pageInitialState={pageInitialState}
+            onBack={() => setActivePage("pengaturan-pengguna")}
+            onEdit={() =>
+              setActivePage("division-form", {
+                editingDivisionId: pageInitialState?.divisionId,
+              })
+            }
+            onViewMember={(uid) =>
+              setActivePage("user-detail", { userId: uid })
+            }
+          />
+        );
 
       case "pengaturan-akun":
         return (
@@ -373,32 +485,37 @@ const AppContent: React.FC = () => {
         );
 
       case "kategori":
-        return (
-          <CategoryManagementPage
-            currentUser={currentUser}
-          />
-        );
+        return <CategoryManagementPage currentUser={currentUser} />;
 
       default:
-        return <DashboardPage currentUser={currentUser} setActivePage={setActivePage} onShowPreview={handleShowPreview} />;
+        return (
+          <DashboardPage
+            currentUser={currentUser}
+            setActivePage={setActivePage}
+            onShowPreview={handleShowPreview}
+          />
+        );
     }
   };
 
   return (
     <MainLayout
-        currentUser={currentUser}
-        onLogout={logout}
-        setActivePage={setActivePage}
-        onShowPreview={handleShowPreview}
-        onOpenScanner={() => { setScanContext('global'); setIsGlobalScannerOpen(true); }}
-        isGlobalScannerOpen={isGlobalScannerOpen}
-        setIsGlobalScannerOpen={setIsGlobalScannerOpen}
-        onScanSuccess={handleScanSuccess}
-        previewData={previewData}
-        setPreviewData={setPreviewData}
-        previewActions={navigationActions}
+      currentUser={currentUser}
+      onLogout={logout}
+      setActivePage={setActivePage}
+      onShowPreview={handleShowPreview}
+      onOpenScanner={() => {
+        setScanContext("global");
+        setIsGlobalScannerOpen(true);
+      }}
+      isGlobalScannerOpen={isGlobalScannerOpen}
+      setIsGlobalScannerOpen={setIsGlobalScannerOpen}
+      onScanSuccess={handleScanSuccess}
+      previewData={previewData}
+      setPreviewData={setPreviewData}
+      previewActions={navigationActions}
     >
-        {renderPage()}
+      {renderPage()}
     </MainLayout>
   );
 };
@@ -407,17 +524,20 @@ const App: React.FC = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
   const checkSession = useAuthStore((state) => state.checkSession);
   const [isHydrated, setIsHydrated] = useState(false);
-  
-  useEffect(() => {
-      const checkHydration = setInterval(() => {
-        if (useAuthStore.persist.hasHydrated() && useUIStore.persist.hasHydrated()) {
-          setIsHydrated(true);
-          clearInterval(checkHydration);
-        }
-      }, 50);
 
-      checkSession();
-      return () => clearInterval(checkHydration);
+  useEffect(() => {
+    const checkHydration = setInterval(() => {
+      if (
+        useAuthStore.persist.hasHydrated() &&
+        useUIStore.persist.hasHydrated()
+      ) {
+        setIsHydrated(true);
+        clearInterval(checkHydration);
+      }
+    }, 50);
+
+    checkSession();
+    return () => clearInterval(checkHydration);
   }, [checkSession]);
 
   if (!isHydrated) {
@@ -425,16 +545,26 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <LoginPage onLogin={async () => ({} as any)} />;
+    return <LoginPage onLogin={async () => ({}) as any} />;
   }
 
   return <AppContent />;
 };
 
 const RootApp: React.FC = () => (
-  <NotificationProvider>
-    <App />
-  </NotificationProvider>
+  <ErrorBoundary
+    onError={(error, errorInfo) => {
+      // Log to external service in production
+      if (import.meta.env.PROD) {
+        // Example: logToService(error, errorInfo);
+        console.error("Application Error:", error.message);
+      }
+    }}
+  >
+    <NotificationProvider>
+      <App />
+    </NotificationProvider>
+  </ErrorBoundary>
 );
 
 export default RootApp;
