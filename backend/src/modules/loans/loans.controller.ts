@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Query,
+  Delete,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -12,6 +13,7 @@ import {
 import { LoansService } from './loans.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { ApproveLoanDto } from './dto/approve-loan.dto';
+import { SubmitReturnDto } from './dto/submit-return.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -65,5 +67,21 @@ export class LoansController {
     @CurrentUser('name') userName: string,
   ) {
     return this.loansService.reject(id, reason, userName);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(@Param('id') id: string, @CurrentUser('name') userName: string) {
+    return this.loansService.delete(id, userName);
+  }
+
+  @Post(':id/return')
+  @HttpCode(HttpStatus.OK)
+  submitReturn(
+    @Param('id') id: string,
+    @Body() dto: SubmitReturnDto,
+    @CurrentUser('name') userName: string,
+  ) {
+    return this.loansService.submitReturn(id, dto, userName);
   }
 }

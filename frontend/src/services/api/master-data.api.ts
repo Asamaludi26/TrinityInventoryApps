@@ -158,25 +158,39 @@ export const categoriesApi = {
   },
 
   /**
-   * Update all categories (bulk update for backward compatibility)
-   * Note: This creates/updates categories in batch
+   * Update all categories (bulk update)
+   * Uses PUT /categories for atomic bulk update
    */
   updateAll: async (categories: AssetCategory[]): Promise<AssetCategory[]> => {
-    // Batch update - update existing and create new
-    const results: AssetCategory[] = [];
-    for (const cat of categories) {
-      if (cat.id) {
-        const updated = await apiClient.patch<AssetCategory>(
-          `/categories/${cat.id}`,
-          cat,
-        );
-        results.push(updated);
-      } else {
-        const created = await apiClient.post<AssetCategory>("/categories", cat);
-        results.push(created);
-      }
+    // Filter out categories without valid IDs for update
+    const validCategories = categories.filter(
+      (cat) => cat.id && typeof cat.id === "number",
+    );
+
+    if (validCategories.length === 0) {
+      console.warn("[categoriesApi] No valid categories to update");
+      return [];
     }
-    return results;
+
+    // Prepare payload - only send fields that backend accepts
+    const payload = validCategories.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      isCustomerInstallable: cat.isCustomerInstallable,
+      associatedDivisions: cat.associatedDivisions,
+    }));
+
+    try {
+      // Use PUT for bulk update (atomic transaction on backend)
+      const results = await apiClient.put<AssetCategory[]>(
+        "/categories",
+        payload,
+      );
+      return results;
+    } catch (err) {
+      console.error("[categoriesApi] Bulk update failed:", err);
+      throw err;
+    }
   },
 
   delete: async (id: number): Promise<void> => {

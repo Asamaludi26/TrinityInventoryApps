@@ -12,8 +12,6 @@ import {
   divisionsApi,
   customersApi,
   unifiedApi,
-  USE_MOCK,
-  mockStorage,
 } from "../services/api";
 
 interface MasterDataState {
@@ -48,9 +46,7 @@ export const useMasterDataStore = create<MasterDataState>((set, get) => ({
     try {
       const [users, divisions, customers] = await Promise.all([
         unifiedApi.refreshUsers(),
-        USE_MOCK
-          ? Promise.resolve(mockStorage.get<Division[]>("app_divisions") || [])
-          : divisionsApi.getAll(),
+        divisionsApi.getAll(),
         unifiedApi.refreshCustomers(),
       ]);
 

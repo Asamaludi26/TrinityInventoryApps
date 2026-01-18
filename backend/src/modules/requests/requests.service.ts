@@ -455,4 +455,51 @@ export class RequestsService {
       data: { status: RequestStatus.COMPLETED },
     });
   }
+
+  /**
+   * Cancel a request (user-initiated cancellation)
+   * Only PENDING requests can be cancelled
+   */
+  async cancel(id: string, reason: string, cancelledBy: string) {
+    const request = await this.findOne(id);
+
+    // Only PENDING requests can be cancelled
+    if (request.status !== RequestStatus.PENDING) {
+      throw new BadRequestException(
+        `Request tidak dapat dibatalkan karena status sudah ${request.status}`,
+      );
+    }
+
+    const updated = await this.prisma.request.update({
+      where: { id },
+      data: {
+        status: RequestStatus.REJECTED,
+        rejectedBy: cancelledBy,
+        rejectionReason: reason || 'Dibatalkan oleh pengguna',
+        rejectionDate: new Date(),
+      },
+      include: {
+        items: true,
+        requester: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Log activity
+    await this.prisma.activityLog.create({
+      data: {
+        entityType: 'Request',
+        entityId: id,
+        action: 'CANCELLED',
+        changes: {
+          status: { old: RequestStatus.PENDING, new: RequestStatus.REJECTED },
+          reason: reason || 'Dibatalkan oleh pengguna',
+        },
+        performedBy: cancelledBy,
+      },
+    });
+
+    return updated;
+  }
 }

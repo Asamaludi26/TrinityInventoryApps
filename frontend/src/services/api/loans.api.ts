@@ -7,6 +7,7 @@ import { apiClient } from "./client";
 import { LoanRequest, AssetCondition, AssetReturn } from "../../types";
 import {
   transformBackendLoanRequest,
+  transformBackendAssetReturn,
   toBackendLoanStatus,
 } from "../../utils/enumMapper";
 
@@ -190,7 +191,8 @@ export const returnsApi = {
    */
   getAll: async (loanRequestId?: string): Promise<AssetReturn[]> => {
     const params = loanRequestId ? `?loanRequestId=${loanRequestId}` : "";
-    return apiClient.get<AssetReturn[]>(`/returns${params}`);
+    const data = await apiClient.get<any[]>(`/returns${params}`);
+    return (data || []).map(transformBackendAssetReturn);
   },
 
   /**
@@ -198,7 +200,8 @@ export const returnsApi = {
    */
   getById: async (id: string): Promise<AssetReturn | null> => {
     try {
-      return await apiClient.get<AssetReturn>(`/returns/${id}`);
+      const data = await apiClient.get<any>(`/returns/${id}`);
+      return transformBackendAssetReturn(data);
     } catch (error: any) {
       if (error?.status === 404) return null;
       throw error;
@@ -224,7 +227,8 @@ export const returnsApi = {
         notes: item.notes,
       })),
     };
-    return apiClient.post<AssetReturn>("/returns", transformedData);
+    const response = await apiClient.post<any>("/returns", transformedData);
+    return transformBackendAssetReturn(response);
   },
 
   /**
@@ -236,7 +240,8 @@ export const returnsApi = {
       itemStatuses: Record<string, { accepted: boolean; notes?: string }>;
     },
   ): Promise<AssetReturn> => {
-    return apiClient.post<AssetReturn>(`/returns/${id}/process`, payload);
+    const response = await apiClient.post<any>(`/returns/${id}/process`, payload);
+    return transformBackendAssetReturn(response);
   },
 
   /**
@@ -246,7 +251,8 @@ export const returnsApi = {
     id: string,
     data: Partial<AssetReturn>,
   ): Promise<AssetReturn> => {
-    return apiClient.patch<AssetReturn>(`/returns/${id}`, data);
+    const response = await apiClient.patch<any>(`/returns/${id}`, data);
+    return transformBackendAssetReturn(response);
   },
 
   /**
@@ -271,6 +277,7 @@ export const returnsApi = {
       payload = acceptedAssetIdsOrPayload;
     }
 
-    return apiClient.post<AssetReturn>(`/returns/${id}/verify`, payload);
+    const response = await apiClient.post<any>(`/returns/${id}/verify`, payload);
+    return transformBackendAssetReturn(response);
   },
 };

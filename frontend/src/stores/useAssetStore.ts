@@ -14,8 +14,6 @@ import {
   stockApi,
   categoriesApi,
   unifiedApi,
-  USE_MOCK,
-  mockStorage,
 } from "../services/api";
 import { useNotificationStore } from "./useNotificationStore";
 import { useMasterDataStore } from "./useMasterDataStore";
@@ -360,19 +358,15 @@ export const useAssetStore = create<AssetState>()(
           return a;
         });
 
-        // Batch update via API - for mock, just update state; for real, would need batch endpoint
+        // Batch update via API
         try {
-          if (USE_MOCK) {
-            mockStorage.save("app_assets", updated);
-          } else {
-            // For real API, update each asset individually or call batch endpoint
-            await Promise.all(
-              ids.map((id) => {
-                const asset = updated.find((a) => a.id === id);
-                if (asset) return assetsApi.update(id, rawData);
-              }),
-            );
-          }
+          // For real API, update each asset individually or call batch endpoint
+          await Promise.all(
+            ids.map((id) => {
+              const asset = updated.find((a) => a.id === id);
+              if (asset) return assetsApi.update(id, rawData);
+            }),
+          );
           set({ assets: updated });
 
           for (const mov of movementsToLog) {
@@ -925,26 +919,21 @@ export const useAssetStore = create<AssetState>()(
         });
 
         try {
-          // Update assets via API
-          if (USE_MOCK) {
-            mockStorage.save("app_assets", updatedAssets);
-          } else {
-            // Batch update for real API
-            const idsToUpdate = plan.map((p) => p.assetId);
-            await Promise.all(
-              idsToUpdate.map((id) => {
-                const asset = updatedAssets.find((a) => a.id === id);
-                if (asset) {
-                  const planForAsset = plan.filter((p) => p.assetId === id);
-                  let mergedUpdates = {};
-                  planForAsset.forEach(
-                    (p) => (mergedUpdates = { ...mergedUpdates, ...p.updates }),
-                  );
-                  return assetsApi.update(id, mergedUpdates);
-                }
-              }),
-            );
-          }
+          // Batch update for real API
+          const idsToUpdate = plan.map((p) => p.assetId);
+          await Promise.all(
+            idsToUpdate.map((id) => {
+              const asset = updatedAssets.find((a) => a.id === id);
+              if (asset) {
+                const planForAsset = plan.filter((p) => p.assetId === id);
+                let mergedUpdates = {};
+                planForAsset.forEach(
+                  (p) => (mergedUpdates = { ...mergedUpdates, ...p.updates }),
+                );
+                return assetsApi.update(id, mergedUpdates);
+              }
+            }),
+          );
           set({ assets: updatedAssets });
 
           for (const p of plan) {

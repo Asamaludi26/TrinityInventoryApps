@@ -144,7 +144,8 @@ export function mapLabelToLoanStatus(label: string): LoanStatus | null {
 
 const assetReturnStatusLabelMap: Record<AssetReturnStatus, string> = {
   [AssetReturnStatus.PENDING]: 'Menunggu Verifikasi',
-  [AssetReturnStatus.APPROVED]: 'Disetujui',
+  [AssetReturnStatus.APPROVED]: 'Disetujui Sebagian',
+  [AssetReturnStatus.COMPLETED]: 'Selesai',
   [AssetReturnStatus.REJECTED]: 'Ditolak',
 };
 

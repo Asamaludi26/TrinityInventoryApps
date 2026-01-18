@@ -113,4 +113,14 @@ export class RequestsController {
   complete(@Param('id') id: string) {
     return this.requestsService.complete(id);
   }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  cancel(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @CurrentUser('name') userName: string,
+  ) {
+    return this.requestsService.cancel(id, reason, userName);
+  }
 }

@@ -8,16 +8,8 @@ import {
   AssetReturnStatus,
   AssetStatus,
   AssetCondition,
-  AllocationTarget,
 } from "../types";
-import {
-  requestsApi,
-  loansApi,
-  returnsApi,
-  unifiedApi,
-  USE_MOCK,
-  mockStorage,
-} from "../services/api";
+import { requestsApi, loansApi, returnsApi, unifiedApi } from "../services/api";
 import { useNotificationStore } from "./useNotificationStore";
 import { useUIStore } from "./useUIStore";
 import { useMasterDataStore } from "./useMasterDataStore";
@@ -136,14 +128,11 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   fetchRequests: async () => {
     set({ isLoading: true });
     try {
-      const [requests, loanRequests] = await Promise.all([
+      const [requests, loanRequests, returnsData] = await Promise.all([
         unifiedApi.refreshRequests(),
         unifiedApi.refreshLoanRequests(),
+        returnsApi.getAll().catch(() => [] as AssetReturn[]),
       ]);
-      // Returns are fetched separately as they may be part of loanRequests
-      const returnsData = USE_MOCK
-        ? mockStorage.get<AssetReturn[]>("app_returns") || []
-        : [];
 
       set({
         requests,
@@ -158,78 +147,16 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   },
 
   addRequest: async (requestData) => {
-    // 1. RE-FETCH ASSETS untuk memastikan data stok paling baru (Anti-Stale)
-    await useAssetStore.getState().fetchAssets();
-
-    const current = get().requests;
-    const requestDate = new Date(requestData.requestDate);
-    const docsForGenerator = current.map((r) => ({ docNumber: r.id }));
-    const newId = generateDocumentNumber("RO", docsForGenerator, requestDate);
-
-    // 2. LOGIKA CERDAS: Cek Stok Otomatis
-    const { checkAvailability } = useAssetStore.getState();
-    const itemStatuses: Record<number, any> = {};
-    let allStockAvailable = true;
-
-    // Check allocation target (default to Usage if undefined for staff)
-    const allocationTarget = requestData.order.allocationTarget || "Usage";
-
-    requestData.items.forEach((item) => {
-      const stockCheck = checkAvailability(
-        item.itemName,
-        item.itemTypeBrand,
-        item.quantity,
-        item.unit,
-      );
-
-      if (stockCheck.isSufficient) {
-        itemStatuses[item.id] = {
-          status: "stock_allocated",
-          approvedQuantity: item.quantity,
-          reason: stockCheck.isFragmented
-            ? "Stok tersedia di gudang (Fragmented/Terpecah)"
-            : "Stok tersedia di gudang (Auto-Allocated)",
-        };
-      } else {
-        itemStatuses[item.id] = {
-          status: "procurement_needed",
-          approvedQuantity: item.quantity,
-        };
-        allStockAvailable = false;
-      }
-    });
-
-    // 3. Tentukan Status Awal
-    let initialStatus = ItemStatus.PENDING;
-
-    if (allStockAvailable && requestData.order.type === "Regular Stock") {
-      if (allocationTarget === "Inventory") {
-        // Jika ini Restock dan stok sudah ada (seharusnya jarang terjadi, tapi possible)
-        // Logikanya: Jika sudah ada, buat apa request?
-        // Tapi jika user memaksa, kita langsung complete-kan karena tidak perlu proses beli.
-        initialStatus = ItemStatus.COMPLETED;
-      } else {
-        // Usage -> Siap Handover
-        initialStatus = ItemStatus.AWAITING_HANDOVER;
-      }
-    }
-
-    const newRequest: Request = {
-      ...requestData,
-      id: newId,
-      docNumber: newId,
-      status: initialStatus,
-      itemStatuses: itemStatuses,
-      isRegistered: false,
-      partiallyRegisteredItems: {},
-    };
-
+    // Backend handles: doc number generation, stock checking, status calculation
+    // Frontend only sends the raw input data
     try {
-      const createdRequest = await requestsApi.create(newRequest);
+      const createdRequest = await requestsApi.create(requestData);
       set((state) => ({ requests: [createdRequest, ...state.requests] }));
 
-      // Notifikasi Cerdas
-      if (initialStatus === ItemStatus.AWAITING_HANDOVER) {
+      // Send notifications based on the status returned by backend
+      const status = createdRequest.status;
+
+      if (status === ItemStatus.AWAITING_HANDOVER) {
         sendSystemNotif(
           "Admin Logistik",
           "REQUEST_CREATED",
@@ -243,7 +170,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             "Request dibuat. Stok tersedia, silakan hubungi Logistik untuk pengambilan.",
             "success",
           );
-      } else if (initialStatus === ItemStatus.COMPLETED) {
+      } else if (status === ItemStatus.COMPLETED) {
         useNotificationStore
           .getState()
           .addToast(
@@ -258,6 +185,12 @@ export const useRequestStore = create<RequestState>((set, get) => ({
           "membuat permintaan aset baru (Butuh Pengadaan/Review)",
           true,
         );
+        useNotificationStore
+          .getState()
+          .addToast(
+            "Request berhasil dibuat dan menunggu persetujuan.",
+            "success",
+          );
       }
       sendSystemNotif(
         "Super Admin",

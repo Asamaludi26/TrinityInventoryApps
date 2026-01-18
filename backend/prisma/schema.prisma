@@ -310,6 +310,7 @@ model LoanRequest {
   requestDate    DateTime
   purpose        String?
   expectedReturn DateTime?
+  actualReturnDate DateTime?      // Actual date when all items returned
   
   items          Json             // Array of { id, itemName, brand, quantity }
   assignedAssets Json?            // Map: { itemId: [assetIds] }
@@ -342,10 +343,16 @@ model AssetReturn {
   loanRequest    LoanRequest         @relation(fields: [loanRequestId], references: [id])
   status         AssetReturnStatus   @default(PENDING)
   returnDate     DateTime
+  returnedBy     String              // Person submitting the return
   
   items          Json                // Array of { assetId, condition, notes }
+  notes          String?             // General notes for the return
   
-  // Processing
+  // Verification
+  verifiedBy        String?          // Person who verified the return
+  verificationDate  DateTime?        // When verification was done
+  
+  // Processing (legacy - kept for compatibility)
   processedBy    String?
   processedDate  DateTime?
   
@@ -363,7 +370,8 @@ enum LoanStatus {
 
 enum AssetReturnStatus {
   PENDING    // Return request submitted
-  APPROVED   // Return accepted
+  APPROVED   // Partially accepted (some items accepted, some rejected)
+  COMPLETED  // All items verified and accepted
   REJECTED   // Return rejected (e.g., missing items)
 }
 
