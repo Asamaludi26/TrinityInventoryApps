@@ -226,7 +226,7 @@ export class CategoriesService {
    */
   async updateBulk(categories: Array<{ id: number; [key: string]: any }>) {
     // Validate that all items have ID
-    const validCategories = categories.filter((cat) => cat.id && typeof cat.id === 'number');
+    const validCategories = categories.filter(cat => cat.id && typeof cat.id === 'number');
 
     if (validCategories.length === 0) {
       return [];
@@ -234,7 +234,7 @@ export class CategoriesService {
 
     // Use transaction for atomicity and better performance
     return this.prisma.$transaction(
-      validCategories.map((category) => {
+      validCategories.map(category => {
         const { id, ...dataToUpdate } = category;
         // Sanitize data to only include valid fields
         const sanitized = this.sanitizeCategoryData(dataToUpdate);
