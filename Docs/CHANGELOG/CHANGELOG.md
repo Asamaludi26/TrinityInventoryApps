@@ -73,6 +73,131 @@ Implementasi lengkap backend NestJS dengan Prisma ORM dan PostgreSQL.
 
 ---
 
+## [1.3.0] - 2025-01-20
+
+### 🚀 Frontend-Backend Integration Infrastructure Release
+
+Rilis major yang fokus pada infrastruktur integrasi frontend-backend dengan TanStack Query, React Router, Zod validation, dan React Hook Form.
+
+### Added
+
+#### Core Dependencies
+
+- **@tanstack/react-query** (v5.90.19): Server-state management library
+- **@tanstack/react-query-devtools** (v5.91.2): DevTools untuk debugging queries
+- **react-router-dom** (v7.12.0): Client-side routing dengan URL-based navigation
+- **zod** (v3.25.76): Schema validation library dengan TypeScript inference
+- **react-hook-form** (v7.71.1): Performant form library dengan minimal re-renders
+- **@hookform/resolvers** (v5.2.2): Zod resolver untuk React Hook Form
+
+#### API Layer (`src/services/api/`)
+
+- **client.ts**: Centralized API client dengan interceptors
+  - Token injection untuk authenticated requests
+  - 401/403 auto-redirect to login
+  - Custom `ApiError` class dengan status code dan error codes
+  - Dual-mode support (mock/real API via `VITE_USE_MOCK`)
+- **auth.api.ts**: Authentication API (login, logout, password reset, profile)
+- **assets.api.ts**: Assets CRUD + batch update + consume materials
+- **requests.api.ts**: Purchase requests + approve/reject/cancel workflows
+- **loans.api.ts**: Loan requests + returns dengan verification
+- **transactions.api.ts**: Handovers, Installations, Maintenances, Dismantles
+- **master-data.api.ts**: Users, Customers, Divisions, Categories, Stock
+- **index.ts**: Barrel export untuk semua API services
+
+#### Validation Schemas (`src/validation/schemas/`)
+
+- **auth.schema.ts**: Login, change password, password reset schemas
+- **user.schema.ts**: Create/update user, division schemas
+- **asset.schema.ts**: Create/update/batch update asset schemas
+- **request.schema.ts**: Request, loan request, return schemas
+- **transaction.schema.ts**: Handover, installation, maintenance, dismantle schemas
+- **customer.schema.ts**: Create/update customer schemas
+- **index.ts**: Barrel export untuk semua validation schemas
+
+#### TanStack Query Hooks (`src/hooks/queries/`)
+
+- **useAuthQueries.ts**: `useLogin`, `useLogout`, `useRequestPasswordReset`, `useUpdatePassword`
+- **useAssetQueries.ts**: `useAssets`, `useAsset`, `useCreateAsset`, `useUpdateAsset`, `useBatchUpdateAssets`, `useDeleteAsset`, `useConsumeMaterial`
+- **useRequestQueries.ts**: Complete hooks untuk requests, loans, dan returns dengan mutations
+- **useTransactionQueries.ts**: Complete hooks untuk handovers, installations, maintenances, dismantles
+- **useMasterDataQueries.ts**: Complete hooks untuk users, customers, divisions, categories, stock
+- **index.ts**: Barrel export untuk semua query hooks
+
+#### Routing Infrastructure
+
+- **routes.tsx**: Centralized route definitions dengan lazy loading
+  - `ROUTES` constants untuk type-safe navigation
+  - `buildRoute` helpers untuk dynamic routes
+  - `publicRoutes` dan `protectedRoutes` separation
+  - `staffRestrictedPaths` untuk role-based access
+
+#### Providers
+
+- **QueryProvider.tsx**: TanStack Query client setup
+  - 5-minute staleTime default
+  - 10-minute gcTime default
+  - 3 retry attempts
+  - DevTools in development mode
+
+#### Form Infrastructure
+
+- **useZodForm.ts**: Custom hook menggabungkan React Hook Form + Zod
+  - Type-safe form handling
+  - Automatic validation on blur
+  - Re-validation on change
+- **hooks/index.ts**: Barrel export untuk semua hooks
+
+#### Example Components
+
+- **CustomerForm.tsx**: Contoh form dengan Zod + React Hook Form + TanStack Query integration
+
+### Changed
+
+- **main.tsx**: Updated dengan `BrowserRouter`, `QueryProvider`, `NotificationProvider` wrappers
+- **package.json**: Updated dependencies
+- **.env.example**: Added `VITE_USE_MOCK` dan `VITE_API_URL` documentation
+
+### Technical Notes
+
+- **Build**: 616 modules transformed, ~1.9MB main chunk
+- **TypeScript**: 0 errors
+- **Dual-mode**: Set `VITE_USE_MOCK=false` untuk switch ke real API
+- **Query Keys**: Consistent pattern dengan `entityKeys.list(filters)` dan `entityKeys.detail(id)`
+- **Cache Invalidation**: Automatic cache invalidation setelah mutations
+- **Bundle Size Warning**: Consider code-splitting dengan dynamic imports untuk production
+
+### Migration Guide
+
+Untuk menggunakan fitur baru:
+
+1. **API Calls**: Ganti langsung store calls dengan TanStack Query hooks
+
+   ```tsx
+   // Before (store)
+   const { assets, fetchAssets } = useAssetStore();
+   useEffect(() => {
+     fetchAssets();
+   }, []);
+
+   // After (query)
+   const { data: assets, isLoading } = useAssets();
+   ```
+
+2. **Forms**: Gunakan `useZodForm` untuk form validation
+
+   ```tsx
+   const form = useZodForm(createAssetSchema, { defaultValues: {...} });
+   ```
+
+3. **Navigation**: Gunakan constants dari `routes.tsx`
+   ```tsx
+   import { ROUTES, buildRoute } from "./routes";
+   navigate(buildRoute.assetDetail("asset-123"));
+   ```
+
+---
+
 ## [1.2.0] - 2025-01-20
 
 ### 📦 Frontend Dependencies & Code Quality Release
