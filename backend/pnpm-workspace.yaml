@@ -1,0 +1,4 @@
+# pnpm workspace configuration
+# Backend is a standalone package, but this file ensures pnpm is used consistently
+packages:
+  - '.'
