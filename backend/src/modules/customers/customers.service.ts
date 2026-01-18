@@ -8,6 +8,27 @@ import { CustomerStatus } from '@prisma/client';
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Strip unknown fields from customer DTO to prevent Prisma validation errors.
+   */
+  private sanitizeCustomerData(
+    dto: Partial<CreateCustomerDto | UpdateCustomerDto>,
+  ): Partial<CreateCustomerDto> {
+    const { name, address, phone, email, status, serviceType, serviceSpeed, notes } = dto as any;
+    const sanitized: Partial<CreateCustomerDto> = {};
+
+    if (name !== undefined) sanitized.name = name;
+    if (address !== undefined) sanitized.address = address;
+    if (phone !== undefined) sanitized.phone = phone;
+    if (email !== undefined) sanitized.email = email;
+    if (status !== undefined) sanitized.status = status;
+    if (serviceType !== undefined) sanitized.serviceType = serviceType;
+    if (serviceSpeed !== undefined) sanitized.serviceSpeed = serviceSpeed;
+    if (notes !== undefined) sanitized.notes = notes;
+
+    return sanitized;
+  }
+
   private async generateCustomerId(): Promise<string> {
     const prefix = 'CUST-';
 
@@ -27,12 +48,13 @@ export class CustomersService {
 
   async create(dto: CreateCustomerDto) {
     const id = dto.id || (await this.generateCustomerId());
+    const sanitized = this.sanitizeCustomerData(dto);
 
     return this.prisma.customer.create({
       data: {
-        ...dto,
+        ...sanitized,
         id,
-      },
+      } as any,
     });
   }
 
@@ -85,10 +107,11 @@ export class CustomersService {
 
   async update(id: string, dto: UpdateCustomerDto) {
     await this.findOne(id);
+    const sanitized = this.sanitizeCustomerData(dto);
 
     return this.prisma.customer.update({
       where: { id },
-      data: dto,
+      data: sanitized,
     });
   }
 

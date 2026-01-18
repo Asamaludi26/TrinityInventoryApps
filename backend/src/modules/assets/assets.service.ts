@@ -10,6 +10,49 @@ export class AssetsService {
   constructor(private prisma: PrismaService) {}
 
   /**
+   * Strip unknown fields from asset DTO to prevent Prisma validation errors.
+   * Frontend may send nested objects (model) or extra fields that Prisma doesn't accept.
+   */
+  private sanitizeAssetData(
+    dto: Partial<CreateAssetDto | UpdateAssetDto>,
+  ): Partial<CreateAssetDto> {
+    const allowedFields = [
+      'name',
+      'brand',
+      'modelId',
+      'serialNumber',
+      'macAddress',
+      'status',
+      'condition',
+      'initialBalance',
+      'currentBalance',
+      'quantity',
+      'location',
+      'locationDetail',
+      'purchasePrice',
+      'purchaseDate',
+      'vendor',
+      'poNumber',
+      'invoiceNumber',
+      'warrantyEndDate',
+      'woRoIntNumber',
+      'customerId',
+      'currentUserId',
+    ];
+
+    const sanitized: Record<string, unknown> = {};
+    const source = dto as Record<string, unknown>;
+
+    for (const field of allowedFields) {
+      if (source[field] !== undefined) {
+        sanitized[field] = source[field];
+      }
+    }
+
+    return sanitized as Partial<CreateAssetDto>;
+  }
+
+  /**
    * Generate unique asset ID (AST-YYYY-XXXX)
    */
   private async generateAssetId(): Promise<string> {
@@ -32,12 +75,13 @@ export class AssetsService {
 
   async create(createAssetDto: CreateAssetDto) {
     const id = createAssetDto.id || (await this.generateAssetId());
+    const sanitized = this.sanitizeAssetData(createAssetDto);
 
     const asset = await this.prisma.asset.create({
       data: {
-        ...createAssetDto,
+        ...sanitized,
         id,
-      },
+      } as any,
       include: { model: true },
     });
 
@@ -91,14 +135,15 @@ export class AssetsService {
 
       for (const item of dto.items) {
         const id = await this.generateAssetId();
+        const sanitized = this.sanitizeAssetData(item);
         assets.push({
-          ...item,
+          ...sanitized,
           id,
         });
       }
 
       await tx.asset.createMany({
-        data: assets,
+        data: assets as any,
       });
 
       // Log movements
@@ -186,10 +231,11 @@ export class AssetsService {
 
   async update(id: string, updateAssetDto: UpdateAssetDto) {
     await this.findOne(id);
+    const sanitized = this.sanitizeAssetData(updateAssetDto);
 
     return this.prisma.asset.update({
       where: { id },
-      data: updateAssetDto,
+      data: sanitized,
       include: { model: true },
     });
   }
