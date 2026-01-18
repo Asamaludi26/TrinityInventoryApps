@@ -1,11 +1,16 @@
-import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { PASSWORD_MIN_LENGTH } from '../../../common/constants';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Format email tidak valid' })
   @IsNotEmpty({ message: 'Email wajib diisi' })
+  @MaxLength(255, { message: 'Email terlalu panjang' })
+  @Transform(({ value }) => value?.toLowerCase().trim())
   email: string;
 
   @IsNotEmpty({ message: 'Password wajib diisi' })
-  @MinLength(6, { message: 'Password minimal 6 karakter' })
+  @MinLength(PASSWORD_MIN_LENGTH, { message: `Password minimal ${PASSWORD_MIN_LENGTH} karakter` })
+  @MaxLength(128, { message: 'Password terlalu panjang' })
   password: string;
 }

@@ -1,124 +1,64 @@
 /**
  * Master Data API Service
  * Handles: Users, Customers, Divisions, Categories
+ *
+ * Pure API implementation - no mock logic
  */
 
-import { apiClient, USE_MOCK, ApiError } from "./client";
+import { apiClient } from "./client";
 import {
   User,
   Customer,
   Division,
   AssetCategory,
   CustomerStatus,
-  StockMovement,
 } from "../../types";
-
-// Mock helpers
-const getFromStorage = <T>(key: string): T | null => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveToStorage = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const MOCK_LATENCY = 300;
-const mockDelay = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, MOCK_LATENCY);
-  });
+import {
+  transformBackendUser,
+  transformBackendCustomer,
+  toBackendUserRole,
+  toBackendCustomerStatus,
+} from "../../utils/enumMapper";
 
 // --- USERS ---
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<User[]>("app_users") || [];
-      });
-    }
-    return apiClient.get<User[]>("/users");
+    const data = await apiClient.get<any[]>("/users");
+    return data.map(transformBackendUser);
   },
 
   getById: async (id: number): Promise<User | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const users = getFromStorage<User[]>("app_users") || [];
-        return users.find((u) => u.id === id) || null;
-      });
+    try {
+      const data = await apiClient.get<any>(`/users/${id}`);
+      return transformBackendUser(data);
+    } catch {
+      return null;
     }
-    return apiClient.get<User>(`/users/${id}`);
   },
 
   create: async (data: Omit<User, "id">): Promise<User> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const users = getFromStorage<User[]>("app_users") || [];
-        const maxId = Math.max(0, ...users.map((u) => u.id));
-        const newUser: User = {
-          ...data,
-          id: maxId + 1,
-        };
-        const updated = [newUser, ...users];
-        saveToStorage("app_users", updated);
-        return newUser;
-      });
-    }
-    return apiClient.post<User>("/users", data);
+    const payload = {
+      ...data,
+      role: data.role ? toBackendUserRole(data.role) : undefined,
+    };
+    const result = await apiClient.post<any>("/users", payload);
+    return transformBackendUser(result);
   },
 
   update: async (id: number, data: Partial<User>): Promise<User> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const users = getFromStorage<User[]>("app_users") || [];
-        const index = users.findIndex((u) => u.id === id);
-        if (index === -1) throw new ApiError("User tidak ditemukan.", 404);
-
-        const updated = { ...users[index], ...data };
-        users[index] = updated;
-        saveToStorage("app_users", users);
-        return updated;
-      });
-    }
-    return apiClient.patch<User>(`/users/${id}`, data);
+    const payload = {
+      ...data,
+      role: data.role ? toBackendUserRole(data.role) : undefined,
+    };
+    const result = await apiClient.patch<any>(`/users/${id}`, payload);
+    return transformBackendUser(result);
   },
 
   delete: async (id: number): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const users = getFromStorage<User[]>("app_users") || [];
-        const updated = users.filter((u) => u.id !== id);
-        saveToStorage("app_users", updated);
-      });
-    }
     return apiClient.delete(`/users/${id}`);
   },
 
   resetPassword: async (id: number): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const users = getFromStorage<User[]>("app_users") || [];
-        const index = users.findIndex((u) => u.id === id);
-        if (index !== -1) {
-          users[index] = {
-            ...users[index],
-            passwordResetRequested: false,
-            passwordResetRequestDate: undefined,
-          };
-          saveToStorage("app_users", users);
-        }
-      });
-    }
     return apiClient.post(`/users/${id}/reset-password`);
   },
 };
@@ -126,64 +66,38 @@ export const usersApi = {
 // --- CUSTOMERS ---
 export const customersApi = {
   getAll: async (): Promise<Customer[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<Customer[]>("app_customers") || [];
-      });
-    }
-    return apiClient.get<Customer[]>("/customers");
+    const data = await apiClient.get<any[]>("/customers");
+    return data.map(transformBackendCustomer);
   },
 
   getById: async (id: string): Promise<Customer | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const customers = getFromStorage<Customer[]>("app_customers") || [];
-        return customers.find((c) => c.id === id) || null;
-      });
+    try {
+      const data = await apiClient.get<any>(`/customers/${id}`);
+      return transformBackendCustomer(data);
+    } catch {
+      return null;
     }
-    return apiClient.get<Customer>(`/customers/${id}`);
   },
 
   create: async (data: Omit<Customer, "id">): Promise<Customer> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const customers = getFromStorage<Customer[]>("app_customers") || [];
-        const newCustomer: Customer = {
-          ...data,
-          id: `CUST-${Date.now()}`,
-        };
-        const updated = [newCustomer, ...customers];
-        saveToStorage("app_customers", updated);
-        return newCustomer;
-      });
-    }
-    return apiClient.post<Customer>("/customers", data);
+    const payload = {
+      ...data,
+      status: data.status ? toBackendCustomerStatus(data.status) : undefined,
+    };
+    const result = await apiClient.post<any>("/customers", payload);
+    return transformBackendCustomer(result);
   },
 
   update: async (id: string, data: Partial<Customer>): Promise<Customer> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const customers = getFromStorage<Customer[]>("app_customers") || [];
-        const index = customers.findIndex((c) => c.id === id);
-        if (index === -1) throw new ApiError("Customer tidak ditemukan.", 404);
-
-        const updated = { ...customers[index], ...data };
-        customers[index] = updated;
-        saveToStorage("app_customers", customers);
-        return updated;
-      });
-    }
-    return apiClient.patch<Customer>(`/customers/${id}`, data);
+    const payload = {
+      ...data,
+      status: data.status ? toBackendCustomerStatus(data.status) : undefined,
+    };
+    const result = await apiClient.patch<any>(`/customers/${id}`, payload);
+    return transformBackendCustomer(result);
   },
 
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const customers = getFromStorage<Customer[]>("app_customers") || [];
-        const updated = customers.filter((c) => c.id !== id);
-        saveToStorage("app_customers", updated);
-      });
-    }
     return apiClient.delete(`/customers/${id}`);
   },
 
@@ -191,73 +105,29 @@ export const customersApi = {
     id: string,
     status: CustomerStatus,
   ): Promise<Customer> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const customers = getFromStorage<Customer[]>("app_customers") || [];
-        const index = customers.findIndex((c) => c.id === id);
-        if (index === -1) throw new ApiError("Customer tidak ditemukan.", 404);
-
-        customers[index] = { ...customers[index], status };
-        saveToStorage("app_customers", customers);
-        return customers[index];
-      });
-    }
-    return apiClient.patch<Customer>(`/customers/${id}/status`, { status });
+    const backendStatus = toBackendCustomerStatus(status);
+    const result = await apiClient.patch<any>(`/customers/${id}/status`, {
+      status: backendStatus,
+    });
+    return transformBackendCustomer(result);
   },
 };
 
 // --- DIVISIONS ---
 export const divisionsApi = {
   getAll: async (): Promise<Division[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<Division[]>("app_divisions") || [];
-      });
-    }
     return apiClient.get<Division[]>("/divisions");
   },
 
   create: async (data: Omit<Division, "id">): Promise<Division> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const divisions = getFromStorage<Division[]>("app_divisions") || [];
-        const maxId = Math.max(0, ...divisions.map((d) => d.id));
-        const newDivision: Division = {
-          ...data,
-          id: maxId + 1,
-        };
-        const updated = [...divisions, newDivision];
-        saveToStorage("app_divisions", updated);
-        return newDivision;
-      });
-    }
     return apiClient.post<Division>("/divisions", data);
   },
 
   update: async (id: number, data: Partial<Division>): Promise<Division> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const divisions = getFromStorage<Division[]>("app_divisions") || [];
-        const index = divisions.findIndex((d) => d.id === id);
-        if (index === -1) throw new ApiError("Division tidak ditemukan.", 404);
-
-        const updated = { ...divisions[index], ...data };
-        divisions[index] = updated;
-        saveToStorage("app_divisions", divisions);
-        return updated;
-      });
-    }
     return apiClient.patch<Division>(`/divisions/${id}`, data);
   },
 
   delete: async (id: number): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const divisions = getFromStorage<Division[]>("app_divisions") || [];
-        const updated = divisions.filter((d) => d.id !== id);
-        saveToStorage("app_divisions", updated);
-      });
-    }
     return apiClient.delete(`/divisions/${id}`);
   },
 };
@@ -265,21 +135,51 @@ export const divisionsApi = {
 // --- CATEGORIES ---
 export const categoriesApi = {
   getAll: async (): Promise<AssetCategory[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<AssetCategory[]>("app_assetCategories") || [];
-      });
-    }
     return apiClient.get<AssetCategory[]>("/categories");
   },
 
-  update: async (categories: AssetCategory[]): Promise<AssetCategory[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        saveToStorage("app_assetCategories", categories);
-        return categories;
-      });
+  getById: async (id: number): Promise<AssetCategory | null> => {
+    try {
+      return apiClient.get<AssetCategory>(`/categories/${id}`);
+    } catch {
+      return null;
     }
-    return apiClient.put<AssetCategory[]>("/categories", categories);
+  },
+
+  create: async (data: Omit<AssetCategory, "id">): Promise<AssetCategory> => {
+    return apiClient.post<AssetCategory>("/categories", data);
+  },
+
+  update: async (
+    id: number,
+    data: Partial<AssetCategory>,
+  ): Promise<AssetCategory> => {
+    return apiClient.patch<AssetCategory>(`/categories/${id}`, data);
+  },
+
+  /**
+   * Update all categories (bulk update for backward compatibility)
+   * Note: This creates/updates categories in batch
+   */
+  updateAll: async (categories: AssetCategory[]): Promise<AssetCategory[]> => {
+    // Batch update - update existing and create new
+    const results: AssetCategory[] = [];
+    for (const cat of categories) {
+      if (cat.id) {
+        const updated = await apiClient.patch<AssetCategory>(
+          `/categories/${cat.id}`,
+          cat,
+        );
+        results.push(updated);
+      } else {
+        const created = await apiClient.post<AssetCategory>("/categories", cat);
+        results.push(created);
+      }
+    }
+    return results;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    return apiClient.delete(`/categories/${id}`);
   },
 };

@@ -417,7 +417,7 @@ export const useAssetStore = create<AssetState>()(
 
       updateCategories: async (categories) => {
         try {
-          await categoriesApi.update(categories);
+          await categoriesApi.updateAll(categories);
           set({ categories });
         } catch (error) {
           console.error("[AssetStore] updateCategories failed:", error);

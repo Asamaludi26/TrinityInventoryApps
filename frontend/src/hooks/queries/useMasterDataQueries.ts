@@ -237,7 +237,7 @@ export function useUpdateCategories() {
 
   return useMutation({
     mutationFn: (categories: AssetCategory[]) =>
-      categoriesApi.update(categories),
+      categoriesApi.updateAll(categories),
     onSuccess: (updatedCategories) => {
       queryClient.setQueryData(categoryKeys.lists(), updatedCategories);
     },

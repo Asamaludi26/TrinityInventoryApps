@@ -1,0 +1,28 @@
+{
+  "users": {
+    "admin": {
+      "email": "admin@trinity.com",
+      "password": "admin123"
+    },
+    "staff": {
+      "email": "staff@trinity.com",
+      "password": "staff123"
+    },
+    "viewer": {
+      "email": "viewer@trinity.com",
+      "password": "viewer123"
+    }
+  },
+  "testData": {
+    "asset": {
+      "name": "Test Laptop E2E",
+      "code": "TEST-E2E-001",
+      "description": "Asset created by E2E test",
+      "quantity": 5
+    },
+    "request": {
+      "purpose": "E2E Test Request",
+      "notes": "This request was created by automated E2E test"
+    }
+  }
+}

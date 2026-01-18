@@ -1,132 +1,84 @@
 /**
  * Notifications API Service
  *
+ * Pure API implementation - no mock logic
  * Handles all notification-related API calls.
  */
 
-import { apiClient, USE_MOCK } from "./client";
+import { apiClient } from "./client";
 import type { Notification } from "../../types";
-
-const MOCK_LATENCY = 300;
-
-const getFromStorage = <T>(key: string): T | null => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveToStorage = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const mockDelay = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, MOCK_LATENCY);
-  });
 
 export const notificationsApi = {
   /**
-   * Get all notifications
+   * Get notifications for current user
+   * Backend uses current user from JWT token
    */
-  getAll: async (): Promise<Notification[]> => {
-    if (USE_MOCK) {
-      return mockDelay(
-        () => getFromStorage<Notification[]>("app_notifications") || [],
-      );
-    }
-    return apiClient.get<Notification[]>("/notifications");
+  getAll: async (options?: {
+    page?: number;
+    limit?: number;
+    unreadOnly?: boolean;
+  }): Promise<Notification[]> => {
+    const params = new URLSearchParams();
+    if (options?.page) params.append("page", options.page.toString());
+    if (options?.limit) params.append("limit", options.limit.toString());
+    if (options?.unreadOnly) params.append("unreadOnly", "true");
+
+    const queryString = params.toString();
+    const url = `/notifications${queryString ? `?${queryString}` : ""}`;
+    return apiClient.get<Notification[]>(url);
   },
 
   /**
-   * Get notifications for a specific user
+   * Get notifications for a specific user (alias for getAll with userId param)
+   * Note: Backend uses JWT token to determine user, userId param is for client-side filtering if needed
    */
   getByUserId: async (userId: number): Promise<Notification[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const all = getFromStorage<Notification[]>("app_notifications") || [];
-        return all.filter((n) => n.recipientId === userId);
-      });
-    }
-    return apiClient.get<Notification[]>(`/notifications?userId=${userId}`);
+    // Backend determines user from JWT, but we can still request
+    const data = await apiClient.get<Notification[]>("/notifications");
+    // Filter client-side if backend returns all (backward compatibility)
+    return data.filter((n) => n.recipientId === userId);
+  },
+
+  /**
+   * Get unread notification count
+   */
+  getUnreadCount: async (): Promise<number> => {
+    const result = await apiClient.get<{ count: number }>(
+      "/notifications/unread-count",
+    );
+    return result.count;
   },
 
   /**
    * Create a new notification
+   * Note: Typically created by backend automatically for system events
    */
-  create: async (notification: Notification): Promise<Notification> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const current =
-          getFromStorage<Notification[]>("app_notifications") || [];
-        saveToStorage("app_notifications", [notification, ...current]);
-        return notification;
-      });
-    }
+  create: async (
+    notification: Omit<Notification, "id">,
+  ): Promise<Notification> => {
     return apiClient.post<Notification>("/notifications", notification);
   },
 
   /**
    * Mark a notification as read
    */
-  markAsRead: async (id: number): Promise<Notification> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const current =
-          getFromStorage<Notification[]>("app_notifications") || [];
-        const updated = current.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n,
-        );
-        saveToStorage("app_notifications", updated);
-        const notification = updated.find((n) => n.id === id);
-        if (!notification) throw new Error(`Notification ${id} not found`);
-        return notification;
-      });
-    }
-    return apiClient.patch<Notification>(`/notifications/${id}/read`, {});
+  markAsRead: async (id: number): Promise<void> => {
+    await apiClient.patch(`/notifications/${id}/read`, {});
   },
 
   /**
-   * Mark all notifications for a user as read
+   * Mark all notifications as read
+   * Backend uses current user from JWT token
    */
-  markAllAsRead: async (recipientId: number): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const current =
-          getFromStorage<Notification[]>("app_notifications") || [];
-        const updated = current.map((n) =>
-          n.recipientId === recipientId && !n.isRead
-            ? { ...n, isRead: true }
-            : n,
-        );
-        saveToStorage("app_notifications", updated);
-      });
-    }
-    await apiClient.patch(`/notifications/read-all?userId=${recipientId}`, {});
+  markAllAsRead: async (_recipientId?: number): Promise<void> => {
+    // recipientId is kept for backward compatibility but backend uses JWT
+    await apiClient.post("/notifications/mark-all-read", {});
   },
 
   /**
    * Delete a notification
    */
   delete: async (id: number): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const current =
-          getFromStorage<Notification[]>("app_notifications") || [];
-        saveToStorage(
-          "app_notifications",
-          current.filter((n) => n.id !== id),
-        );
-      });
-    }
     await apiClient.delete(`/notifications/${id}`);
   },
 };

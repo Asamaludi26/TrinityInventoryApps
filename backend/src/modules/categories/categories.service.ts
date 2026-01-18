@@ -8,10 +8,62 @@ import { CreateModelDto } from './dto/create-model.dto';
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Strip unknown fields from category DTO to prevent Prisma validation errors.
+   * Frontend may send nested objects (types) or extra fields that Prisma doesn't accept.
+   */
+  private sanitizeCategoryData(dto: Partial<CreateCategoryDto>): Partial<CreateCategoryDto> {
+    const { name, isCustomerInstallable, associatedDivisions } = dto as any;
+    const sanitized: Partial<CreateCategoryDto> = {};
+
+    if (name !== undefined) sanitized.name = name;
+    if (isCustomerInstallable !== undefined)
+      sanitized.isCustomerInstallable = isCustomerInstallable;
+    if (associatedDivisions !== undefined) sanitized.associatedDivisions = associatedDivisions;
+
+    return sanitized;
+  }
+
+  /**
+   * Strip unknown fields from type DTO
+   */
+  private sanitizeTypeData(dto: Partial<CreateTypeDto>): Partial<CreateTypeDto> {
+    const { categoryId, name, classification, trackingMethod, unitOfMeasure } = dto as any;
+    const sanitized: Partial<CreateTypeDto> = {};
+
+    if (categoryId !== undefined) sanitized.categoryId = categoryId;
+    if (name !== undefined) sanitized.name = name;
+    if (classification !== undefined) sanitized.classification = classification;
+    if (trackingMethod !== undefined) sanitized.trackingMethod = trackingMethod;
+    if (unitOfMeasure !== undefined) sanitized.unitOfMeasure = unitOfMeasure;
+
+    return sanitized;
+  }
+
+  /**
+   * Strip unknown fields from model DTO
+   */
+  private sanitizeModelData(dto: Partial<CreateModelDto>): Partial<CreateModelDto> {
+    const { typeId, name, brand, bulkType, unitOfMeasure, baseUnitOfMeasure, quantityPerUnit } =
+      dto as any;
+    const sanitized: Partial<CreateModelDto> = {};
+
+    if (typeId !== undefined) sanitized.typeId = typeId;
+    if (name !== undefined) sanitized.name = name;
+    if (brand !== undefined) sanitized.brand = brand;
+    if (bulkType !== undefined) sanitized.bulkType = bulkType;
+    if (unitOfMeasure !== undefined) sanitized.unitOfMeasure = unitOfMeasure;
+    if (baseUnitOfMeasure !== undefined) sanitized.baseUnitOfMeasure = baseUnitOfMeasure;
+    if (quantityPerUnit !== undefined) sanitized.quantityPerUnit = quantityPerUnit;
+
+    return sanitized;
+  }
+
   // --- Categories ---
   async createCategory(dto: CreateCategoryDto) {
+    const sanitized = this.sanitizeCategoryData(dto);
     return this.prisma.assetCategory.create({
-      data: dto,
+      data: sanitized as CreateCategoryDto,
     });
   }
 
@@ -52,9 +104,10 @@ export class CategoriesService {
 
   async updateCategory(id: number, dto: Partial<CreateCategoryDto>) {
     await this.findOneCategory(id);
+    const sanitized = this.sanitizeCategoryData(dto);
     return this.prisma.assetCategory.update({
       where: { id },
-      data: dto,
+      data: sanitized,
     });
   }
 
@@ -68,8 +121,9 @@ export class CategoriesService {
 
   // --- Types ---
   async createType(dto: CreateTypeDto) {
+    const sanitized = this.sanitizeTypeData(dto);
     return this.prisma.assetType.create({
-      data: dto,
+      data: sanitized as CreateTypeDto,
       include: { category: true },
     });
   }
@@ -100,9 +154,10 @@ export class CategoriesService {
 
   async updateType(id: number, dto: Partial<CreateTypeDto>) {
     await this.findOneType(id);
+    const sanitized = this.sanitizeTypeData(dto);
     return this.prisma.assetType.update({
       where: { id },
-      data: dto,
+      data: sanitized,
     });
   }
 
@@ -116,8 +171,9 @@ export class CategoriesService {
 
   // --- Models ---
   async createModel(dto: CreateModelDto) {
+    const sanitized = this.sanitizeModelData(dto);
     return this.prisma.assetModel.create({
-      data: dto,
+      data: sanitized as CreateModelDto,
       include: { type: { include: { category: true } } },
     });
   }
@@ -148,9 +204,10 @@ export class CategoriesService {
 
   async updateModel(id: number, dto: Partial<CreateModelDto>) {
     await this.findOneModel(id);
+    const sanitized = this.sanitizeModelData(dto);
     return this.prisma.assetModel.update({
       where: { id },
-      data: dto,
+      data: sanitized,
     });
   }
 

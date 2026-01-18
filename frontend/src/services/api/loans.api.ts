@@ -1,48 +1,21 @@
 /**
  * Loan Requests API Service
+ * Pure API calls - no mock logic
  */
 
-import { apiClient, USE_MOCK, ApiError } from "./client";
+import { apiClient } from "./client";
+import { LoanRequest, AssetCondition, AssetReturn } from "../../types";
 import {
-  LoanRequest,
-  LoanRequestStatus,
-  AssetStatus,
-  AssetCondition,
-  AssetReturn,
-  AssetReturnStatus,
-} from "../../types";
-import { generateDocumentNumber } from "../../utils/documentNumberGenerator";
-
-// Mock helpers
-const getFromStorage = <T>(key: string): T | null => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveToStorage = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const MOCK_LATENCY = 300;
-const mockDelay = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, MOCK_LATENCY);
-  });
+  transformBackendLoanRequest,
+  toBackendLoanStatus,
+} from "../../utils/enumMapper";
 
 export interface LoanFilters {
-  status?: LoanRequestStatus;
+  status?: string;
   requester?: string;
   division?: string;
+  skip?: number;
+  take?: number;
 }
 
 export interface ApproveLoanPayload {
@@ -61,7 +34,9 @@ export interface ApproveLoanPayload {
 
 export interface ReturnItem {
   assetId: string;
-  condition: AssetCondition;
+  assetName?: string;
+  condition?: AssetCondition;
+  returnedCondition?: AssetCondition;
   notes?: string;
 }
 
@@ -70,54 +45,33 @@ export const loansApi = {
    * Get all loan requests
    */
   getAll: async (filters?: LoanFilters): Promise<LoanRequest[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        let loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-
-        if (filters) {
-          if (filters.status) {
-            loans = loans.filter((l) => l.status === filters.status);
-          }
-          if (filters.requester) {
-            loans = loans.filter((l) => l.requester === filters.requester);
-          }
-          if (filters.division) {
-            loans = loans.filter((l) => l.division === filters.division);
-          }
-        }
-
-        return loans.sort(
-          (a, b) =>
-            new Date(b.requestDate).getTime() -
-            new Date(a.requestDate).getTime(),
-        );
-      });
-    }
-
     const params = new URLSearchParams();
     if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
+      if (filters.status) {
+        params.append("status", toBackendLoanStatus(filters.status as any));
+      }
+      if (filters.requester) params.append("requesterId", filters.requester);
+      if (filters.skip) params.append("skip", String(filters.skip));
+      if (filters.take) params.append("take", String(filters.take));
     }
     const query = params.toString();
-    return apiClient.get<LoanRequest[]>(
+    const response = await apiClient.get<any[]>(
       `/loan-requests${query ? `?${query}` : ""}`,
     );
+    return (response || []).map(transformBackendLoanRequest);
   },
 
   /**
    * Get single loan request
    */
   getById: async (id: string): Promise<LoanRequest | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        return loans.find((l) => l.id === id) || null;
-      });
+    try {
+      const response = await apiClient.get<any>(`/loan-requests/${id}`);
+      return transformBackendLoanRequest(response);
+    } catch (error: any) {
+      if (error?.status === 404) return null;
+      throw error;
     }
-
-    return apiClient.get<LoanRequest>(`/loan-requests/${id}`);
   },
 
   /**
@@ -126,30 +80,20 @@ export const loansApi = {
   create: async (
     data: Omit<LoanRequest, "id" | "status">,
   ): Promise<LoanRequest> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        const requestDate = new Date(data.requestDate);
-        const docsForGenerator = loans.map((l) => ({ docNumber: l.id }));
-        const newId = generateDocumentNumber(
-          "LN",
-          docsForGenerator,
-          requestDate,
-        );
-
-        const newLoan: LoanRequest = {
-          ...data,
-          id: newId,
-          status: LoanRequestStatus.PENDING,
-        };
-
-        const updated = [newLoan, ...loans];
-        saveToStorage("app_loanRequests", updated);
-        return newLoan;
-      });
-    }
-
-    return apiClient.post<LoanRequest>("/loan-requests", data);
+    const backendData = {
+      requestDate: data.requestDate,
+      purpose: data.notes,
+      expectedReturn: data.items?.[0]?.returnDate,
+      items: data.items.map((item) => ({
+        itemName: item.itemName,
+        brand: item.brand,
+        quantity: item.quantity,
+        notes: item.keterangan,
+        unit: item.unit,
+      })),
+    };
+    const response = await apiClient.post<any>("/loan-requests", backendData);
+    return transformBackendLoanRequest(response);
   },
 
   /**
@@ -159,21 +103,8 @@ export const loansApi = {
     id: string,
     data: Partial<LoanRequest>,
   ): Promise<LoanRequest> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        const index = loans.findIndex((l) => l.id === id);
-        if (index === -1)
-          throw new ApiError("Loan request tidak ditemukan.", 404);
-
-        const updated = { ...loans[index], ...data };
-        loans[index] = updated;
-        saveToStorage("app_loanRequests", loans);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<LoanRequest>(`/loan-requests/${id}`, data);
+    const response = await apiClient.patch<any>(`/loan-requests/${id}`, data);
+    return transformBackendLoanRequest(response);
   },
 
   /**
@@ -183,59 +114,11 @@ export const loansApi = {
     id: string,
     payload: ApproveLoanPayload,
   ): Promise<LoanRequest> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        const assets = getFromStorage<any[]>("app_assets") || [];
-        const index = loans.findIndex((l) => l.id === id);
-        if (index === -1)
-          throw new ApiError("Loan request tidak ditemukan.", 404);
-
-        const loan = loans[index];
-        const allRejected = Object.values(payload.itemStatuses).every(
-          (s) => s.status === "rejected",
-        );
-
-        // Update loan
-        const updatedLoan: LoanRequest = {
-          ...loan,
-          approver: payload.approver,
-          approvalDate: payload.approvalDate,
-          assignedAssetIds: payload.assignedAssetIds,
-          itemStatuses: payload.itemStatuses,
-          status: allRejected
-            ? LoanRequestStatus.REJECTED
-            : LoanRequestStatus.APPROVED,
-        };
-
-        loans[index] = updatedLoan;
-        saveToStorage("app_loanRequests", loans);
-
-        // Update assets if approved
-        if (!allRejected) {
-          const assetIds = Object.values(payload.assignedAssetIds).flat();
-          const updatedAssets = assets.map((a) => {
-            if (assetIds.includes(a.id)) {
-              return {
-                ...a,
-                status: AssetStatus.IN_USE,
-                currentUser: loan.requester,
-                location: `Dipinjam: ${loan.requester}`,
-              };
-            }
-            return a;
-          });
-          saveToStorage("app_assets", updatedAssets);
-        }
-
-        return updatedLoan;
-      });
-    }
-
-    return apiClient.patch<LoanRequest>(
+    const response = await apiClient.post<any>(
       `/loan-requests/${id}/approve`,
       payload,
     );
+    return transformBackendLoanRequest(response);
   },
 
   /**
@@ -243,111 +126,60 @@ export const loansApi = {
    */
   reject: async (
     id: string,
-    payload: { rejectionReason: string },
+    payload: { reason?: string; rejectionReason?: string },
   ): Promise<LoanRequest> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        const index = loans.findIndex((l) => l.id === id);
-        if (index === -1)
-          throw new ApiError("Loan request tidak ditemukan.", 404);
-
-        const updated: LoanRequest = {
-          ...loans[index],
-          rejectionReason: payload.rejectionReason,
-          status: LoanRequestStatus.REJECTED,
-        };
-
-        loans[index] = updated;
-        saveToStorage("app_loanRequests", updated);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<LoanRequest>(`/loan-requests/${id}/reject`, payload);
-  },
-
-  /**
-   * Submit return request
-   */
-  submitReturn: async (
-    loanRequestId: string,
-    returnItems: ReturnItem[],
-  ): Promise<AssetReturn> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
-        const assets = getFromStorage<any[]>("app_assets") || [];
-
-        const loan = loans.find((l) => l.id === loanRequestId);
-        if (!loan) throw new ApiError("Loan request tidak ditemukan.", 404);
-
-        const docsForGenerator = returns.map((r) => ({
-          docNumber: r.docNumber,
-        }));
-        const docNumber = generateDocumentNumber(
-          "RTN",
-          docsForGenerator,
-          new Date(),
-        );
-
-        const newReturn: AssetReturn = {
-          id: `return_${Date.now()}`,
-          docNumber,
-          returnDate: new Date().toISOString(),
-          loanRequestId,
-          returnedBy: loan.requester,
-          items: returnItems.map((item) => {
-            const asset = assets.find((a) => a.id === item.assetId);
-            return {
-              assetId: item.assetId,
-              assetName: asset?.name || "Unknown",
-              returnedCondition: item.condition,
-              notes: item.notes,
-              status: "PENDING" as const,
-            };
-          }),
-          status: AssetReturnStatus.PENDING_APPROVAL,
-        };
-
-        // Update loan status
-        const loanIndex = loans.findIndex((l) => l.id === loanRequestId);
-        loans[loanIndex] = {
-          ...loans[loanIndex],
-          status: LoanRequestStatus.AWAITING_RETURN,
-        };
-        saveToStorage("app_loanRequests", loans);
-
-        // Save return
-        const updatedReturns = [newReturn, ...returns];
-        saveToStorage("app_returns", updatedReturns);
-
-        return newReturn;
-      });
-    }
-
-    return apiClient.post<AssetReturn>(
-      `/loan-requests/${loanRequestId}/return`,
-      {
-        items: returnItems,
-      },
-    );
+    // Support both formats
+    const reason = payload.reason || payload.rejectionReason || "";
+    const response = await apiClient.post<any>(`/loan-requests/${id}/reject`, {
+      reason,
+    });
+    return transformBackendLoanRequest(response);
   },
 
   /**
    * Delete loan request
    */
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-        const updated = loans.filter((l) => l.id !== id);
-        saveToStorage("app_loanRequests", updated);
-      });
+    await apiClient.delete(`/loan-requests/${id}`);
+  },
+
+  /**
+   * Submit return for loan items
+   * Supports multiple call signatures for backward compatibility
+   */
+  submitReturn: async (
+    loanRequestIdOrData:
+      | string
+      | {
+          loanRequestId: string;
+          returnDate: string;
+          items: ReturnItem[];
+          receivedBy?: string;
+          notes?: string;
+        },
+    items?: ReturnItem[],
+  ): Promise<LoanRequest> => {
+    // Support both signatures
+    let requestData: any;
+    let loanRequestId: string;
+
+    if (typeof loanRequestIdOrData === "string") {
+      loanRequestId = loanRequestIdOrData;
+      requestData = {
+        loanRequestId,
+        returnDate: new Date().toISOString(),
+        items: items || [],
+      };
+    } else {
+      loanRequestId = loanRequestIdOrData.loanRequestId;
+      requestData = loanRequestIdOrData;
     }
 
-    return apiClient.delete(`/loan-requests/${id}`);
+    const response = await apiClient.post<any>(
+      `/loan-requests/${loanRequestId}/return`,
+      requestData,
+    );
+    return transformBackendLoanRequest(response);
   },
 };
 
@@ -356,145 +188,89 @@ export const returnsApi = {
   /**
    * Get all returns
    */
-  getAll: async (): Promise<AssetReturn[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<AssetReturn[]>("app_returns") || [];
-      });
-    }
-
-    return apiClient.get<AssetReturn[]>("/returns");
+  getAll: async (loanRequestId?: string): Promise<AssetReturn[]> => {
+    const params = loanRequestId ? `?loanRequestId=${loanRequestId}` : "";
+    return apiClient.get<AssetReturn[]>(`/returns${params}`);
   },
 
   /**
    * Get single return
    */
   getById: async (id: string): Promise<AssetReturn | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
-        return returns.find((r) => r.id === id) || null;
-      });
+    try {
+      return await apiClient.get<AssetReturn>(`/returns/${id}`);
+    } catch (error: any) {
+      if (error?.status === 404) return null;
+      throw error;
     }
-
-    return apiClient.get<AssetReturn>(`/returns/${id}`);
   },
 
   /**
-   * Verify return (accept/reject items)
+   * Create return document
+   * Flexible input - accepts both ReturnItem and AssetReturnItem formats
    */
-  verify: async (
+  create: async (returnData: {
+    loanRequestId: string;
+    returnDate: string;
+    items: Array<ReturnItem | any>;
+  }): Promise<AssetReturn> => {
+    // Transform items to consistent format
+    const transformedData = {
+      ...returnData,
+      items: returnData.items.map((item: any) => ({
+        assetId: item.assetId,
+        assetName: item.assetName,
+        returnedCondition: item.returnedCondition || item.condition,
+        notes: item.notes,
+      })),
+    };
+    return apiClient.post<AssetReturn>("/returns", transformedData);
+  },
+
+  /**
+   * Process return (accept/reject items)
+   */
+  process: async (
     id: string,
-    acceptedAssetIds: string[],
-    verifiedBy: string,
+    payload: {
+      itemStatuses: Record<string, { accepted: boolean; notes?: string }>;
+    },
   ): Promise<AssetReturn> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
-        const assets = getFromStorage<any[]>("app_assets") || [];
-        const loans = getFromStorage<LoanRequest[]>("app_loanRequests") || [];
-
-        const index = returns.findIndex((r) => r.id === id);
-        if (index === -1)
-          throw new ApiError("Return document tidak ditemukan.", 404);
-
-        const returnDoc = returns[index];
-
-        // Update return items
-        const updatedItems = returnDoc.items.map((item) => ({
-          ...item,
-          status: acceptedAssetIds.includes(item.assetId)
-            ? ("ACCEPTED" as const)
-            : ("REJECTED" as const),
-        }));
-
-        const updatedReturn: AssetReturn = {
-          ...returnDoc,
-          items: updatedItems,
-          verifiedBy,
-          verificationDate: new Date().toISOString(),
-          status: AssetReturnStatus.COMPLETED,
-        };
-
-        returns[index] = updatedReturn;
-        saveToStorage("app_returns", returns);
-
-        // Update assets
-        const updatedAssets = assets.map((a) => {
-          if (acceptedAssetIds.includes(a.id)) {
-            const returnItem = returnDoc.items.find((i) => i.assetId === a.id);
-            return {
-              ...a,
-              status: AssetStatus.IN_STORAGE,
-              currentUser: null,
-              condition: returnItem?.returnedCondition || a.condition,
-              location: "Gudang Inventori",
-            };
-          }
-          return a;
-        });
-        saveToStorage("app_assets", updatedAssets);
-
-        // Update loan status
-        const loanIndex = loans.findIndex(
-          (l) => l.id === returnDoc.loanRequestId,
-        );
-        if (loanIndex !== -1) {
-          loans[loanIndex] = {
-            ...loans[loanIndex],
-            status: LoanRequestStatus.RETURNED,
-            actualReturnDate: new Date().toISOString(),
-          };
-          saveToStorage("app_loanRequests", loans);
-        }
-
-        return updatedReturn;
-      });
-    }
-
-    return apiClient.patch<AssetReturn>(`/returns/${id}/verify`, {
-      acceptedAssetIds,
-      verifiedBy,
-    });
+    return apiClient.post<AssetReturn>(`/returns/${id}/process`, payload);
   },
 
   /**
-   * Create new return document
-   */
-  create: async (returnData: AssetReturn): Promise<AssetReturn> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
-        const updated = [returnData, ...returns];
-        saveToStorage("app_returns", updated);
-        return returnData;
-      });
-    }
-
-    return apiClient.post<AssetReturn>("/returns", returnData);
-  },
-
-  /**
-   * Update return document
+   * Update return
    */
   update: async (
     id: string,
     data: Partial<AssetReturn>,
   ): Promise<AssetReturn> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const returns = getFromStorage<AssetReturn[]>("app_returns") || [];
-        const index = returns.findIndex((r) => r.id === id);
-        if (index === -1)
-          throw new ApiError("Return document tidak ditemukan.", 404);
+    return apiClient.patch<AssetReturn>(`/returns/${id}`, data);
+  },
 
-        const updated = { ...returns[index], ...data };
-        returns[index] = updated;
-        saveToStorage("app_returns", returns);
-        return updated;
-      });
+  /**
+   * Verify return
+   * Supports multiple call signatures for backward compatibility
+   */
+  verify: async (
+    id: string,
+    acceptedAssetIdsOrPayload:
+      | string[]
+      | { verifiedBy: string; notes?: string },
+    verifiedBy?: string,
+  ): Promise<AssetReturn> => {
+    let payload: any;
+
+    if (Array.isArray(acceptedAssetIdsOrPayload)) {
+      payload = {
+        acceptedAssetIds: acceptedAssetIdsOrPayload,
+        verifiedBy: verifiedBy || "",
+      };
+    } else {
+      payload = acceptedAssetIdsOrPayload;
     }
 
-    return apiClient.patch<AssetReturn>(`/returns/${id}`, data);
+    return apiClient.post<AssetReturn>(`/returns/${id}/verify`, payload);
   },
 };

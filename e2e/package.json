@@ -1,0 +1,20 @@
+{
+  "name": "trinity-e2e-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end tests for Trinity Inventory Apps",
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "start-server-and-test 'pnpm --filter trinity-asset-flow-frontend dev' http://localhost:5173 'cypress run'",
+    "test:e2e:dev": "start-server-and-test 'pnpm --filter trinity-asset-flow-frontend dev' http://localhost:5173 'cypress open'"
+  },
+  "devDependencies": {
+    "cypress": "^14.0.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "start-server-and-test": "^2.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

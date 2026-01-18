@@ -1,37 +1,61 @@
 /**
  * Stock API Service
  * Handles: Stock movements, ledger, and stock management
+ *
+ * Pure API implementation - no mock logic
+ * Note: Stock functionality is part of Assets controller in backend
  */
 
-import { apiClient, USE_MOCK, ApiError } from "./client";
-import { StockMovement, MovementType } from "../../types";
-import { generateDocumentNumber } from "../../utils/documentNumberGenerator";
+import { apiClient } from "./client";
+import type { StockMovement, MovementType } from "../../types";
 
-// Mock helpers
-const getFromStorage = <T>(key: string): T | null => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
+// --- Type Mapping Utilities ---
+
+// Backend MovementType -> Frontend MovementType
+type BackendMovementType =
+  | "IN_PURCHASE"
+  | "IN_TRANSFER"
+  | "IN_RETURN"
+  | "IN_DISMANTLE"
+  | "OUT_INSTALLATION"
+  | "OUT_HANDOVER"
+  | "OUT_DISPOSAL"
+  | "OUT_MAINTENANCE"
+  | "ADJUSTMENT";
+
+const fromBackendMovementType = (type: BackendMovementType): MovementType => {
+  const map: Record<BackendMovementType, MovementType> = {
+    IN_PURCHASE: "IN_PURCHASE",
+    IN_TRANSFER: "IN_PURCHASE", // Map to closest frontend type
+    IN_RETURN: "IN_RETURN",
+    IN_DISMANTLE: "IN_RETURN",
+    OUT_INSTALLATION: "OUT_INSTALLATION",
+    OUT_HANDOVER: "OUT_HANDOVER",
+    OUT_DISPOSAL: "OUT_BROKEN",
+    OUT_MAINTENANCE: "OUT_USAGE_CUSTODY",
+    ADJUSTMENT: "OUT_ADJUSTMENT",
+  };
+  return map[type] || "OUT_ADJUSTMENT";
 };
 
-const saveToStorage = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
+const toBackendMovementType = (type: MovementType): BackendMovementType => {
+  const map: Record<MovementType, BackendMovementType> = {
+    IN_PURCHASE: "IN_PURCHASE",
+    IN_RETURN: "IN_RETURN",
+    OUT_INSTALLATION: "OUT_INSTALLATION",
+    OUT_HANDOVER: "OUT_HANDOVER",
+    OUT_BROKEN: "OUT_DISPOSAL",
+    OUT_ADJUSTMENT: "ADJUSTMENT",
+    OUT_USAGE_CUSTODY: "OUT_MAINTENANCE",
+  };
+  return map[type] || "ADJUSTMENT";
 };
 
-const MOCK_LATENCY = 300;
-const mockDelay = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, MOCK_LATENCY);
-  });
+// Transform backend stock movement to frontend
+const transformStockMovement = (data: any): StockMovement => ({
+  ...data,
+  type: data.type ? fromBackendMovementType(data.type) : undefined,
+});
 
 export interface StockMovementFilter {
   assetName?: string;
@@ -49,178 +73,112 @@ export interface StockLedgerItem {
   lastMovementDate: string;
 }
 
+export interface StockSummaryItem {
+  name: string;
+  brand: string;
+  totalQuantity: number;
+  inStorage: number;
+  inUse: number;
+  damaged: number;
+}
+
 export const stockApi = {
   /**
    * Get all stock movements
+   * Note: This endpoint may need to be added to backend if not exists
    */
   getMovements: async (
     filters?: StockMovementFilter,
   ): Promise<StockMovement[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        let movements =
-          getFromStorage<StockMovement[]>("app_stockMovements") || [];
-
-        if (filters) {
-          if (filters.assetName) {
-            movements = movements.filter((m) =>
-              m.assetName
-                .toLowerCase()
-                .includes(filters.assetName!.toLowerCase()),
-            );
-          }
-          if (filters.brand) {
-            movements = movements.filter((m) =>
-              m.brand.toLowerCase().includes(filters.brand!.toLowerCase()),
-            );
-          }
-          if (filters.type) {
-            movements = movements.filter((m) => m.type === filters.type);
-          }
-          if (filters.startDate) {
-            movements = movements.filter(
-              (m) => new Date(m.date) >= new Date(filters.startDate!),
-            );
-          }
-          if (filters.endDate) {
-            movements = movements.filter(
-              (m) => new Date(m.date) <= new Date(filters.endDate!),
-            );
-          }
-        }
-
-        return movements.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-        );
-      });
-    }
-
     const params = new URLSearchParams();
     if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, String(value));
-      });
+      if (filters.assetName) params.append("assetName", filters.assetName);
+      if (filters.brand) params.append("brand", filters.brand);
+      if (filters.type)
+        params.append("type", toBackendMovementType(filters.type));
+      if (filters.startDate) params.append("startDate", filters.startDate);
+      if (filters.endDate) params.append("endDate", filters.endDate);
     }
     const query = params.toString();
-    return apiClient.get<StockMovement[]>(
-      `/stock/movements${query ? `?${query}` : ""}`,
+    const data = await apiClient.get<any[]>(
+      `/assets/stock-movements${query ? `?${query}` : ""}`,
     );
+    return data.map(transformStockMovement);
   },
 
   /**
    * Get stock ledger (current balances)
+   * Uses stock-summary endpoint from assets controller
    */
   getLedger: async (): Promise<StockLedgerItem[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const movements =
-          getFromStorage<StockMovement[]>("app_stockMovements") || [];
-        const ledger: Record<string, StockLedgerItem> = {};
-
-        movements.forEach((m) => {
-          const key = `${m.assetName}|${m.brand}`;
-          if (!ledger[key]) {
-            ledger[key] = {
-              assetName: m.assetName,
-              brand: m.brand,
-              unit: "pcs", // Default unit - actual unit from asset type
-              currentBalance: 0,
-              lastMovementDate: m.date,
-            };
-          }
-
-          // Update balance
-          if (m.type.startsWith("IN_")) {
-            ledger[key].currentBalance += m.quantity;
-          } else {
-            ledger[key].currentBalance -= m.quantity;
-          }
-
-          // Update last movement date
-          if (new Date(m.date) > new Date(ledger[key].lastMovementDate)) {
-            ledger[key].lastMovementDate = m.date;
-          }
-        });
-
-        return Object.values(ledger);
-      });
-    }
-
-    return apiClient.get<StockLedgerItem[]>("/stock/ledger");
+    const data = await apiClient.get<StockSummaryItem[]>(
+      "/assets/stock-summary",
+    );
+    // Transform stock summary to ledger format
+    return data.map((item) => ({
+      assetName: item.name,
+      brand: item.brand,
+      unit: "pcs",
+      currentBalance: item.totalQuantity,
+      lastMovementDate: new Date().toISOString(),
+    }));
   },
 
   /**
-   * Record a new stock movement
+   * Get stock summary grouped by name and brand
+   */
+  getStockSummary: async (): Promise<StockSummaryItem[]> => {
+    return apiClient.get<StockSummaryItem[]>("/assets/stock-summary");
+  },
+
+  /**
+   * Record a new stock movement (consume stock)
    */
   recordMovement: async (
     data: Omit<StockMovement, "id" | "balanceAfter">,
   ): Promise<StockMovement> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const allMovements =
-          getFromStorage<StockMovement[]>("app_stockMovements") || [];
+    const payload = {
+      ...data,
+      type: data.type
+        ? toBackendMovementType(data.type as MovementType)
+        : undefined,
+    };
+    const result = await apiClient.post<any>("/assets/consume", payload);
+    return transformStockMovement(result);
+  },
 
-        const newMovement: StockMovement = {
-          id: `MOV-${Date.now()}`,
-          ...data,
-          quantity: Math.abs(data.quantity),
-          balanceAfter: 0, // Will be recalculated
-        };
-
-        // Recalculate ledger balance for this item
-        const itemMovements = allMovements.filter(
-          (m) => m.assetName === data.assetName && m.brand === data.brand,
-        );
-        const combined = [...itemMovements, newMovement].sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-        );
-
-        let balance = 0;
-        const recalculated = combined.map((m) => {
-          if (m.type.startsWith("IN_")) {
-            balance += m.quantity;
-          } else {
-            balance = Math.max(0, balance - m.quantity);
-          }
-          return { ...m, balanceAfter: balance };
-        });
-
-        // Update storage
-        const others = allMovements.filter(
-          (m) => !(m.assetName === data.assetName && m.brand === data.brand),
-        );
-        const final = [...others, ...recalculated];
-        saveToStorage("app_stockMovements", final);
-
-        return recalculated[recalculated.length - 1];
-      });
-    }
-
-    return apiClient.post<StockMovement>("/stock/movements", data);
+  /**
+   * Consume stock (for installation/maintenance)
+   */
+  consumeStock: async (data: {
+    items: Array<{
+      assetName: string;
+      brand: string;
+      quantity: number;
+    }>;
+    reason: string;
+    referenceType?: string;
+    referenceId?: string;
+  }): Promise<any> => {
+    return apiClient.post("/assets/consume", data);
   },
 
   /**
    * Get stock history for specific item
+   * Uses assets endpoint with filters
    */
   getItemHistory: async (
     assetName: string,
     brand: string,
   ): Promise<StockMovement[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const movements =
-          getFromStorage<StockMovement[]>("app_stockMovements") || [];
-        return movements
-          .filter((m) => m.assetName === assetName && m.brand === brand)
-          .sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-          );
-      });
-    }
-
-    return apiClient.get<StockMovement[]>(
-      `/stock/history?assetName=${encodeURIComponent(assetName)}&brand=${encodeURIComponent(brand)}`,
+    const params = new URLSearchParams({
+      assetName: assetName,
+      brand: brand,
+    });
+    const data = await apiClient.get<any[]>(
+      `/assets/stock-movements?${params.toString()}`,
     );
+    return data.map(transformStockMovement);
   },
 
   /**
@@ -235,33 +193,11 @@ export const stockApi = {
     currentBalance: number;
     requested: number;
   }> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const movements =
-          getFromStorage<StockMovement[]>("app_stockMovements") || [];
-        const itemMovements = movements.filter(
-          (m) => m.assetName === assetName && m.brand === brand,
-        );
-
-        let balance = 0;
-        itemMovements.forEach((m) => {
-          if (m.type.startsWith("IN_")) {
-            balance += m.quantity;
-          } else {
-            balance -= m.quantity;
-          }
-        });
-
-        return {
-          available: balance >= quantity,
-          currentBalance: Math.max(0, balance),
-          requested: quantity,
-        };
-      });
-    }
-
-    return apiClient.get(
-      `/stock/check-availability?assetName=${encodeURIComponent(assetName)}&brand=${encodeURIComponent(brand)}&quantity=${quantity}`,
-    );
+    const params = new URLSearchParams({
+      name: assetName,
+      brand: brand,
+      quantity: quantity.toString(),
+    });
+    return apiClient.get(`/assets/check-availability?${params.toString()}`);
   },
 };

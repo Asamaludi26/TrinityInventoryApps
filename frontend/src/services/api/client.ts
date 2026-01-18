@@ -2,12 +2,10 @@
  * API Client with Interceptors
  * Centralized fetch wrapper for all API calls
  *
- * NOTE: To avoid circular dependency, we use lazy imports for stores.
- * Stores are only accessed at runtime, not at module load time.
+ * NOTE: Mock mode has been deprecated. All API calls now go to the real backend.
  */
 
 // Lazy import functions to break circular dependency
-const getAuthStore = () => require("../../stores/useAuthStore").useAuthStore;
 const getNotificationStore = () =>
   require("../../stores/useNotificationStore").useNotificationStore;
 
@@ -21,8 +19,10 @@ const getEnv = () => {
 };
 
 const env = getEnv();
-export const USE_MOCK = env.VITE_USE_MOCK !== "false";
-export const API_URL = env.VITE_API_URL || "http://localhost:3001/api";
+
+// DEPRECATED: Mock mode is no longer supported - always use real API
+export const USE_MOCK = false;
+export const API_URL = env.VITE_API_URL || "http://localhost:3001/api/v1";
 
 // --- ERROR CLASS ---
 export class ApiError extends Error {
@@ -51,7 +51,8 @@ class ApiClient {
       const authStorage = localStorage.getItem("auth-storage");
       if (!authStorage) return null;
       const parsed = JSON.parse(authStorage);
-      return parsed?.state?.currentUser?.token || null;
+      // Support both old and new token storage formats
+      return parsed?.state?.token || parsed?.state?.currentUser?.token || null;
     } catch {
       return null;
     }
@@ -82,7 +83,38 @@ class ApiClient {
         return null as T;
       }
 
-      return await response.json();
+      const rawData = await response.json();
+
+      // Handle standard API response wrapper { success: boolean, data: T }
+      // This is the common pattern used by the backend
+      let data = rawData;
+      if (
+        rawData &&
+        typeof rawData === "object" &&
+        "success" in rawData &&
+        "data" in rawData
+      ) {
+        data = rawData.data;
+      }
+
+      // Handle paginated responses - extract data array if present
+      if (
+        data &&
+        typeof data === "object" &&
+        "data" in data &&
+        Array.isArray(data.data)
+      ) {
+        // Keep pagination info accessible on the array
+        const result = data.data as any;
+        result._pagination = {
+          total: data.total,
+          skip: data.skip,
+          take: data.take,
+        };
+        return result as T;
+      }
+
+      return data as T;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -115,10 +147,11 @@ class ApiClient {
 
     // Handle 401 Unauthorized - Global redirect
     if (response.status === 401) {
+      // Clear auth storage and redirect
       try {
-        getAuthStore().getState().logout();
+        localStorage.removeItem("auth-storage");
       } catch (e) {
-        console.error("[ApiClient] Failed to logout:", e);
+        console.error("[ApiClient] Failed to clear auth:", e);
       }
       // Don't throw, just redirect
       if (typeof window !== "undefined") {

@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { PASSWORD_SALT_ROUNDS } from '../../common/constants';
 
 export interface JwtPayload {
   sub: number;
@@ -26,6 +27,8 @@ export interface AuthResponse {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
@@ -33,17 +36,23 @@ export class AuthService {
 
   /**
    * Validate user credentials for local strategy
+   * Uses timing-safe comparison to prevent timing attacks
    */
   async validateUser(email: string, password: string) {
-    const user = await this.usersService.findByEmail(email);
+    // Normalize email to lowercase
+    const normalizedEmail = email.toLowerCase().trim();
 
-    if (!user) {
-      throw new UnauthorizedException('Email atau password salah');
-    }
+    const user = await this.usersService.findByEmail(normalizedEmail);
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Security: Always perform bcrypt compare even if user not found
+    // This prevents timing attacks that could reveal if email exists
+    const dummyHash = '$2b$12$dummy.hash.for.timing.attack.prevention';
+    const passwordToCompare = user?.password || dummyHash;
 
-    if (!isPasswordValid) {
+    const isPasswordValid = await bcrypt.compare(password, passwordToCompare);
+
+    if (!user || !isPasswordValid) {
+      // Security: Use generic error message to prevent user enumeration
       throw new UnauthorizedException('Email atau password salah');
     }
 
@@ -86,14 +95,17 @@ export class AuthService {
    * Register new user
    */
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
+    // Normalize email
+    const normalizedEmail = registerDto.email.toLowerCase().trim();
+
     // Check if email exists
-    const existingUser = await this.usersService.findByEmail(registerDto.email);
+    const existingUser = await this.usersService.findByEmail(normalizedEmail);
     if (existingUser) {
       throw new BadRequestException('Email sudah terdaftar');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    // Hash password with secure salt rounds
+    const hashedPassword = await bcrypt.hash(registerDto.password, PASSWORD_SALT_ROUNDS);
 
     // Create user
     const user = await this.usersService.create({

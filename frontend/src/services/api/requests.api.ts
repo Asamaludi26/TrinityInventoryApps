@@ -1,43 +1,23 @@
 /**
  * Requests API Service (Purchase Requests)
+ * Pure API calls - no mock logic
  */
 
-import { apiClient, USE_MOCK, ApiError } from "./client";
-import { Request, ItemStatus, PurchaseDetails } from "../../types";
-import { generateDocumentNumber } from "../../utils/documentNumberGenerator";
-
-// Mock helpers
-const getFromStorage = <T>(key: string): T | null => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveToStorage = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const MOCK_LATENCY = 300;
-const mockDelay = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, MOCK_LATENCY);
-  });
+import { apiClient } from "./client";
+import { Request, PurchaseDetails } from "../../types";
+import {
+  transformBackendRequest,
+  toBackendRequestStatus,
+} from "../../utils/enumMapper";
 
 export interface RequestFilters {
-  status?: ItemStatus;
+  status?: string;
   requester?: string;
   division?: string;
   dateFrom?: string;
   dateTo?: string;
+  skip?: number;
+  take?: number;
 }
 
 export interface ApproveRequestPayload {
@@ -63,54 +43,36 @@ export const requestsApi = {
    * Get all requests
    */
   getAll: async (filters?: RequestFilters): Promise<Request[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        let requests = getFromStorage<Request[]>("app_requests") || [];
-
-        if (filters) {
-          if (filters.status) {
-            requests = requests.filter((r) => r.status === filters.status);
-          }
-          if (filters.requester) {
-            requests = requests.filter(
-              (r) => r.requester === filters.requester,
-            );
-          }
-          if (filters.division) {
-            requests = requests.filter((r) => r.division === filters.division);
-          }
-        }
-
-        return requests.sort(
-          (a, b) =>
-            new Date(b.requestDate).getTime() -
-            new Date(a.requestDate).getTime(),
-        );
-      });
-    }
-
     const params = new URLSearchParams();
     if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
+      if (filters.status) {
+        params.append("status", toBackendRequestStatus(filters.status as any));
+      }
+      if (filters.requester) params.append("requesterId", filters.requester);
+      if (filters.division) params.append("division", filters.division);
+      if (filters.dateFrom) params.append("dateFrom", filters.dateFrom);
+      if (filters.dateTo) params.append("dateTo", filters.dateTo);
+      if (filters.skip) params.append("skip", String(filters.skip));
+      if (filters.take) params.append("take", String(filters.take));
     }
     const query = params.toString();
-    return apiClient.get<Request[]>(`/requests${query ? `?${query}` : ""}`);
+    const response = await apiClient.get<any[]>(
+      `/requests${query ? `?${query}` : ""}`,
+    );
+    return (response || []).map(transformBackendRequest);
   },
 
   /**
    * Get single request
    */
   getById: async (id: string): Promise<Request | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        return requests.find((r) => r.id === id) || null;
-      });
+    try {
+      const response = await apiClient.get<any>(`/requests/${id}`);
+      return transformBackendRequest(response);
+    } catch (error: any) {
+      if (error?.status === 404) return null;
+      throw error;
     }
-
-    return apiClient.get<Request>(`/requests/${id}`);
   },
 
   /**
@@ -119,53 +81,37 @@ export const requestsApi = {
   create: async (
     data: Omit<Request, "id" | "docNumber" | "status">,
   ): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const requestDate = new Date(data.requestDate);
-        const docsForGenerator = requests.map((r) => ({ docNumber: r.id }));
-        const newId = generateDocumentNumber(
-          "RO",
-          docsForGenerator,
-          requestDate,
-        );
-
-        const newRequest: Request = {
-          ...data,
-          id: newId,
-          docNumber: newId,
-          status: ItemStatus.PENDING,
-          isRegistered: false,
-          partiallyRegisteredItems: {},
-        };
-
-        const updated = [newRequest, ...requests];
-        saveToStorage("app_requests", updated);
-        return newRequest;
-      });
-    }
-
-    return apiClient.post<Request>("/requests", data);
+    const backendData = {
+      requestDate: data.requestDate,
+      division: data.division,
+      orderType:
+        data.order?.type === "Urgent"
+          ? "URGENT"
+          : data.order?.type === "Project Based"
+            ? "PROJECT_BASED"
+            : "REGULAR_STOCK",
+      justification: data.order?.justification,
+      project: data.order?.project,
+      allocationTarget:
+        data.order?.allocationTarget === "Inventory" ? "INVENTORY" : "USAGE",
+      items: data.items.map((item) => ({
+        itemName: item.itemName,
+        itemTypeBrand: item.itemTypeBrand,
+        quantity: item.quantity,
+        unit: item.unit,
+        reason: item.keterangan,
+      })),
+    };
+    const response = await apiClient.post<any>("/requests", backendData);
+    return transformBackendRequest(response);
   },
 
   /**
    * Update request
    */
   update: async (id: string, data: Partial<Request>): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const index = requests.findIndex((r) => r.id === id);
-        if (index === -1) throw new ApiError("Request tidak ditemukan.", 404);
-
-        const updated = { ...requests[index], ...data };
-        requests[index] = updated;
-        saveToStorage("app_requests", requests);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<Request>(`/requests/${id}`, data);
+    const response = await apiClient.patch<any>(`/requests/${id}`, data);
+    return transformBackendRequest(response);
   },
 
   /**
@@ -175,33 +121,11 @@ export const requestsApi = {
     id: string,
     payload: ApproveRequestPayload,
   ): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const index = requests.findIndex((r) => r.id === id);
-        if (index === -1) throw new ApiError("Request tidak ditemukan.", 404);
-
-        const allRejected = Object.values(payload.itemStatuses).every(
-          (s) => s.status === "rejected",
-        );
-
-        const updated: Request = {
-          ...requests[index],
-          logisticApprover: payload.approver,
-          logisticApprovalDate: payload.approvalDate,
-          itemStatuses: payload.itemStatuses,
-          status: allRejected
-            ? ItemStatus.REJECTED
-            : ItemStatus.LOGISTIC_APPROVED,
-        };
-
-        requests[index] = updated;
-        saveToStorage("app_requests", requests);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<Request>(`/requests/${id}/approve`, payload);
+    const response = await apiClient.post<any>(
+      `/requests/${id}/approve`,
+      payload,
+    );
+    return transformBackendRequest(response);
   },
 
   /**
@@ -209,52 +133,31 @@ export const requestsApi = {
    */
   reject: async (
     id: string,
-    payload: { rejectedBy: string; rejectionReason: string },
+    payload: { reason?: string; rejectedBy?: string; rejectionReason?: string },
   ): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const index = requests.findIndex((r) => r.id === id);
-        if (index === -1) throw new ApiError("Request tidak ditemukan.", 404);
-
-        const updated: Request = {
-          ...requests[index],
-          ...payload,
-          rejectionDate: new Date().toISOString(),
-          status: ItemStatus.REJECTED,
-        };
-
-        requests[index] = updated;
-        saveToStorage("app_requests", requests);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<Request>(`/requests/${id}/reject`, payload);
+    // Support both formats
+    const reason = payload.reason || payload.rejectionReason || "";
+    const response = await apiClient.post<any>(`/requests/${id}/reject`, {
+      reason,
+      rejectedBy: payload.rejectedBy,
+    });
+    return transformBackendRequest(response);
   },
 
   /**
-   * Cancel request
+   * Mark request as arrived
    */
-  cancel: async (id: string): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const index = requests.findIndex((r) => r.id === id);
-        if (index === -1) throw new ApiError("Request tidak ditemukan.", 404);
+  markArrived: async (id: string): Promise<Request> => {
+    const response = await apiClient.patch<any>(`/requests/${id}/arrived`);
+    return transformBackendRequest(response);
+  },
 
-        const updated: Request = {
-          ...requests[index],
-          status: ItemStatus.CANCELLED,
-        };
-
-        requests[index] = updated;
-        saveToStorage("app_requests", requests);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<Request>(`/requests/${id}/cancel`);
+  /**
+   * Complete request
+   */
+  complete: async (id: string): Promise<Request> => {
+    const response = await apiClient.patch<any>(`/requests/${id}/complete`);
+    return transformBackendRequest(response);
   },
 
   /**
@@ -265,45 +168,28 @@ export const requestsApi = {
     itemId: number,
     details: PurchaseDetails,
   ): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const index = requests.findIndex((r) => r.id === id);
-        if (index === -1) throw new ApiError("Request tidak ditemukan.", 404);
-
-        const updated: Request = {
-          ...requests[index],
-          purchaseDetails: {
-            ...(requests[index].purchaseDetails || {}),
-            [itemId]: details,
-          },
-        };
-
-        requests[index] = updated;
-        saveToStorage("app_requests", requests);
-        return updated;
-      });
-    }
-
-    return apiClient.patch<Request>(
+    const response = await apiClient.patch<any>(
       `/requests/${id}/items/${itemId}/purchase`,
       details,
     );
+    return transformBackendRequest(response);
   },
 
   /**
    * Delete request
    */
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const updated = requests.filter((r) => r.id !== id);
-        saveToStorage("app_requests", updated);
-      });
-    }
+    await apiClient.delete(`/requests/${id}`);
+  },
 
-    return apiClient.delete(`/requests/${id}`);
+  /**
+   * Cancel request
+   */
+  cancel: async (id: string, reason?: string): Promise<Request> => {
+    const response = await apiClient.post<any>(`/requests/${id}/cancel`, {
+      reason,
+    });
+    return transformBackendRequest(response);
   },
 
   /**
@@ -311,48 +197,14 @@ export const requestsApi = {
    */
   registerAssets: async (
     id: string,
-    itemId: number,
-    count: number,
+    assets: Array<{ itemId: number; assetData: any }>,
   ): Promise<Request> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const requests = getFromStorage<Request[]>("app_requests") || [];
-        const index = requests.findIndex((r) => r.id === id);
-        if (index === -1) throw new ApiError("Request tidak ditemukan.", 404);
-
-        const request = requests[index];
-        const current = request.partiallyRegisteredItems?.[itemId] || 0;
-
-        const updated: Request = {
-          ...request,
-          partiallyRegisteredItems: {
-            ...(request.partiallyRegisteredItems || {}),
-            [itemId]: current + count,
-          },
-        };
-
-        // Check if all items are fully registered
-        const allRegistered = request.items.every((item) => {
-          const registered = updated.partiallyRegisteredItems?.[item.id] || 0;
-          const approved =
-            request.itemStatuses?.[item.id]?.approvedQuantity || item.quantity;
-          return registered >= approved;
-        });
-
-        if (allRegistered) {
-          updated.isRegistered = true;
-          updated.status = ItemStatus.COMPLETED;
-        }
-
-        requests[index] = updated;
-        saveToStorage("app_requests", requests);
-        return updated;
-      });
-    }
-
-    return apiClient.post<Request>(`/requests/${id}/register-assets`, {
-      itemId,
-      count,
-    });
+    const response = await apiClient.post<any>(
+      `/requests/${id}/register-assets`,
+      {
+        assets,
+      },
+    );
+    return transformBackendRequest(response);
   },
 };

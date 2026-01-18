@@ -1,463 +1,267 @@
 /**
  * Transactions API Service
  * Handles: Handovers, Installations, Maintenances, Dismantles
+ *
+ * Pure API implementation - no mock logic
  */
 
-import { apiClient, USE_MOCK, ApiError } from "./client";
+import { apiClient } from "./client";
 import {
   Handover,
   Installation,
   Maintenance,
   Dismantle,
   ItemStatus,
-  AssetStatus,
-  AssetCondition,
 } from "../../types";
-import { generateDocumentNumber } from "../../utils/documentNumberGenerator";
 
-// Mock helpers
-const getFromStorage = <T>(key: string): T | null => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
+// --- Type Mapping Utilities ---
+
+// Backend DismantleStatus/MaintenanceStatus -> Frontend ItemStatus
+type BackendTransactionStatus =
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
+const fromBackendTransactionStatus = (
+  status: BackendTransactionStatus,
+): ItemStatus => {
+  const map: Record<BackendTransactionStatus, ItemStatus> = {
+    PENDING: ItemStatus.PENDING,
+    IN_PROGRESS: ItemStatus.IN_PROGRESS,
+    COMPLETED: ItemStatus.COMPLETED,
+    CANCELLED: ItemStatus.CANCELLED,
+  };
+  return map[status] || ItemStatus.PENDING;
+};
+
+const toBackendTransactionStatus = (
+  status: ItemStatus,
+): BackendTransactionStatus => {
+  // Only map the statuses relevant to transactions
+  switch (status) {
+    case ItemStatus.PENDING:
+      return "PENDING";
+    case ItemStatus.APPROVED:
+    case ItemStatus.LOGISTIC_APPROVED:
+    case ItemStatus.IN_PROGRESS:
+      return "IN_PROGRESS";
+    case ItemStatus.COMPLETED:
+      return "COMPLETED";
+    case ItemStatus.REJECTED:
+    case ItemStatus.CANCELLED:
+      return "CANCELLED";
+    default:
+      return "PENDING";
   }
 };
 
-const saveToStorage = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
+// Transform backend handover to frontend
+const transformHandover = (data: any): Handover => ({
+  ...data,
+  // Map any status fields if present
+});
 
-const MOCK_LATENCY = 300;
-const mockDelay = <T>(fn: () => T): Promise<T> =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, MOCK_LATENCY);
-  });
+// Transform backend installation to frontend
+const transformInstallation = (data: any): Installation => ({
+  ...data,
+});
+
+// Transform backend maintenance to frontend
+const transformMaintenance = (data: any): Maintenance => ({
+  ...data,
+  status: data.status ? fromBackendTransactionStatus(data.status) : undefined,
+});
+
+// Transform backend dismantle to frontend
+const transformDismantle = (data: any): Dismantle => ({
+  ...data,
+  status: data.status ? fromBackendTransactionStatus(data.status) : undefined,
+});
 
 // --- HANDOVERS ---
 export const handoversApi = {
   getAll: async (): Promise<Handover[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<Handover[]>("app_handovers") || [];
-      });
-    }
-    return apiClient.get<Handover[]>("/transactions/handovers");
+    const data = await apiClient.get<any[]>("/transactions/handovers");
+    return data.map(transformHandover);
   },
 
   getById: async (id: string): Promise<Handover | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const handovers = getFromStorage<Handover[]>("app_handovers") || [];
-        return handovers.find((h) => h.id === id) || null;
-      });
+    try {
+      const data = await apiClient.get<any>(`/transactions/handovers/${id}`);
+      return transformHandover(data);
+    } catch {
+      return null;
     }
-    return apiClient.get<Handover>(`/transactions/handovers/${id}`);
   },
 
   create: async (
     data: Omit<Handover, "id" | "docNumber">,
   ): Promise<Handover> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const handovers = getFromStorage<Handover[]>("app_handovers") || [];
-        const assets = getFromStorage<any[]>("app_assets") || [];
-
-        const docsForGenerator = handovers.map((h) => ({
-          docNumber: h.docNumber,
-        }));
-        const docNumber = generateDocumentNumber(
-          "HO",
-          docsForGenerator,
-          new Date(data.handoverDate),
-        );
-
-        const newHandover: Handover = {
-          ...data,
-          id: `handover_${Date.now()}`,
-          docNumber,
-        };
-
-        // Update asset ownership
-        const assetIds = data.items
-          .filter((i) => i.assetId)
-          .map((i) => i.assetId!);
-        const updatedAssets = assets.map((a) => {
-          if (assetIds.includes(a.id)) {
-            return {
-              ...a,
-              currentUser: data.penerima,
-              location: `Dipegang: ${data.penerima}`,
-              status: AssetStatus.IN_CUSTODY,
-            };
-          }
-          return a;
-        });
-        saveToStorage("app_assets", updatedAssets);
-
-        const updated = [newHandover, ...handovers];
-        saveToStorage("app_handovers", updated);
-        return newHandover;
-      });
-    }
-    return apiClient.post<Handover>("/transactions/handovers", data);
+    const result = await apiClient.post<any>("/transactions/handovers", data);
+    return transformHandover(result);
   },
 
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const handovers = getFromStorage<Handover[]>("app_handovers") || [];
-        const updated = handovers.filter((h) => h.id !== id);
-        saveToStorage("app_handovers", updated);
-      });
-    }
     return apiClient.delete(`/transactions/handovers/${id}`);
   },
 };
 
 // --- INSTALLATIONS ---
 export const installationsApi = {
-  getAll: async (): Promise<Installation[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<Installation[]>("app_installations") || [];
-      });
-    }
-    return apiClient.get<Installation[]>("/transactions/installations");
+  getAll: async (customerId?: string): Promise<Installation[]> => {
+    const params = customerId ? `?customerId=${customerId}` : "";
+    const data = await apiClient.get<any[]>(
+      `/transactions/installations${params}`,
+    );
+    return data.map(transformInstallation);
   },
 
   getById: async (id: string): Promise<Installation | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const installations =
-          getFromStorage<Installation[]>("app_installations") || [];
-        return installations.find((i) => i.id === id) || null;
-      });
+    try {
+      const data = await apiClient.get<any>(
+        `/transactions/installations/${id}`,
+      );
+      return transformInstallation(data);
+    } catch {
+      return null;
     }
-    return apiClient.get<Installation>(`/transactions/installations/${id}`);
   },
 
   create: async (
     data: Omit<Installation, "id" | "docNumber">,
   ): Promise<Installation> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const installations =
-          getFromStorage<Installation[]>("app_installations") || [];
-        const assets = getFromStorage<any[]>("app_assets") || [];
-
-        const docsForGenerator = installations.map((i) => ({
-          docNumber: i.docNumber,
-        }));
-        const docNumber = generateDocumentNumber(
-          "INS",
-          docsForGenerator,
-          new Date(data.installationDate),
-        );
-
-        const newInstallation: Installation = {
-          ...data,
-          id: `installation_${Date.now()}`,
-          docNumber,
-        };
-
-        // Update installed assets
-        const assetIds = data.assetsInstalled.map((a) => a.assetId);
-        const updatedAssets = assets.map((a) => {
-          if (assetIds.includes(a.id)) {
-            return {
-              ...a,
-              status: AssetStatus.IN_USE,
-              currentUser: data.customerId,
-              location: `Terpasang: ${data.customerName}`,
-            };
-          }
-          return a;
-        });
-        saveToStorage("app_assets", updatedAssets);
-
-        const updated = [newInstallation, ...installations];
-        saveToStorage("app_installations", updated);
-        return newInstallation;
-      });
-    }
-    return apiClient.post<Installation>("/transactions/installations", data);
+    const result = await apiClient.post<any>(
+      "/transactions/installations",
+      data,
+    );
+    return transformInstallation(result);
   },
 
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const installations =
-          getFromStorage<Installation[]>("app_installations") || [];
-        const updated = installations.filter((i) => i.id !== id);
-        saveToStorage("app_installations", updated);
-      });
-    }
     return apiClient.delete(`/transactions/installations/${id}`);
   },
 };
 
 // --- MAINTENANCES ---
 export const maintenancesApi = {
-  getAll: async (): Promise<Maintenance[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<Maintenance[]>("app_maintenances") || [];
-      });
+  getAll: async (filters?: {
+    status?: ItemStatus;
+    assetId?: string;
+  }): Promise<Maintenance[]> => {
+    const params = new URLSearchParams();
+    if (filters?.status) {
+      params.append("status", toBackendTransactionStatus(filters.status));
     }
-    return apiClient.get<Maintenance[]>("/transactions/maintenances");
+    if (filters?.assetId) {
+      params.append("assetId", filters.assetId);
+    }
+    const queryString = params.toString();
+    const url = `/transactions/maintenances${queryString ? `?${queryString}` : ""}`;
+    const data = await apiClient.get<any[]>(url);
+    return data.map(transformMaintenance);
   },
 
   getById: async (id: string): Promise<Maintenance | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const maintenances =
-          getFromStorage<Maintenance[]>("app_maintenances") || [];
-        return maintenances.find((m) => m.id === id) || null;
-      });
+    try {
+      const data = await apiClient.get<any>(`/transactions/maintenances/${id}`);
+      return transformMaintenance(data);
+    } catch {
+      return null;
     }
-    return apiClient.get<Maintenance>(`/transactions/maintenances/${id}`);
   },
 
   create: async (
     data: Omit<Maintenance, "id" | "docNumber">,
   ): Promise<Maintenance> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const maintenances =
-          getFromStorage<Maintenance[]>("app_maintenances") || [];
-
-        const docsForGenerator = maintenances.map((m) => ({
-          docNumber: m.docNumber,
-        }));
-        const docNumber = generateDocumentNumber(
-          "MNT",
-          docsForGenerator,
-          new Date(data.maintenanceDate),
-        );
-
-        const newMaintenance: Maintenance = {
-          ...data,
-          id: `maintenance_${Date.now()}`,
-          docNumber,
-        };
-
-        const updated = [newMaintenance, ...maintenances];
-        saveToStorage("app_maintenances", updated);
-        return newMaintenance;
-      });
-    }
-    return apiClient.post<Maintenance>("/transactions/maintenances", data);
+    const result = await apiClient.post<any>(
+      "/transactions/maintenances",
+      data,
+    );
+    return transformMaintenance(result);
   },
 
   update: async (
     id: string,
     data: Partial<Maintenance>,
   ): Promise<Maintenance> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const maintenances =
-          getFromStorage<Maintenance[]>("app_maintenances") || [];
-        const index = maintenances.findIndex((m) => m.id === id);
-        if (index === -1)
-          throw new ApiError("Maintenance tidak ditemukan.", 404);
-
-        const updated = { ...maintenances[index], ...data };
-        maintenances[index] = updated;
-        saveToStorage("app_maintenances", maintenances);
-        return updated;
-      });
-    }
-    return apiClient.patch<Maintenance>(
+    const result = await apiClient.patch<any>(
       `/transactions/maintenances/${id}`,
       data,
     );
+    return transformMaintenance(result);
   },
 
   complete: async (
     id: string,
-    payload: { completedBy: string; completionDate: string },
+    payload: {
+      actionTaken?: string;
+      laborCost?: number;
+      partsCost?: number;
+      completedBy?: string;
+      completionDate?: string;
+    },
   ): Promise<Maintenance> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const maintenances =
-          getFromStorage<Maintenance[]>("app_maintenances") || [];
-        const index = maintenances.findIndex((m) => m.id === id);
-        if (index === -1)
-          throw new ApiError("Maintenance tidak ditemukan.", 404);
-
-        const updated: Maintenance = {
-          ...maintenances[index],
-          ...payload,
-          status: ItemStatus.COMPLETED,
-        };
-        maintenances[index] = updated;
-        saveToStorage("app_maintenances", maintenances);
-        return updated;
-      });
-    }
-    return apiClient.patch<Maintenance>(
+    const result = await apiClient.patch<any>(
       `/transactions/maintenances/${id}/complete`,
       payload,
     );
+    return transformMaintenance(result);
   },
 
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const maintenances =
-          getFromStorage<Maintenance[]>("app_maintenances") || [];
-        const updated = maintenances.filter((m) => m.id !== id);
-        saveToStorage("app_maintenances", updated);
-      });
-    }
     return apiClient.delete(`/transactions/maintenances/${id}`);
   },
 };
 
 // --- DISMANTLES ---
 export const dismantlesApi = {
-  getAll: async (): Promise<Dismantle[]> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        return getFromStorage<Dismantle[]>("app_dismantles") || [];
-      });
-    }
-    return apiClient.get<Dismantle[]>("/transactions/dismantles");
+  getAll: async (status?: ItemStatus): Promise<Dismantle[]> => {
+    const params = status
+      ? `?status=${toBackendTransactionStatus(status)}`
+      : "";
+    const data = await apiClient.get<any[]>(
+      `/transactions/dismantles${params}`,
+    );
+    return data.map(transformDismantle);
   },
 
   getById: async (id: string): Promise<Dismantle | null> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const dismantles = getFromStorage<Dismantle[]>("app_dismantles") || [];
-        return dismantles.find((d) => d.id === id) || null;
-      });
+    try {
+      const data = await apiClient.get<any>(`/transactions/dismantles/${id}`);
+      return transformDismantle(data);
+    } catch {
+      return null;
     }
-    return apiClient.get<Dismantle>(`/transactions/dismantles/${id}`);
   },
 
   create: async (
     data: Omit<Dismantle, "id" | "docNumber">,
   ): Promise<Dismantle> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const dismantles = getFromStorage<Dismantle[]>("app_dismantles") || [];
-
-        const docsForGenerator = dismantles.map((d) => ({
-          docNumber: d.docNumber,
-        }));
-        const docNumber = generateDocumentNumber(
-          "DSM",
-          docsForGenerator,
-          new Date(data.dismantleDate),
-        );
-
-        const newDismantle: Dismantle = {
-          ...data,
-          id: `dismantle_${Date.now()}`,
-          docNumber,
-          status: ItemStatus.PENDING,
-        };
-
-        const updated = [newDismantle, ...dismantles];
-        saveToStorage("app_dismantles", updated);
-        return newDismantle;
-      });
-    }
-    return apiClient.post<Dismantle>("/transactions/dismantles", data);
+    const result = await apiClient.post<any>("/transactions/dismantles", data);
+    return transformDismantle(result);
   },
 
   update: async (id: string, data: Partial<Dismantle>): Promise<Dismantle> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const dismantles = getFromStorage<Dismantle[]>("app_dismantles") || [];
-        const index = dismantles.findIndex((d) => d.id === id);
-        if (index === -1) throw new ApiError("Dismantle tidak ditemukan.", 404);
-
-        const updated = { ...dismantles[index], ...data };
-        dismantles[index] = updated;
-        saveToStorage("app_dismantles", dismantles);
-        return updated;
-      });
-    }
-    return apiClient.patch<Dismantle>(`/transactions/dismantles/${id}`, data);
+    const result = await apiClient.patch<any>(
+      `/transactions/dismantles/${id}`,
+      data,
+    );
+    return transformDismantle(result);
   },
 
   complete: async (
     id: string,
     payload: { acknowledger: string },
   ): Promise<Dismantle> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const dismantles = getFromStorage<Dismantle[]>("app_dismantles") || [];
-        const assets = getFromStorage<any[]>("app_assets") || [];
-
-        const index = dismantles.findIndex((d) => d.id === id);
-        if (index === -1) throw new ApiError("Dismantle tidak ditemukan.", 404);
-
-        const dismantle = dismantles[index];
-
-        // Update dismantle
-        const updated: Dismantle = {
-          ...dismantle,
-          acknowledger: payload.acknowledger,
-          status: ItemStatus.COMPLETED,
-        };
-        dismantles[index] = updated;
-        saveToStorage("app_dismantles", dismantles);
-
-        // Return asset to storage
-        const isGood = [
-          AssetCondition.GOOD,
-          AssetCondition.USED_OKAY,
-          AssetCondition.BRAND_NEW,
-        ].includes(dismantle.retrievedCondition);
-
-        const updatedAssets = assets.map((a) => {
-          if (a.id === dismantle.assetId) {
-            return {
-              ...a,
-              status: isGood ? AssetStatus.IN_STORAGE : AssetStatus.DAMAGED,
-              condition: dismantle.retrievedCondition,
-              currentUser: null,
-              location: isGood ? "Gudang Inventori" : "Gudang (Rusak)",
-              isDismantled: true,
-              dismantleInfo: {
-                customerId: dismantle.customerId,
-                customerName: dismantle.customerName,
-                dismantleDate: dismantle.dismantleDate,
-                dismantleId: dismantle.id,
-              },
-            };
-          }
-          return a;
-        });
-        saveToStorage("app_assets", updatedAssets);
-
-        return updated;
-      });
-    }
-    return apiClient.patch<Dismantle>(
+    const result = await apiClient.patch<any>(
       `/transactions/dismantles/${id}/complete`,
       payload,
     );
+    return transformDismantle(result);
   },
 
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) {
-      return mockDelay(() => {
-        const dismantles = getFromStorage<Dismantle[]>("app_dismantles") || [];
-        const updated = dismantles.filter((d) => d.id !== id);
-        saveToStorage("app_dismantles", updated);
-      });
-    }
     return apiClient.delete(`/transactions/dismantles/${id}`);
   },
 };

@@ -9,6 +9,23 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * Strip unknown fields from user DTO to prevent Prisma validation errors.
+   */
+  private sanitizeUserData(dto: Partial<CreateUserDto | UpdateUserDto>): Partial<CreateUserDto> {
+    const { email, password, name, role, divisionId, permissions } = dto as any;
+    const sanitized: Partial<CreateUserDto> = {};
+
+    if (email !== undefined) sanitized.email = email;
+    if (password !== undefined) sanitized.password = password;
+    if (name !== undefined) sanitized.name = name;
+    if (role !== undefined) sanitized.role = role;
+    if (divisionId !== undefined) sanitized.divisionId = divisionId;
+    if (permissions !== undefined) sanitized.permissions = permissions;
+
+    return sanitized;
+  }
+
   async create(createUserDto: CreateUserDto) {
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -32,13 +49,14 @@ export class UsersService {
 
     // Always hash the password - never accept pre-hashed passwords
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const sanitized = this.sanitizeUserData(createUserDto);
 
     return this.prisma.user.create({
       data: {
-        ...createUserDto,
+        ...sanitized,
         password: hashedPassword,
         role: createUserDto.role || UserRole.STAFF,
-      },
+      } as any,
       include: {
         division: true,
       },
@@ -127,13 +145,14 @@ export class UsersService {
     await this.findOne(id); // Ensure exists
 
     // Hash password if provided
-    if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    const sanitized = this.sanitizeUserData(updateUserDto);
+    if (sanitized.password) {
+      sanitized.password = await bcrypt.hash(sanitized.password, 10);
     }
 
     const updated = await this.prisma.user.update({
       where: { id },
-      data: updateUserDto,
+      data: sanitized,
       include: {
         division: true,
       },
