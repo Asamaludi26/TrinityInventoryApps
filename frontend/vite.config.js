@@ -20,6 +20,25 @@ export default defineConfig(({ mode }) => {
                 "@utils": path.resolve(__dirname, "./src/utils"),
                 "@types": path.resolve(__dirname, "./src/types"),
                 "@services": path.resolve(__dirname, "./src/services"),
+                "@test": path.resolve(__dirname, "./src/test"),
+            },
+        },
+        test: {
+            globals: true,
+            environment: "jsdom",
+            setupFiles: ["./src/test/vitest.setup.ts"],
+            include: ["src/**/*.{test,spec}.{js,ts,jsx,tsx}"],
+            exclude: ["node_modules", "dist"],
+            coverage: {
+                provider: "v8",
+                reporter: ["text", "json", "html"],
+                exclude: [
+                    "node_modules/",
+                    "src/test/",
+                    "**/*.d.ts",
+                    "**/*.config.*",
+                    "**/types/**",
+                ],
             },
         },
         server: {
@@ -29,11 +48,12 @@ export default defineConfig(({ mode }) => {
             open: false,
             cors: true,
             proxy: {
+                // Proxy for relative /api calls (not used when API_URL is absolute)
                 "/api": {
-                    target: env.VITE_API_URL || "http://localhost:3001",
+                    target: "http://localhost:3001",
                     changeOrigin: true,
                     secure: false,
-                    rewrite: (path) => path,
+                    // Don't rewrite - backend already expects /api prefix
                 },
             },
             hmr: {

@@ -18,16 +18,13 @@ services:
   # Frontend - React SPA served by Nginx
   # ===========================================================================
   frontend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-trinity/asset-flow}/frontend:${IMAGE_TAG:-latest}
+    image: trinity-frontend:latest
+    build:
+      context: ./frontend
     container_name: trinity-frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-80}:80"
-    environment:
-      - NODE_ENV=production
-    depends_on:
-      backend:
-        condition: service_healthy
     networks:
       - trinity-network
     healthcheck:
@@ -46,7 +43,9 @@ services:
   # Backend - NestJS API Server
   # ===========================================================================
   backend:
-    image: ghcr.io/${GITHUB_REPOSITORY:-trinity/asset-flow}/backend:${IMAGE_TAG:-latest}
+    image: trinity-backend:latest
+    build:
+      context: ./backend
     container_name: trinity-backend
     restart: unless-stopped
     ports:

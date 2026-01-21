@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ErrorBoundary from "./ErrorBoundary";
+import { useState } from "react";
 
 // Component that throws an error
 const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
@@ -92,11 +93,9 @@ describe("ErrorBoundary", () => {
 
   it("should reset error state when retry button is clicked", () => {
     const TestComponent = () => {
-      const [shouldThrow, setShouldThrow] = vi
-        .fn()
-        .mockReturnValue([true, vi.fn()]);
+      const [shouldThrow, setShouldThrow] = useState(true);
       return (
-        <ErrorBoundary>
+        <ErrorBoundary onError={() => setShouldThrow(false)}>
           <ThrowError shouldThrow={shouldThrow} />
         </ErrorBoundary>
       );

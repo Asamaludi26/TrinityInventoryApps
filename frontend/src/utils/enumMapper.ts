@@ -602,6 +602,6 @@ export function transformBackendAssetReturn(backendReturn: any): AssetReturn {
     })),
     verifiedBy: backendReturn.verifiedBy,
     verificationDate: backendReturn.verificationDate,
-    notes: backendReturn.notes,
+    verificationNotes: backendReturn.verificationNotes,
   };
 }
