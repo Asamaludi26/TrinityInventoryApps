@@ -5,12 +5,7 @@ import {
   NotificationType,
   NotificationAction,
 } from "../types";
-import {
-  unifiedApi,
-  notificationsApi,
-  USE_MOCK,
-  mockStorage,
-} from "../services/api";
+import { unifiedApi, notificationsApi } from "../services/api";
 
 // FIX: Re-exporting types from the central `types/index.ts` file for compatibility.
 export type { NotificationType, NotificationAction };
@@ -88,21 +83,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     };
 
     try {
-      if (USE_MOCK) {
-        const current =
-          mockStorage.get<Notification[]>("app_notifications") || [];
-        mockStorage.save("app_notifications", [newNotification, ...current]);
-      } else {
-        // Fire and forget for backend notification creation
-        notificationsApi
-          .create(newNotification)
-          .catch((err) =>
-            console.warn(
-              "[NotificationStore] Failed to persist notification:",
-              err,
-            ),
-          );
-      }
+      // Fire and forget for backend notification creation
+      notificationsApi
+        .create(newNotification)
+        .catch((err) =>
+          console.warn(
+            "[NotificationStore] Failed to persist notification:",
+            err,
+          ),
+        );
     } catch (err) {
       console.warn("[NotificationStore] Error saving notification:", err);
     }
@@ -113,24 +102,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   removeNotification: async (id) => {
+    // Validate ID before making API call
+    if (!id || typeof id !== "number" || isNaN(id)) {
+      console.warn("[NotificationStore] Invalid notification ID:", id);
+      // Still remove from local state
+      set((state) => ({
+        notifications: state.notifications.filter((n) => n.id !== id),
+      }));
+      return;
+    }
+
     try {
-      if (USE_MOCK) {
-        const current =
-          mockStorage.get<Notification[]>("app_notifications") || [];
-        mockStorage.save(
-          "app_notifications",
-          current.filter((n) => n.id !== id),
+      notificationsApi
+        .delete(id)
+        .catch((err) =>
+          console.warn(
+            "[NotificationStore] Failed to delete notification:",
+            err,
+          ),
         );
-      } else {
-        notificationsApi
-          .delete(id)
-          .catch((err) =>
-            console.warn(
-              "[NotificationStore] Failed to delete notification:",
-              err,
-            ),
-          );
-      }
     } catch (err) {
       console.warn("[NotificationStore] Error deleting notification:", err);
     }
@@ -142,23 +132,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markAsRead: async (id: number) => {
     try {
-      if (USE_MOCK) {
-        const current =
-          mockStorage.get<Notification[]>("app_notifications") || [];
-        mockStorage.save(
-          "app_notifications",
-          current.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      notificationsApi
+        .markAsRead(id)
+        .catch((err) =>
+          console.warn(
+            "[NotificationStore] Failed to mark notification as read:",
+            err,
+          ),
         );
-      } else {
-        notificationsApi
-          .markAsRead(id)
-          .catch((err) =>
-            console.warn(
-              "[NotificationStore] Failed to mark notification as read:",
-              err,
-            ),
-          );
-      }
     } catch (err) {
       console.warn(
         "[NotificationStore] Error marking notification as read:",
@@ -175,27 +156,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   markAllAsRead: async (recipientId: number) => {
     try {
-      if (USE_MOCK) {
-        const current =
-          mockStorage.get<Notification[]>("app_notifications") || [];
-        mockStorage.save(
-          "app_notifications",
-          current.map((n) =>
-            n.recipientId === recipientId && !n.isRead
-              ? { ...n, isRead: true }
-              : n,
+      notificationsApi
+        .markAllAsRead(recipientId)
+        .catch((err) =>
+          console.warn(
+            "[NotificationStore] Failed to mark all notifications as read:",
+            err,
           ),
         );
-      } else {
-        notificationsApi
-          .markAllAsRead(recipientId)
-          .catch((err) =>
-            console.warn(
-              "[NotificationStore] Failed to mark all notifications as read:",
-              err,
-            ),
-          );
-      }
     } catch (err) {
       console.warn(
         "[NotificationStore] Error marking all notifications as read:",

@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Backend Dev Server",
+			"type": "shell",
+			"command": "cd A:\\Workspace\\Project\\Trinity\\TrinityInventoryApps\\backend && pnpm start:dev",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Backend Dev",
+			"type": "shell",
+			"command": "Set-Location A:\\Workspace\\Project\\Trinity\\TrinityInventoryApps\\backend; pnpm start:dev",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Frontend Dev",
+			"type": "shell",
+			"command": "Set-Location A:\\Workspace\\Project\\Trinity\\TrinityInventoryApps\\frontend; pnpm dev",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

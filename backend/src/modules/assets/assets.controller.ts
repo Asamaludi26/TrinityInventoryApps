@@ -66,6 +66,23 @@ export class AssetsController {
     return this.assetsService.getStockSummary();
   }
 
+  @Get('stock-movements')
+  getStockMovements(
+    @Query('assetName') assetName?: string,
+    @Query('brand') brand?: string,
+    @Query('type') type?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.assetsService.getStockMovements({
+      assetName,
+      brand,
+      type,
+      startDate,
+      endDate,
+    });
+  }
+
   @Get('check-availability')
   checkAvailability(
     @Query('name') name: string,

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
@@ -35,6 +36,13 @@ export class CategoriesController {
   @Get()
   findAllCategories() {
     return this.categoriesService.findAllCategories();
+  }
+
+  @Put()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK)
+  updateBulkCategories(@Body() categories: Array<{ id: number; [key: string]: any }>) {
+    return this.categoriesService.updateBulk(categories);
   }
 
   @Get(':id')

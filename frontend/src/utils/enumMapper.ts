@@ -18,6 +18,7 @@ import {
   ItemStatus,
   LoanRequestStatus,
   CustomerStatus,
+  AssetReturnStatus,
 } from "../types";
 
 // ============================================================================
@@ -73,6 +74,12 @@ export type BackendLoanStatus =
   | "RETURNED";
 
 export type BackendCustomerStatus = "ACTIVE" | "INACTIVE" | "CHURNED";
+
+export type BackendAssetReturnStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "COMPLETED"
+  | "REJECTED";
 
 export type BackendMovementType =
   | "RECEIVED"
@@ -330,6 +337,45 @@ export function toBackendCustomerStatus(
 }
 
 // ============================================================================
+// ASSET RETURN STATUS MAPPINGS
+// ============================================================================
+
+const assetReturnStatusBackendToFrontend: Record<
+  BackendAssetReturnStatus,
+  AssetReturnStatus
+> = {
+  PENDING: AssetReturnStatus.PENDING_APPROVAL,
+  APPROVED: AssetReturnStatus.APPROVED,
+  COMPLETED: AssetReturnStatus.COMPLETED,
+  REJECTED: AssetReturnStatus.REJECTED,
+};
+
+const assetReturnStatusFrontendToBackend: Record<
+  AssetReturnStatus,
+  BackendAssetReturnStatus
+> = {
+  [AssetReturnStatus.PENDING_APPROVAL]: "PENDING",
+  [AssetReturnStatus.APPROVED]: "APPROVED",
+  [AssetReturnStatus.COMPLETED]: "COMPLETED",
+  [AssetReturnStatus.REJECTED]: "REJECTED",
+};
+
+export function fromBackendAssetReturnStatus(
+  status: BackendAssetReturnStatus | string,
+): AssetReturnStatus {
+  return (
+    assetReturnStatusBackendToFrontend[status as BackendAssetReturnStatus] ||
+    AssetReturnStatus.PENDING_APPROVAL
+  );
+}
+
+export function toBackendAssetReturnStatus(
+  status: AssetReturnStatus,
+): BackendAssetReturnStatus {
+  return assetReturnStatusFrontendToBackend[status] || "PENDING";
+}
+
+// ============================================================================
 // MOVEMENT TYPE MAPPINGS
 // ============================================================================
 
@@ -359,7 +405,14 @@ export function fromBackendMovementType(
 // DATA TRANSFORMERS (for API responses)
 // ============================================================================
 
-import type { Asset, User, Request, LoanRequest, Customer } from "../types";
+import type {
+  Asset,
+  User,
+  Request,
+  LoanRequest,
+  Customer,
+  AssetReturn,
+} from "../types";
 
 /**
  * Transform backend asset response to frontend Asset type
@@ -400,32 +453,48 @@ export function transformBackendUser(backendUser: any): User {
  * Transform backend request response to frontend Request type
  */
 export function transformBackendRequest(backendRequest: any): Request {
+  if (!backendRequest) {
+    throw new Error("Cannot transform null/undefined request");
+  }
+
+  // Handle requester - can be object with name, string, or null/undefined
+  let requesterName = "";
+  if (backendRequest.requester) {
+    if (typeof backendRequest.requester === "object") {
+      requesterName = backendRequest.requester.name || "";
+    } else if (typeof backendRequest.requester === "string") {
+      requesterName = backendRequest.requester;
+    }
+  }
+
+  // Handle order type mapping from backend enum
+  const orderTypeMap: Record<string, string> = {
+    REGULAR_STOCK: "Regular Stock",
+    URGENT: "Urgent",
+    PROJECT_BASED: "Project Based",
+  };
+
   return {
     ...backendRequest,
-    docNumber: backendRequest.docNumber,
-    requester: backendRequest.requester?.name || backendRequest.requester || "",
+    docNumber: backendRequest.docNumber || backendRequest.id,
+    requester: requesterName,
     status: fromBackendRequestStatus(backendRequest.status),
     order: {
-      type:
-        backendRequest.orderType === "REGULAR_STOCK"
-          ? "Regular Stock"
-          : backendRequest.orderType === "URGENT"
-            ? "Urgent"
-            : "Project Based",
-      justification: backendRequest.justification,
-      project: backendRequest.project,
+      type: orderTypeMap[backendRequest.orderType] || "Regular Stock",
+      justification: backendRequest.justification || "",
+      project: backendRequest.project || "",
       allocationTarget:
         backendRequest.allocationTarget === "USAGE" ? "Usage" : "Inventory",
     },
     items: (backendRequest.items || []).map((item: any, idx: number) => ({
       id: item.id || idx + 1,
-      itemName: item.itemName,
-      itemTypeBrand: item.itemTypeBrand,
-      quantity: item.quantity,
-      keterangan: item.reason || "",
-      unit: item.unit,
+      itemName: item.itemName || "",
+      itemTypeBrand: item.itemTypeBrand || "",
+      quantity: item.quantity || 0,
+      keterangan: item.reason || item.keterangan || "",
+      unit: item.unit || "pcs",
     })),
-    isRegistered: backendRequest.isRegistered,
+    isRegistered: backendRequest.isRegistered || false,
     partiallyRegisteredItems: backendRequest.partiallyRegisteredItems || {},
   };
 }
@@ -434,27 +503,52 @@ export function transformBackendRequest(backendRequest: any): Request {
  * Transform backend loan request to frontend LoanRequest type
  */
 export function transformBackendLoanRequest(backendLoan: any): LoanRequest {
+  if (!backendLoan) {
+    throw new Error("Cannot transform null/undefined loan request");
+  }
+
+  // Handle requester - can be object with name, string, or null/undefined
+  let requesterName = "";
+  let divisionName = "";
+  if (backendLoan.requester) {
+    if (typeof backendLoan.requester === "object") {
+      requesterName = backendLoan.requester.name || "";
+      divisionName = backendLoan.requester.division?.name || "";
+    } else if (typeof backendLoan.requester === "string") {
+      requesterName = backendLoan.requester;
+    }
+  }
+  // Also check for standalone division field
+  if (!divisionName && backendLoan.division) {
+    divisionName =
+      typeof backendLoan.division === "string"
+        ? backendLoan.division
+        : backendLoan.division.name || "";
+  }
+
   return {
-    id: backendLoan.id,
-    requester: backendLoan.requester?.name || backendLoan.requester || "",
-    division: backendLoan.requester?.division?.name || "",
-    requestDate: backendLoan.requestDate,
+    id: backendLoan.id || "",
+    requester: requesterName,
+    division: divisionName,
+    requestDate: backendLoan.requestDate || "",
     status: fromBackendLoanStatus(backendLoan.status),
     items: (backendLoan.items || []).map((item: any, idx: number) => ({
       id: item.id || idx + 1,
-      itemName: item.itemName,
-      brand: item.brand,
-      quantity: item.quantity,
-      keterangan: item.notes || "",
-      returnDate: null,
-      unit: item.unit,
+      itemName: item.itemName || "",
+      brand: item.brand || "",
+      quantity: item.quantity || 0,
+      keterangan: item.notes || item.keterangan || "",
+      returnDate: item.returnDate || null,
+      unit: item.unit || "pcs",
     })),
-    notes: backendLoan.purpose,
-    approver: backendLoan.approver,
-    approvalDate: backendLoan.approvalDate,
-    rejectionReason: backendLoan.rejectionReason,
-    assignedAssetIds: backendLoan.assignedAssets || {},
-    returnedAssetIds: backendLoan.returnedAssets || [],
+    notes: backendLoan.purpose || backendLoan.notes || "",
+    approver: backendLoan.approver || undefined,
+    approvalDate: backendLoan.approvalDate || undefined,
+    rejectionReason: backendLoan.rejectionReason || undefined,
+    assignedAssetIds:
+      backendLoan.assignedAssets || backendLoan.assignedAssetIds || {},
+    returnedAssetIds:
+      backendLoan.returnedAssets || backendLoan.returnedAssetIds || [],
   };
 }
 
@@ -479,5 +573,35 @@ export function transformBackendCustomer(backendCustomer: any): Customer {
     installedMaterials: [],
     activityLog: [],
     notes: backendCustomer.notes,
+  };
+}
+
+/**
+ * Transform backend asset return to frontend AssetReturn type
+ */
+export function transformBackendAssetReturn(backendReturn: any): AssetReturn {
+  if (!backendReturn) {
+    throw new Error("Cannot transform null/undefined asset return");
+  }
+
+  return {
+    id: backendReturn.id || "",
+    docNumber: backendReturn.docNumber || backendReturn.id || "",
+    loanRequestId: backendReturn.loanRequestId || "",
+    returnDate: backendReturn.returnDate || "",
+    status: fromBackendAssetReturnStatus(backendReturn.status),
+    returnedBy: backendReturn.returnedBy || "",
+    items: (backendReturn.items || []).map((item: any) => ({
+      assetId: item.assetId || "",
+      assetName: item.assetName || "",
+      returnedCondition: fromBackendAssetCondition(
+        item.returnedCondition || item.condition,
+      ),
+      status: item.status || "pending",
+      verificationNotes: item.verificationNotes || item.notes || "",
+    })),
+    verifiedBy: backendReturn.verifiedBy,
+    verificationDate: backendReturn.verificationDate,
+    verificationNotes: backendReturn.verificationNotes,
   };
 }

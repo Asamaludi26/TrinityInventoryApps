@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { ApproveLoanDto } from './dto/approve-loan.dto';
+import { SubmitReturnDto } from './dto/submit-return.dto';
 import { LoanStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -203,5 +204,114 @@ export class LoansService {
     });
 
     return updated;
+  }
+
+  /**
+   * Delete a loan request (only PENDING or REJECTED can be deleted)
+   */
+  async delete(id: string, deletedBy: string) {
+    const loan = await this.findOne(id);
+
+    // Only allow deletion of PENDING or REJECTED requests
+    const deletableStatuses: LoanStatus[] = [LoanStatus.PENDING, LoanStatus.REJECTED];
+    if (!deletableStatuses.includes(loan.status)) {
+      throw new BadRequestException(
+        `Loan request tidak dapat dihapus karena status ${loan.status}`,
+      );
+    }
+
+    // Soft delete or hard delete based on your preference
+    await this.prisma.loanRequest.delete({
+      where: { id },
+    });
+
+    // Log activity
+    await this.prisma.activityLog.create({
+      data: {
+        entityType: 'LoanRequest',
+        entityId: id,
+        action: 'DELETED',
+        changes: { previousStatus: loan.status },
+        performedBy: deletedBy,
+      },
+    });
+
+    return { success: true, message: `Loan request ${id} berhasil dihapus` };
+  }
+
+  /**
+   * Submit return for a loan request
+   * Creates a return document and updates asset statuses
+   */
+  async submitReturn(id: string, dto: SubmitReturnDto, returnedBy: string) {
+    const loan = await this.findOne(id);
+
+    // Validate loan is in ON_LOAN status
+    if (loan.status !== LoanStatus.ON_LOAN) {
+      throw new BadRequestException(
+        `Loan request tidak dalam status ON_LOAN (status saat ini: ${loan.status})`,
+      );
+    }
+
+    // Generate return document number
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `RR-${year}-${month}-`;
+
+    const lastReturn = await this.prisma.assetReturn.findFirst({
+      where: { docNumber: { startsWith: prefix } },
+      orderBy: { docNumber: 'desc' },
+    });
+
+    let sequence = 1;
+    if (lastReturn) {
+      const lastSeq = parseInt(lastReturn.docNumber.split('-').pop() || '0');
+      sequence = lastSeq + 1;
+    }
+
+    const docNumber = `${prefix}${sequence.toString().padStart(4, '0')}`;
+
+    // Create return document with items
+    const assetReturn = await this.prisma.assetReturn.create({
+      data: {
+        id: docNumber,
+        docNumber,
+        loanRequestId: id,
+        returnedBy,
+        returnDate: dto.returnDate ? new Date(dto.returnDate) : now,
+        status: 'PENDING',
+        items: dto.items.map(item => ({
+          assetId: item.assetId,
+          assetName: item.assetName,
+          returnedCondition: item.returnedCondition || item.condition,
+          notes: item.notes,
+          status: 'PENDING',
+        })),
+      },
+    });
+
+    // Update asset statuses to AWAITING_RETURN
+    const assetIds = dto.items.map(item => item.assetId);
+    await this.prisma.asset.updateMany({
+      where: { id: { in: assetIds } },
+      data: { status: AssetStatus.AWAITING_RETURN },
+    });
+
+    // Log activity
+    await this.prisma.activityLog.create({
+      data: {
+        entityType: 'LoanRequest',
+        entityId: id,
+        action: 'RETURN_SUBMITTED',
+        changes: {
+          returnDocNumber: docNumber,
+          assetCount: dto.items.length,
+        },
+        performedBy: returnedBy,
+      },
+    });
+
+    return this.findOne(id);
   }
 }

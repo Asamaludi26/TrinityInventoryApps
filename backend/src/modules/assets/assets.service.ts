@@ -380,6 +380,67 @@ export class AssetsService {
   }
 
   /**
+   * Get stock movements with optional filters
+   */
+  async getStockMovements(params?: {
+    assetName?: string;
+    brand?: string;
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const { assetName, brand, type, startDate, endDate } = params || {};
+
+    const where: any = {};
+
+    if (type) {
+      where.movementType = type;
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
+    // If filtering by asset name/brand, we need to get asset IDs first
+    if (assetName || brand) {
+      const assetWhere: any = { deletedAt: null };
+      if (assetName) assetWhere.name = { contains: assetName, mode: 'insensitive' };
+      if (brand) assetWhere.brand = { contains: brand, mode: 'insensitive' };
+
+      const assets = await this.prisma.asset.findMany({
+        where: assetWhere,
+        select: { id: true },
+      });
+
+      where.assetId = { in: assets.map(a => a.id) };
+    }
+
+    const movements = await this.prisma.stockMovement.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 100, // Limit results
+    });
+
+    // Enhance with asset info
+    const assetIds = [...new Set(movements.map(m => m.assetId).filter(Boolean))] as string[];
+    const assets = assetIds.length > 0
+      ? await this.prisma.asset.findMany({
+          where: { id: { in: assetIds } },
+          select: { id: true, name: true, brand: true },
+        })
+      : [];
+
+    const assetMap = new Map(assets.map(a => [a.id, a]));
+
+    return movements.map(m => ({
+      ...m,
+      asset: m.assetId ? assetMap.get(m.assetId) : null,
+    }));
+  }
+
+  /**
    * Get stock summary grouped by name and brand
    */
   async getStockSummary() {

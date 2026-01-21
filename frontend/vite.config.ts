@@ -51,11 +51,12 @@ export default defineConfig(({ mode }) => {
       open: false,
       cors: true,
       proxy: {
+        // Proxy for relative /api calls (not used when API_URL is absolute)
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:3001",
+          target: "http://localhost:3001",
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path,
+          // Don't rewrite - backend already expects /api prefix
         },
       },
       hmr: {

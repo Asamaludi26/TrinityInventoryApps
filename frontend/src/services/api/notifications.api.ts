@@ -79,6 +79,11 @@ export const notificationsApi = {
    * Delete a notification
    */
   delete: async (id: number): Promise<void> => {
+    // Validate ID before making API call
+    if (!id || typeof id !== "number" || isNaN(id)) {
+      console.warn("[notificationsApi] Invalid notification ID:", id);
+      return;
+    }
     await apiClient.delete(`/notifications/${id}`);
   },
 };
