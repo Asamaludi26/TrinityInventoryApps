@@ -17,6 +17,7 @@ import { ActivityLogsModule } from './modules/activity-logs/activity-logs.module
 import { ReportsModule } from './modules/reports/reports.module';
 import { HealthController } from './common/health/health.controller';
 import { THROTTLE_TTL, THROTTLE_LIMIT } from './common/constants';
+import { PrismaService } from '../prisma.service';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { THROTTLE_TTL, THROTTLE_LIMIT } from './common/constants';
     // Database
     // ==========================================================================
     PrismaModule,
+    PrismaService,
 
     // ==========================================================================
     // Feature Modules
@@ -74,6 +76,7 @@ import { THROTTLE_TTL, THROTTLE_LIMIT } from './common/constants';
     ReportsModule,
   ],
   controllers: [HealthController],
+  exports: [PrismaService],
   providers: [
     // Global rate limiting guard
     {

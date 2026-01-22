@@ -1,651 +1,1101 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// ============================================
+// TRINITY INVENTORY MANAGEMENT SYSTEM
+// Database Schema - Production Ready
+// 
+// Based on comprehensive code analysis of:
+// - TypeScript types (src/types/)
+// - Store logic (src/stores/)
+// - Business logic (src/utils/, src/services/)
+// ============================================
+
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
 }
 
-// =============================================================================
-// USER MANAGEMENT
-// =============================================================================
+// ============================================
+// MASTER DATA - Users & Divisions
+// ============================================
 
 model Division {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  users     User[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-}
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-model User {
-  id                       Int       @id @default(autoincrement())
-  email                    String    @unique
-  password                 String    // bcrypt hashed
-  name                     String
-  role                     UserRole  @default(STAFF)
-  divisionId               Int?
-  division                 Division? @relation(fields: [divisionId], references: [id])
-  permissions              String[]  @default([])
-  passwordResetRequested   Boolean   @default(false)
-  passwordResetRequestDate DateTime?
-  
   // Relations
-  requests     Request[]
-  loanRequests LoanRequest[]
-  
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  users           User[]
+  assetCategories AssetCategory[] @relation("DivisionCategories")
 
-  @@index([role])
-  @@index([divisionId])
-  @@index([deletedAt])
+  @@map("divisions")
 }
 
 enum UserRole {
-  SUPER_ADMIN     // Full system access
-  ADMIN_LOGISTIK  // Logistics management
-  ADMIN_PURCHASE  // Procurement management
-  LEADER          // Team leader with approval rights
-  STAFF           // Regular staff
-  TEKNISI         // Field technician
+  SUPER_ADMIN    @map("Super Admin")
+  ADMIN_LOGISTIK @map("Admin Logistik")
+  ADMIN_PURCHASE @map("Admin Purchase")
+  LEADER         @map("Leader")
+  STAFF          @map("Staff")
+
+  @@map("user_role")
 }
 
-// =============================================================================
-// ASSET MASTER DATA (Categories, Types, Models)
-// =============================================================================
+model User {
+  id       Int      @id @default(autoincrement())
+  name     String   @db.VarChar(255)
+  email    String   @unique @db.VarChar(255)
+  password String   @db.VarChar(255) // bcrypt hashed
+  role     UserRole
+  divisionId Int? @map("division_id")
+
+  // RBAC
+  permissions String[] // Array of permission strings
+
+  // Password Reset
+  passwordResetToken       String?   @map("password_reset_token")
+  passwordResetExpires     DateTime? @map("password_reset_expires")
+  passwordResetRequested   Boolean   @default(false) @map("password_reset_requested")
+  passwordResetRequestDate DateTime? @map("password_reset_request_date")
+
+  // Session Management
+  lastLoginAt  DateTime? @map("last_login_at")
+  refreshToken String?   @db.Text
+
+  // Audit
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  division Division? @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+
+  // Preferences
+  preferences UserPreference?
+
+  // Reverse Relations
+  createdAssets            Asset[]         @relation("AssetCreator")
+  createdRequests          Request[]       @relation("RequestCreator")
+  createdLoanRequests      LoanRequest[]   @relation("LoanRequestCreator")
+  handoversMenyerahkan     Handover[]      @relation("HandoverMenyerahkan")
+  handoversPenerima        Handover[]      @relation("HandoverPenerima")
+  handoversMengetahui      Handover[]      @relation("HandoverMengetahui")
+  dismantles               Dismantle[]     @relation("DismantleTechnician")
+  installations            Installation[]  @relation("InstallationTechnician")
+  maintenances             Maintenance[]   @relation("MaintenanceTechnician")
+  notifications            Notification[]  @relation("NotificationRecipient")
+  activityLogs             ActivityLog[]
+  assetReturnsVerified     AssetReturn[]   @relation("ReturnVerifier")
+  stockThresholdsCreated   StockThreshold[] @relation("ThresholdCreator")
+
+  @@index([email])
+  @@index([role, divisionId])
+  @@map("users")
+}
+
+model UserPreference {
+  id     Int @id @default(autoincrement())
+  userId Int @unique @map("user_id")
+
+  // Notification Preferences
+  emailNotifications    Boolean @default(true) @map("email_notifications")
+  pushNotifications     Boolean @default(true) @map("push_notifications")
+  whatsappNotifications Boolean @default(false) @map("whatsapp_notifications")
+
+  // Dashboard Preferences
+  defaultDashboardView String? @map("default_dashboard_view") @db.VarChar(50)
+  itemsPerPage         Int     @default(20) @map("items_per_page")
+
+  // UI Theme
+  theme String @default("light") @db.VarChar(20) // 'light', 'dark', 'auto'
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ============================================
+// ASSET CATEGORY & TYPE HIERARCHY
+// ============================================
 
 model AssetCategory {
-  id                    Int         @id @default(autoincrement())
-  name                  String      @unique
-  isCustomerInstallable Boolean     @default(false)
-  associatedDivisions   Int[]       @default([])
-  types                 AssetType[]
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  deletedAt             DateTime?
+  id                    Int      @id @default(autoincrement())
+  name                  String   @unique @db.VarChar(255)
+  isCustomerInstallable Boolean  @default(false) @map("is_customer_installable")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  types               AssetType[]
+  associatedDivisions Division[]        @relation("DivisionCategories")
+  assets              Asset[]
+  stockThresholds     StockThreshold[]
+
+  @@map("asset_categories")
 }
 
-model AssetType {
-  id              Int           @id @default(autoincrement())
-  categoryId      Int
-  category        AssetCategory @relation(fields: [categoryId], references: [id])
-  name            String
-  classification  AssetClassification @default(ASSET)
-  trackingMethod  TrackingMethod      @default(INDIVIDUAL)
-  unitOfMeasure   String              @default("Unit")
-  models          AssetModel[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  deletedAt       DateTime?
+enum ItemClassification {
+  ASSET
+  MATERIAL
 
-  @@unique([categoryId, name])
-}
-
-model AssetModel {
-  id                Int       @id @default(autoincrement())
-  typeId            Int
-  type              AssetType @relation(fields: [typeId], references: [id])
-  name              String
-  brand             String
-  
-  // Bulk Configuration (for measurement/count items)
-  bulkType          BulkType?
-  unitOfMeasure     String?   // Physical unit (Hasbal, Box)
-  baseUnitOfMeasure String?   // Content unit (Meter, Pcs)
-  quantityPerUnit   Float?    // e.g., 1 Hasbal = 1000 Meter
-  
-  assets            Asset[]
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
-
-  @@unique([typeId, name, brand])
-}
-
-enum AssetClassification {
-  ASSET     // Individual tracked items (routers, laptops)
-  MATERIAL  // Bulk/consumable items (cables, screws)
+  @@map("item_classification")
 }
 
 enum TrackingMethod {
-  INDIVIDUAL  // Each unit has unique ID
-  BULK        // Tracked by quantity/measurement
+  INDIVIDUAL
+  BULK
+
+  @@map("tracking_method")
 }
 
-enum BulkType {
-  COUNT       // Simple count (50 pcs)
-  MEASUREMENT // Length/weight based (1000 meters)
+enum BulkTrackingMode {
+  COUNT
+  MEASUREMENT
+
+  @@map("bulk_tracking_mode")
 }
 
-// =============================================================================
-// ASSET INVENTORY (Instances)
-// =============================================================================
+model AssetType {
+  id             Int                 @id @default(autoincrement())
+  categoryId     Int                 @map("category_id")
+  name           String              @db.VarChar(255)
+  classification ItemClassification?
+  trackingMethod TrackingMethod?     @map("tracking_method")
+  unitOfMeasure  String?             @map("unit_of_measure") @db.VarChar(50)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
 
-model Asset {
-  id             String      @id // Custom ID: "AST-2025-001"
-  name           String
-  brand          String
-  modelId        Int?
-  model          AssetModel? @relation(fields: [modelId], references: [id])
-  serialNumber   String?     @unique
-  macAddress     String?
-  
-  // Status & Condition
-  status         AssetStatus    @default(IN_STORAGE)
-  condition      AssetCondition @default(GOOD)
-  
-  // Measurement / Bulk Tracking
-  initialBalance Float?      // Initial capacity (e.g., 1000 Meter)
-  currentBalance Float?      // Remaining stock (e.g., 850 Meter)
-  quantity       Int?        // For count items (e.g., 50 Pcs)
-  
-  // Location / Assignment
-  location       String?     // "Gudang A", "Rak 1"
-  locationDetail String?
-  currentUserId  Int?        // User ID if assigned to staff
-  customerId     String?     // Customer ID if installed at customer
-  
-  // Financial
-  purchasePrice   Decimal?   @db.Decimal(15, 2)
-  purchaseDate    DateTime?
-  vendor          String?
-  poNumber        String?
-  invoiceNumber   String?
-  warrantyEndDate DateTime?
-  
-  // Reference
-  woRoIntNumber   String?    // Source document reference (RO/HO)
-  isDismantled    Boolean    @default(false)
-  
   // Relations
-  handoverItems   HandoverItem[]
-  maintenances    Maintenance[]
-  
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  deletedAt       DateTime?
+  category      AssetCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  standardItems StandardItem[]
+  assets        Asset[]
 
-  @@index([status])
-  @@index([name, brand])
-  @@index([customerId])
+  @@unique([categoryId, name])
+  @@index([classification, trackingMethod])
+  @@map("asset_types")
 }
+
+model StandardItem {
+  id                Int               @id @default(autoincrement())
+  typeId            Int               @map("type_id")
+  name              String            @db.VarChar(255)
+  brand             String            @db.VarChar(255)
+  bulkType          BulkTrackingMode? @map("bulk_type")
+  unitOfMeasure     String?           @map("unit_of_measure") @db.VarChar(50)
+  baseUnitOfMeasure String?           @map("base_unit_of_measure") @db.VarChar(50)
+  quantityPerUnit   Int?              @map("quantity_per_unit")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  // Relations
+  type AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+
+  @@unique([typeId, name, brand])
+  @@index([name, brand])
+  @@map("standard_items")
+}
+
+// ============================================
+// CORE ASSET MODEL
+// ============================================
 
 enum AssetStatus {
-  IN_STORAGE       // Available in warehouse
-  IN_USE           // Deployed/in use
-  ON_LOAN          // Temporarily loaned
-  IN_CUSTODY       // Held by staff (custody)
-  UNDER_REPAIR     // Being repaired internally
-  OUT_FOR_SERVICE  // Sent out for external service
-  DAMAGED          // Damaged, needs assessment
-  AWAITING_RETURN  // Pending return from loan/customer
-  CONSUMED         // Fully consumed (for measurement items)
-  DISPOSED         // Written off/disposed
+  IN_STORAGE      @map("Di Gudang")
+  IN_USE          @map("Digunakan")
+  IN_CUSTODY      @map("Dipegang (Custody)")
+  UNDER_REPAIR    @map("Dalam Perbaikan")
+  OUT_FOR_REPAIR  @map("Keluar (Service)")
+  DAMAGED         @map("Rusak")
+  DECOMMISSIONED  @map("Diberhentikan")
+  AWAITING_RETURN @map("Menunggu Pengembalian")
+  CONSUMED        @map("Habis Terpakai")
+
+  @@map("asset_status")
 }
 
 enum AssetCondition {
-  BRAND_NEW     // Factory new
-  GOOD          // Working perfectly
-  USED_OKAY     // Used but still functional
-  MINOR_DAMAGE  // Minor issues, still usable
-  MAJOR_DAMAGE  // Significant issues
-  BROKEN        // Not functional
-  FOR_PARTS     // Only usable for spare parts
+  BRAND_NEW    @map("Baru")
+  GOOD         @map("Baik")
+  USED_OKAY    @map("Bekas Layak Pakai")
+  MINOR_DAMAGE @map("Rusak Ringan")
+  MAJOR_DAMAGE @map("Rusak Berat")
+  FOR_PARTS    @map("Kanibal")
+
+  @@map("asset_condition")
 }
 
-// =============================================================================
-// REQUEST & PROCUREMENT
-// =============================================================================
+model Asset {
+  id         String @id @default(cuid())
+  name       String @db.VarChar(255)
+  categoryId Int    @map("category_id")
+  typeId     Int?   @map("type_id")
+  brand      String @db.VarChar(255)
+
+  // Identifiers
+  serialNumber String? @map("serial_number") @db.VarChar(255)
+  macAddress   String? @map("mac_address") @db.VarChar(100)
+
+  // Purchase Information
+  purchasePrice   Decimal?  @map("purchase_price") @db.Decimal(15, 2)
+  vendor          String?   @db.VarChar(255)
+  poNumber        String?   @map("po_number") @db.VarChar(100)
+  invoiceNumber   String?   @map("invoice_number") @db.VarChar(100)
+  purchaseDate    DateTime? @map("purchase_date") @db.Date
+  warrantyEndDate DateTime? @map("warranty_end_date") @db.Date
+
+  // Status & Location
+  status          AssetStatus
+  condition       AssetCondition
+  location        String? @db.VarChar(255)
+  locationDetail  String? @map("location_detail") @db.Text
+  currentUserId   Int?    @map("current_user_id")
+  currentUserName String? @map("current_user_name") @db.VarChar(255)
+
+  // Measurement Tracking (untuk bulk items)
+  initialBalance Decimal? @map("initial_balance") @db.Decimal(10, 2)
+  currentBalance Decimal? @map("current_balance") @db.Decimal(10, 2)
+  quantity       Int?     @default(1)
+
+  // Work Order
+  woRoIntNumber String? @map("wo_ro_int_number") @db.VarChar(100)
+
+  // Dismantle Info (JSON for flexibility)
+  isDismantled  Boolean @default(false) @map("is_dismantled")
+  dismantleId   String? @map("dismantle_id")
+  dismantleInfo Json?   @map("dismantle_info")
+
+  // Notes
+  notes String? @db.Text
+
+  // Metadata
+  registrationDate DateTime  @default(now()) @map("registration_date")
+  recordedById     Int       @map("recorded_by_id")
+  lastModifiedDate DateTime  @updatedAt @map("last_modified_date")
+  lastModifiedById Int?      @map("last_modified_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  category   AssetCategory @relation(fields: [categoryId], references: [id])
+  type       AssetType?    @relation(fields: [typeId], references: [id])
+  recordedBy User          @relation("AssetCreator", fields: [recordedById], references: [id])
+
+  // Reverse Relations
+  attachments     Attachment[]
+  activityLogs    ActivityLog[]
+  handoverItems   HandoverItem[]
+  stockMovements  StockMovement[]
+  loanAssignments LoanAssetAssignment[]
+  returnItems     AssetReturnItem[]
+  installations   Installation[]        @relation("InstalledAssets")
+  maintenances    Maintenance[]         @relation("MaintenanceAssets")
+
+  @@index([status, categoryId])
+  @@index([serialNumber])
+  @@index([macAddress])
+  @@index([currentUserId])
+  @@index([brand, name])
+  @@index([name, brand, notes])
+  @@map("assets")
+}
+
+// ============================================
+// STOCK MANAGEMENT & THRESHOLDS
+// ============================================
+
+model StockThreshold {
+  id             Int      @id @default(autoincrement())
+  itemName       String   @map("item_name") @db.VarChar(255)
+  brand          String   @db.VarChar(255)
+  categoryId     Int?     @map("category_id")
+  thresholdValue Int      @map("threshold_value")
+  alertEnabled   Boolean  @default(true) @map("alert_enabled")
+  createdById    Int      @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  category  AssetCategory? @relation(fields: [categoryId], references: [id])
+  createdBy User           @relation("ThresholdCreator", fields: [createdById], references: [id])
+
+  @@unique([itemName, brand])
+  @@index([itemName, brand])
+  @@index([alertEnabled])
+  @@map("stock_thresholds")
+}
+
+enum MovementType {
+  IN_PURCHASE
+  IN_RETURN
+  OUT_INSTALLATION
+  OUT_HANDOVER
+  OUT_BROKEN
+  OUT_ADJUSTMENT
+  OUT_USAGE_CUSTODY
+
+  @@map("movement_type")
+}
+
+enum LocationContext {
+  WAREHOUSE
+  CUSTODY
+
+  @@map("location_context")
+}
+
+model StockMovement {
+  id              BigInt           @id @default(autoincrement())
+  assetName       String           @map("asset_name") @db.VarChar(255)
+  brand           String           @db.VarChar(255)
+  date            DateTime         @default(now())
+  type            MovementType
+  quantity        Decimal          @db.Decimal(10, 2)
+  balanceAfter    Decimal          @map("balance_after") @db.Decimal(10, 2)
+  referenceId     String?          @map("reference_id") @db.VarChar(255)
+  actorId         Int              @map("actor_id")
+  actorName       String           @map("actor_name") @db.VarChar(255)
+  notes           String?          @db.Text
+  locationContext LocationContext? @map("location_context")
+  relatedAssetId  String?          @map("related_asset_id")
+
+  // Relations
+  relatedAsset Asset? @relation(fields: [relatedAssetId], references: [id])
+
+  @@index([assetName, brand, date])
+  @@index([date])
+  @@index([type])
+  @@index([actorId])
+  @@map("stock_movements")
+}
+
+// ============================================
+// ATTACHMENTS & ACTIVITY LOG
+// ============================================
+
+enum AttachmentType {
+  IMAGE
+  PDF
+  OTHER
+
+  @@map("attachment_type")
+}
+
+model Attachment {
+  id       Int            @id @default(autoincrement())
+  name     String         @db.VarChar(255)
+  url      String         @db.Text
+  type     AttachmentType
+  size     Int?
+  mimeType String?        @map("mime_type") @db.VarChar(100)
+
+  // Polymorphic relation
+  entityType String @map("entity_type") @db.VarChar(50)
+  entityId   String @map("entity_id")
+
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  // Direct relations
+  assetId        String? @map("asset_id")
+  customerId     String? @map("customer_id")
+  installationId String? @map("installation_id")
+  maintenanceId  String? @map("maintenance_id")
+  dismantleId    String? @map("dismantle_id")
+
+  asset        Asset?        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  installation Installation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  maintenance  Maintenance?  @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+  dismantle    Dismantle?    @relation(fields: [dismantleId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([uploadedAt])
+  @@map("attachments")
+}
+
+model ActivityLog {
+  id         BigInt   @id @default(autoincrement())
+  timestamp  DateTime @default(now())
+  userId     Int      @map("user_id")
+  userName   String   @map("user_name") @db.VarChar(255)
+  action     String   @db.VarChar(255)
+  details    String   @db.Text
+
+  // Polymorphic relation
+  entityType  String  @map("entity_type") @db.VarChar(50)
+  entityId    String  @map("entity_id")
+  referenceId String? @map("reference_id")
+
+  // Direct relations
+  assetId    String? @map("asset_id")
+  customerId String? @map("customer_id")
+  requestId  String? @map("request_id")
+
+  user     User      @relation(fields: [userId], references: [id])
+  asset    Asset?    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  request  Request?  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@index([userId])
+  @@map("activity_logs")
+}
+
+// ============================================
+// REQUEST MANAGEMENT (PROCUREMENT)
+// ============================================
+
+enum OrderType {
+  REGULAR_STOCK @map("Regular Stock")
+  URGENT        @map("Urgent")
+  PROJECT_BASED @map("Project Based")
+
+  @@map("order_type")
+}
+
+enum AllocationTarget {
+  USAGE
+  INVENTORY
+
+  @@map("allocation_target")
+}
+
+enum ItemStatus {
+  PENDING               @map("Menunggu")
+  LOGISTIC_APPROVED     @map("Disetujui Logistik")
+  AWAITING_CEO_APPROVAL @map("Menunggu CEO")
+  APPROVED              @map("Disetujui")
+  PURCHASING            @map("Proses Pembelian")
+  IN_DELIVERY           @map("Dalam Pengiriman")
+  ARRIVED               @map("Tiba")
+  COMPLETED             @map("Selesai")
+  REJECTED              @map("Ditolak")
+  CANCELLED             @map("Dibatalkan")
+  AWAITING_HANDOVER     @map("Siap Serah Terima")
+  IN_PROGRESS           @map("Dalam Proses")
+
+  @@map("item_status")
+}
 
 model Request {
-  id               String        @id // "RO-2025-001"
-  docNumber        String        @unique
-  requesterId      Int
-  requester        User          @relation(fields: [requesterId], references: [id])
-  division         String
-  status           RequestStatus @default(PENDING)
-  requestDate      DateTime
-  
-  // Order Details
-  orderType        OrderType     @default(REGULAR_STOCK)
-  justification    String?
-  project          String?
-  allocationTarget AllocationTarget @default(USAGE)
-  
-  items            RequestItem[]
-  
-  // Approval Info
-  logisticApprover     String?
-  logisticApprovalDate DateTime?
-  finalApprover        String?
-  finalApprovalDate    DateTime?
-  rejectedBy           String?
-  rejectionReason      String?
-  rejectionDate        DateTime?
-  
-  // Procurement
-  totalValue       Decimal?      @db.Decimal(15, 2)
-  purchaseDetails  Json?         // Stores pricing info per item
-  
-  // Registration tracking
-  isRegistered              Boolean @default(false)
-  partiallyRegisteredItems  Json?   // { itemId: registeredCount }
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String  @id @default(cuid())
+  docNumber String? @unique @map("doc_number") @db.VarChar(50)
 
-  @@index([status])
-  @@index([requesterId])
-  @@index([requestDate])
+  // Requester Info
+  requesterId  Int      @map("requester_id")
+  requesterName String  @map("requester_name") @db.VarChar(255)
+  divisionId   Int      @map("division_id")
+  divisionName String   @map("division_name") @db.VarChar(255)
+  requestDate  DateTime @default(now()) @map("request_date")
+
+  // Order Details
+  orderType        OrderType         @map("order_type")
+  allocationTarget AllocationTarget? @map("allocation_target")
+  justification    String?           @db.Text
+  projectName      String?           @map("project_name") @db.VarChar(255)
+
+  // Status
+  status     ItemStatus
+  totalValue Decimal?   @map("total_value") @db.Decimal(15, 2)
+
+  // Approval Chain
+  logisticApproverId   Int?      @map("logistic_approver_id")
+  logisticApproverName String?   @map("logistic_approver_name") @db.VarChar(255)
+  logisticApprovalDate DateTime? @map("logistic_approval_date")
+
+  finalApproverId   Int?      @map("final_approver_id")
+  finalApproverName String?   @map("final_approver_name") @db.VarChar(255)
+  finalApprovalDate DateTime? @map("final_approval_date")
+
+  // Rejection
+  rejectedById       Int?      @map("rejected_by_id")
+  rejectedByName     String?   @map("rejected_by_name") @db.VarChar(255)
+  rejectedByDivision String?   @map("rejected_by_division") @db.VarChar(255)
+  rejectionDate      DateTime? @map("rejection_date")
+  rejectionReason    String?   @map("rejection_reason") @db.Text
+
+  // Progress Tracking
+  actualShipmentDate DateTime? @map("actual_shipment_date")
+  arrivalDate        DateTime? @map("arrival_date")
+  completionDate     DateTime? @map("completion_date")
+  completedById      Int?      @map("completed_by_id")
+  completedByName    String?   @map("completed_by_name") @db.VarChar(255)
+
+  // CEO Follow-up
+  isPrioritizedByCEO Boolean   @default(false) @map("is_prioritized_by_ceo")
+  ceoDispositionDate DateTime? @map("ceo_disposition_date")
+  ceoFollowUpSent    Boolean   @default(false) @map("ceo_follow_up_sent")
+  lastFollowUpAt     DateTime? @map("last_follow_up_at")
+
+  // Registration Tracking
+  isRegistered             Boolean @default(false) @map("is_registered")
+  partiallyRegisteredItems Json?   @map("partially_registered_items")
+
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  requester    User              @relation("RequestCreator", fields: [requesterId], references: [id])
+  items        RequestItem[]
+  activities   RequestActivity[]
+  activityLogs ActivityLog[]
+
+  @@index([status, requestDate])
+  @@index([requesterId, divisionId])
+  @@index([docNumber])
+  @@index([isRegistered])
+  @@map("requests")
+}
+
+enum ItemApprovalStatus {
+  APPROVED
+  REJECTED
+  PARTIAL
+  STOCK_ALLOCATED
+  PROCUREMENT_NEEDED
+
+  @@map("item_approval_status")
 }
 
 model RequestItem {
   id            Int     @id @default(autoincrement())
-  requestId     String
-  request       Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  
-  itemName      String
-  itemTypeBrand String
+  requestId     String  @map("request_id")
+  itemName      String  @map("item_name") @db.VarChar(255)
+  itemTypeBrand String  @map("item_type_brand") @db.VarChar(255)
   quantity      Int
-  unit          String?
-  
-  // Approval Status
-  status           ItemApprovalStatus?
-  approvedQuantity Int?
-  reason           String?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  unit          String? @db.VarChar(50)
+  keterangan    String  @db.Text
+
+  // Stock Info (denormalized)
+  availableStock Int? @map("available_stock")
+  categoryId     Int? @map("category_id")
+  typeId         Int? @map("type_id")
+
+  // Approval Status per Item
+  approvalStatus   ItemApprovalStatus? @map("approval_status")
+  approvedQuantity Int?                @map("approved_quantity")
+  rejectionReason  String?             @map("rejection_reason") @db.Text
+
+  // Purchase Details
+  purchasePrice      Decimal?  @map("purchase_price") @db.Decimal(15, 2)
+  vendor             String?   @db.VarChar(255)
+  poNumber           String?   @map("po_number") @db.VarChar(100)
+  invoiceNumber      String?   @map("invoice_number") @db.VarChar(100)
+  purchaseDate       DateTime? @map("purchase_date") @db.Date
+  warrantyEndDate    DateTime? @map("warranty_end_date") @db.Date
+  purchaseFilledById Int?      @map("purchase_filled_by_id")
+  purchaseFillDate   DateTime? @map("purchase_fill_date")
+
+  // Registration Tracking
+  registeredQuantity Int @default(0) @map("registered_quantity")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([itemName, itemTypeBrand])
+  @@map("request_items")
 }
 
-enum RequestStatus {
-  PENDING              // Awaiting review
-  LOGISTIC_APPROVED    // Approved by logistics
-  LOGISTIC_REJECTED    // Rejected by logistics
-  PURCHASE_APPROVED    // Approved by purchase
-  PURCHASE_REJECTED    // Rejected by purchase
-  ORDERED              // Order placed with vendor
-  ARRIVED              // Items received
-  AWAITING_HANDOVER    // Ready for handover
-  COMPLETED            // Fully processed
-  REJECTED             // Fully rejected
+model RequestActivity {
+  id         BigInt   @id @default(autoincrement())
+  requestId  String   @map("request_id")
+  timestamp  DateTime @default(now())
+  authorId   Int      @map("author_id")
+  authorName String   @map("author_name") @db.VarChar(255)
+  type       String   @db.VarChar(50)
+  parentId   BigInt?  @map("parent_id")
+  payload    Json
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, timestamp])
+  @@map("request_activities")
 }
 
-enum OrderType {
-  REGULAR_STOCK  // Normal stock request
-  URGENT         // Urgent request
-  PROJECT_BASED  // For specific project
-}
+// ============================================
+// LOAN REQUEST MANAGEMENT
+// ============================================
 
-enum AllocationTarget {
-  USAGE      // Direct use by requester
-  INVENTORY  // Restock warehouse
-}
+enum LoanRequestStatus {
+  PENDING         @map("Menunggu Persetujuan")
+  APPROVED        @map("Disetujui")
+  ON_LOAN         @map("Dipinjam")
+  RETURNED        @map("Dikembalikan")
+  REJECTED        @map("Ditolak")
+  OVERDUE         @map("Terlambat")
+  AWAITING_RETURN @map("Menunggu Pengembalian")
 
-enum ItemApprovalStatus {
-  APPROVED           // Fully approved
-  REJECTED           // Rejected
-  PARTIAL            // Partially approved
-  STOCK_ALLOCATED    // Stock available from warehouse
-  PROCUREMENT_NEEDED // Needs to be purchased
+  @@map("loan_request_status")
 }
-
-// =============================================================================
-// LOAN REQUESTS & RETURNS
-// =============================================================================
 
 model LoanRequest {
-  id             String           @id // "RL-2025-001"
-  docNumber      String           @unique
-  requesterId    Int
-  requester      User             @relation(fields: [requesterId], references: [id])
-  status         LoanStatus       @default(PENDING)
-  requestDate    DateTime
-  purpose        String?
-  expectedReturn DateTime?
-  actualReturnDate DateTime?      // Actual date when all items returned
-  
-  items          Json             // Array of { id, itemName, brand, quantity }
-  assignedAssets Json?            // Map: { itemId: [assetIds] }
-  returnedAssets String[]         @default([])
-  
-  // Approval
-  approver       String?
-  approvalDate   DateTime?
-  
-  // Rejection
-  rejectedBy     String?
-  rejectionReason String?
-  rejectionDate  DateTime?
-  
-  // Return tracking
-  assetReturns   AssetReturn[]
-  
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id            String            @id @default(cuid())
+  requesterId   Int               @map("requester_id")
+  requesterName String            @map("requester_name") @db.VarChar(255)
+  divisionId    Int               @map("division_id")
+  divisionName  String            @map("division_name") @db.VarChar(255)
+  requestDate   DateTime          @default(now()) @map("request_date")
+  status        LoanRequestStatus
+  notes         String?           @db.Text
 
-  @@index([status])
+  // Approval
+  approverId      Int?      @map("approver_id")
+  approverName    String?   @map("approver_name") @db.VarChar(255)
+  approvalDate    DateTime? @map("approval_date")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  // Return
+  actualReturnDate DateTime? @map("actual_return_date")
+  handoverId       String?   @map("handover_id")
+
+  // Tracking
+  returnedAssetIds Json? @map("returned_asset_ids")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  requester        User                  @relation("LoanRequestCreator", fields: [requesterId], references: [id])
+  items            LoanItem[]
+  assetAssignments LoanAssetAssignment[]
+  returns          AssetReturn[]
+
+  @@index([status, requestDate])
   @@index([requesterId])
-  @@index([requestDate])
+  @@map("loan_requests")
+}
+
+model LoanItem {
+  id            Int      @id @default(autoincrement())
+  loanRequestId String   @map("loan_request_id")
+  itemName      String   @map("item_name") @db.VarChar(255)
+  brand         String   @db.VarChar(255)
+  quantity      Int
+  unit          String?  @db.VarChar(50)
+  keterangan    String   @db.Text
+  returnDate    DateTime? @map("return_date") @db.Date
+
+  // Approval per item
+  approvalStatus   ItemApprovalStatus? @map("approval_status")
+  approvedQuantity Int?                @map("approved_quantity")
+  rejectionReason  String?             @map("rejection_reason") @db.Text
+
+  loanRequest LoanRequest @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
+
+  @@index([loanRequestId])
+  @@map("loan_items")
+}
+
+model LoanAssetAssignment {
+  id            Int      @id @default(autoincrement())
+  loanRequestId String   @map("loan_request_id")
+  loanItemId    Int      @map("loan_item_id")
+  assetId       String   @map("asset_id")
+  assignedAt    DateTime @default(now()) @map("assigned_at")
+  returnedAt    DateTime? @map("returned_at")
+
+  loanRequest LoanRequest @relation(fields: [loanRequestId], references: [id], onDelete: Cascade)
+  asset       Asset       @relation(fields: [assetId], references: [id])
+
+  @@unique([loanRequestId, loanItemId, assetId])
+  @@index([assetId])
+  @@map("loan_asset_assignments")
+}
+
+// ============================================
+// ASSET RETURN MANAGEMENT
+// ============================================
+
+enum AssetReturnStatus {
+  PENDING_APPROVAL @map("Menunggu Verifikasi")
+  APPROVED         @map("Disetujui Sebagian")
+  COMPLETED        @map("Selesai Diverifikasi")
+  REJECTED         @map("Ditolak")
+
+  @@map("asset_return_status")
+}
+
+enum ReturnItemStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+
+  @@map("return_item_status")
 }
 
 model AssetReturn {
-  id             String              @id // "RTN-2025-001"
-  docNumber      String              @unique
-  loanRequestId  String
-  loanRequest    LoanRequest         @relation(fields: [loanRequestId], references: [id])
-  status         AssetReturnStatus   @default(PENDING)
-  returnDate     DateTime
-  returnedBy     String              // Person submitting the return
-  
-  items          Json                // Array of { assetId, condition, notes }
-  notes          String?             // General notes for the return
-  
+  id             String            @id @default(cuid())
+  docNumber      String            @unique @map("doc_number") @db.VarChar(50)
+  returnDate     DateTime          @map("return_date")
+  loanRequestId  String            @map("loan_request_id")
+  returnedById   Int               @map("returned_by_id")
+  returnedByName String            @map("returned_by_name") @db.VarChar(255)
+
+  status AssetReturnStatus
+
   // Verification
-  verifiedBy        String?          // Person who verified the return
-  verificationDate  DateTime?        // When verification was done
-  
-  // Processing (legacy - kept for compatibility)
-  processedBy    String?
-  processedDate  DateTime?
-  
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  verifiedById     Int?      @map("verified_by_id")
+  verifiedByName   String?   @map("verified_by_name") @db.VarChar(255)
+  verificationDate DateTime? @map("verification_date")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  loanRequest LoanRequest       @relation(fields: [loanRequestId], references: [id])
+  verifiedBy  User?             @relation("ReturnVerifier", fields: [verifiedById], references: [id])
+  items       AssetReturnItem[]
+
+  @@index([loanRequestId])
+  @@index([docNumber])
+  @@map("asset_returns")
 }
 
-enum LoanStatus {
-  PENDING       // Awaiting approval
-  APPROVED      // Approved, assets assigned
-  REJECTED      // Request rejected
-  ON_LOAN       // Items currently loaned
-  RETURNED      // All items returned
+model AssetReturnItem {
+  id                Int              @id @default(autoincrement())
+  returnId          String           @map("return_id")
+  assetId           String           @map("asset_id")
+  returnedCondition AssetCondition   @map("returned_condition")
+  notes             String?          @db.Text
+  status            ReturnItemStatus
+  verificationNotes String?          @map("verification_notes") @db.Text
+
+  return AssetReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  asset  Asset       @relation(fields: [assetId], references: [id])
+
+  @@unique([returnId, assetId])
+  @@index([assetId])
+  @@map("asset_return_items")
 }
 
-enum AssetReturnStatus {
-  PENDING    // Return request submitted
-  APPROVED   // Partially accepted (some items accepted, some rejected)
-  COMPLETED  // All items verified and accepted
-  REJECTED   // Return rejected (e.g., missing items)
-}
-
-// =============================================================================
-// TRANSACTIONS (Operational)
-// =============================================================================
+// ============================================
+// HANDOVER MANAGEMENT
+// ============================================
 
 model Handover {
-  id           String          @id // "HO-2025-001"
-  docNumber    String          @unique
-  handoverDate DateTime
-  
-  // Parties
-  giverName    String          // Person handing over
-  giverType    PartyType       @default(INTERNAL)
-  receiverName String          // Person receiving
-  receiverType PartyType       @default(INTERNAL)
-  
-  status       HandoverStatus  @default(DRAFT)
-  notes        String?
-  
-  items        HandoverItem[]
-  
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id           String   @id @default(cuid())
+  docNumber    String   @unique @map("doc_number") @db.VarChar(50)
+  handoverDate DateTime @map("handover_date")
 
-  @@index([status])
+  // Parties
+  menyerahkanId   Int    @map("menyerahkan_id")
+  menyerahkanName String @map("menyerahkan_name") @db.VarChar(255)
+  penerimaId      Int    @map("penerima_id")
+  penerimaName    String @map("penerima_name") @db.VarChar(255)
+  mengetahuiId    Int    @map("mengetahui_id")
+  mengetahuiName  String @map("mengetahui_name") @db.VarChar(255)
+
+  woRoIntNumber String?    @map("wo_ro_int_number") @db.VarChar(100)
+  status        ItemStatus
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  menyerahkan User           @relation("HandoverMenyerahkan", fields: [menyerahkanId], references: [id])
+  penerima    User           @relation("HandoverPenerima", fields: [penerimaId], references: [id])
+  mengetahui  User           @relation("HandoverMengetahui", fields: [mengetahuiId], references: [id])
+  items       HandoverItem[]
+
+  @@index([docNumber])
   @@index([handoverDate])
-  @@index([receiverName])
+  @@map("handovers")
 }
 
 model HandoverItem {
-  id         Int      @id @default(autoincrement())
-  handoverId String
-  handover   Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
-  
-  assetId    String
-  asset      Asset    @relation(fields: [assetId], references: [id])
-  
-  quantity   Int      @default(1)
-  notes      String?
-  
-  createdAt  DateTime @default(now())
+  id             Int     @id @default(autoincrement())
+  handoverId     String  @map("handover_id")
+  assetId        String? @map("asset_id")
+  itemName       String  @map("item_name") @db.VarChar(255)
+  itemTypeBrand  String  @map("item_type_brand") @db.VarChar(255)
+  conditionNotes String  @map("condition_notes") @db.Text
+  quantity       Int
+  unit           String? @db.VarChar(50)
+  checked        Boolean @default(false)
+  isLocked       Boolean @default(false) @map("is_locked")
+
+  handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  asset    Asset?   @relation(fields: [assetId], references: [id])
+
+  @@index([handoverId])
+  @@index([assetId])
+  @@map("handover_items")
 }
 
-enum PartyType {
-  INTERNAL  // Staff/employee
-  CUSTOMER  // External customer
-  VENDOR    // Supplier
+// ============================================
+// CUSTOMER & FIELD OPERATIONS
+// ============================================
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("customer_status")
 }
 
-enum HandoverStatus {
-  DRAFT      // Being prepared
-  COMPLETED  // Handover done
-  CANCELLED  // Cancelled
+model Customer {
+  id               String         @id @default(cuid())
+  name             String         @db.VarChar(255)
+  address          String         @db.Text
+  phone            String         @db.VarChar(50)
+  email            String         @db.VarChar(255)
+  status           CustomerStatus
+  installationDate DateTime       @map("installation_date") @db.Date
+  servicePackage   String         @map("service_package") @db.VarChar(255)
+  notes            String?        @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  installations      Installation[]
+  maintenances       Maintenance[]
+  dismantles         Dismantle[]
+  installedMaterials InstalledMaterial[]
+  attachments        Attachment[]
+  activityLogs       ActivityLog[]
+
+  @@index([status])
+  @@index([name, address])
+  @@map("customers")
+}
+
+model InstalledMaterial {
+  id               Int      @id @default(autoincrement())
+  customerId       String   @map("customer_id")
+  materialAssetId  String?  @map("material_asset_id")
+  itemName         String   @map("item_name") @db.VarChar(255)
+  brand            String   @db.VarChar(255)
+  quantity         Decimal  @db.Decimal(10, 2)
+  unit             String   @db.VarChar(50)
+  installationDate DateTime @map("installation_date")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("installed_materials")
 }
 
 model Installation {
-  id              String            @id // "INST-2025-001"
-  docNumber       String            @unique
-  installDate     DateTime
-  customerId      String
-  customerName    String
-  technician      String
-  status          InstallationStatus @default(COMPLETED)
-  
-  assetsInstalled Json              // Array of { assetId, name, serialNumber }
-  materialsUsed   Json?             // Array of { itemName, quantity, unit }
-  
-  notes           String?
-  
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id               String     @id @default(cuid())
+  docNumber        String     @unique @map("doc_number") @db.VarChar(50)
+  requestNumber    String?    @map("request_number") @db.VarChar(50)
+  installationDate DateTime   @map("installation_date")
+  technicianId     Int        @map("technician_id")
+  technicianName   String     @map("technician_name") @db.VarChar(255)
+  customerId       String     @map("customer_id")
+  customerName     String     @map("customer_name") @db.VarChar(255)
+  notes            String     @db.Text
+  status           ItemStatus
+  acknowledgerId   Int?       @map("acknowledger_id")
+  acknowledgerName String?    @map("acknowledger_name") @db.VarChar(255)
+  createdById      Int?       @map("created_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  technician      User                   @relation("InstallationTechnician", fields: [technicianId], references: [id])
+  customer        Customer               @relation(fields: [customerId], references: [id])
+  assetsInstalled Asset[]                @relation("InstalledAssets")
+  materialsUsed   InstallationMaterial[]
+  attachments     Attachment[]
+
+  @@index([docNumber])
+  @@index([customerId])
+  @@map("installations")
 }
 
-enum InstallationStatus {
-  SCHEDULED   // Planned
-  IN_PROGRESS // Currently installing
-  COMPLETED   // Done
-  CANCELLED   // Cancelled
-}
+model InstallationMaterial {
+  id              Int      @id @default(autoincrement())
+  installationId  String   @map("installation_id")
+  materialAssetId String?  @map("material_asset_id")
+  itemName        String   @map("item_name") @db.VarChar(255)
+  brand           String   @db.VarChar(255)
+  quantity        Decimal  @db.Decimal(10, 2)
+  unit            String   @db.VarChar(50)
 
-model Dismantle {
-  id             String          @id // "DSM-2025-001"
-  docNumber      String          @unique
-  dismantleDate  DateTime
-  customerId     String
-  customerName   String
-  technician     String
-  status         DismantleStatus @default(PENDING)
-  
-  assetsRetrieved Json           // Array of { assetId, name, condition }
-  
-  // Warehouse receipt
-  receivedBy     String?
-  receivedDate   DateTime?
-  
-  notes          String?
-  
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-}
+  installation Installation @relation(fields: [installationId], references: [id], onDelete: Cascade)
 
-enum DismantleStatus {
-  PENDING     // Submitted, awaiting pickup
-  IN_TRANSIT  // Being transported
-  RECEIVED    // Received at warehouse
-  COMPLETED   // Processed and restocked
+  @@index([installationId])
+  @@map("installation_materials")
 }
 
 model Maintenance {
-  id               String            @id // "MNT-2025-001"
-  docNumber        String            @unique
-  maintenanceDate  DateTime
-  assetId          String
-  asset            Asset             @relation(fields: [assetId], references: [id])
-  type             MaintenanceType
-  status           MaintenanceStatus @default(IN_PROGRESS)
-  
-  // Details
-  problemDescription String?
-  actionTaken        String?
-  technician         String
-  
-  // Swap details (if replacement)
-  replacementAssetId String?
-  
-  // Materials used
-  materialsUsed      Json?           // Array of { itemName, quantity, unit }
-  
-  // Costs
-  laborCost          Decimal?        @db.Decimal(15, 2)
-  partsCost          Decimal?        @db.Decimal(15, 2)
-  
-  completedDate      DateTime?
-  notes              String?
-  
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id                 String     @id @default(cuid())
+  docNumber          String     @unique @map("doc_number") @db.VarChar(50)
+  requestNumber      String?    @map("request_number") @db.VarChar(50)
+  maintenanceDate    DateTime   @map("maintenance_date")
+  technicianId       Int        @map("technician_id")
+  technicianName     String     @map("technician_name") @db.VarChar(255)
+  customerId         String     @map("customer_id")
+  customerName       String     @map("customer_name") @db.VarChar(255)
+  problemDescription String     @map("problem_description") @db.Text
+  actionsTaken       String     @map("actions_taken") @db.Text
+  workTypes          String[]   @map("work_types")
+  priority           String?    @db.VarChar(50)
+  status             ItemStatus
+  completedById      Int?       @map("completed_by_id")
+  completedByName    String?    @map("completed_by_name") @db.VarChar(255)
+  completionDate     DateTime?  @map("completion_date")
+  notes              String?    @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  technician    User                     @relation("MaintenanceTechnician", fields: [technicianId], references: [id])
+  customer      Customer                 @relation(fields: [customerId], references: [id])
+  assets        Asset[]                  @relation("MaintenanceAssets")
+  materialsUsed MaintenanceMaterial[]
+  replacements  MaintenanceReplacement[]
+  attachments   Attachment[]
+
+  @@index([docNumber])
+  @@index([customerId])
+  @@index([priority])
+  @@map("maintenances")
 }
 
-enum MaintenanceType {
-  PREVENTIVE  // Scheduled maintenance
-  CORRECTIVE  // Fix after failure
-  SWAP        // Device replacement
+model MaintenanceMaterial {
+  id              Int     @id @default(autoincrement())
+  maintenanceId   String  @map("maintenance_id")
+  materialAssetId String? @map("material_asset_id")
+  itemName        String  @map("item_name") @db.VarChar(255)
+  brand           String  @db.VarChar(255)
+  quantity        Decimal @db.Decimal(10, 2)
+  unit            String  @db.VarChar(50)
+
+  maintenance Maintenance @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+
+  @@index([maintenanceId])
+  @@map("maintenance_materials")
 }
 
-enum MaintenanceStatus {
-  SCHEDULED   // Planned
-  IN_PROGRESS // Being worked on
-  COMPLETED   // Done
-  CANCELLED   // Cancelled
+model MaintenanceReplacement {
+  id                      Int            @id @default(autoincrement())
+  maintenanceId           String         @map("maintenance_id")
+  oldAssetId              String         @map("old_asset_id")
+  newAssetId              String         @map("new_asset_id")
+  retrievedAssetCondition AssetCondition @map("retrieved_asset_condition")
+
+  maintenance Maintenance @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+
+  @@index([maintenanceId])
+  @@map("maintenance_replacements")
 }
 
-// =============================================================================
-// CUSTOMERS
-// =============================================================================
+model Dismantle {
+  id                 String         @id @default(cuid())
+  docNumber          String         @unique @map("doc_number") @db.VarChar(50)
+  requestNumber      String?        @map("request_number") @db.VarChar(50)
+  assetId            String         @map("asset_id")
+  assetName          String         @map("asset_name") @db.VarChar(255)
+  dismantleDate      DateTime       @map("dismantle_date")
+  technicianId       Int            @map("technician_id")
+  technicianName     String         @map("technician_name") @db.VarChar(255)
+  customerName       String         @map("customer_name") @db.VarChar(255)
+  customerId         String         @map("customer_id")
+  customerAddress    String         @map("customer_address") @db.Text
+  retrievedCondition AssetCondition @map("retrieved_condition")
+  notes              String?        @db.Text
+  acknowledgerId     Int?           @map("acknowledger_id")
+  acknowledgerName   String?        @map("acknowledger_name") @db.VarChar(255)
+  status             ItemStatus
 
-model Customer {
-  id           String        @id // "CUST-001" or CID format
-  name         String
-  address      String?
-  phone        String?
-  email        String?
-  status       CustomerStatus @default(ACTIVE)
-  
-  // Service details
-  serviceType  String?       // "Fiber", "Wireless", etc.
-  serviceSpeed String?       // "100Mbps", etc.
-  
-  notes        String?
-  
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  deletedAt    DateTime?
-}
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-enum CustomerStatus {
-  ACTIVE    // Active customer
-  INACTIVE  // Service paused
-  CHURNED   // Cancelled service
-}
+  // Relations
+  technician  User         @relation("DismantleTechnician", fields: [technicianId], references: [id])
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  attachments Attachment[]
 
-// =============================================================================
-// STOCK MOVEMENTS (Audit Log)
-// =============================================================================
-
-model StockMovement {
-  id            Int              @id @default(autoincrement())
-  assetId       String?          // Related asset (if applicable)
-  movementType  MovementType
-  quantity      Float            // Amount moved
-  unit          String?
-  
-  // Context
-  referenceType String?          // "REQUEST", "HANDOVER", "INSTALLATION", etc.
-  referenceId   String?          // Document ID
-  
-  // Balance tracking (for measurement items)
-  previousBalance Float?
-  newBalance      Float?
-  
-  performedBy   String
-  notes         String?
-  
-  createdAt     DateTime         @default(now())
-
+  @@index([docNumber])
   @@index([assetId])
-  @@index([movementType])
-  @@index([referenceType, referenceId])
-  @@index([createdAt])
+  @@index([customerId])
+  @@map("dismantles")
 }
 
-enum MovementType {
-  RECEIVED      // Stock received (from purchase/return)
-  ISSUED        // Stock issued (for handover/installation)
-  CONSUMED      // Material consumed (cables, etc.)
-  ADJUSTED      // Manual adjustment
-  TRANSFERRED   // Moved between locations
-  RETURNED      // Returned from loan/customer
-  DISPOSED      // Written off
-}
-
-// =============================================================================
-// ACTIVITY LOG / AUDIT TRAIL
-// =============================================================================
-
-model ActivityLog {
-  id          Int      @id @default(autoincrement())
-  entityType  String   // "Asset", "Request", "User", etc.
-  entityId    String   // ID of the entity
-  action      String   // "CREATE", "UPDATE", "DELETE", "STATUS_CHANGE"
-  
-  changes     Json?    // { field: { old: x, new: y } }
-  performedBy String   // User name or "SYSTEM"
-  
-  createdAt   DateTime @default(now())
-
-  @@index([entityType, entityId])
-  @@index([createdAt])
-}
-
-// =============================================================================
+// ============================================
 // NOTIFICATIONS
-// =============================================================================
+// ============================================
 
 model Notification {
-  id          Int              @id @default(autoincrement())
-  recipientId Int
-  type        NotificationType
-  title       String
-  message     String
-  
-  // Reference to related entity
-  referenceType String?
-  referenceId   String?
-  
-  isRead      Boolean          @default(false)
-  readAt      DateTime?
-  
-  createdAt   DateTime         @default(now())
+  id          Int      @id @default(autoincrement())
+  message     String   @db.Text
+  type        String   @db.VarChar(50)
+  recipientId Int      @map("recipient_id")
+  actorName   String   @map("actor_name") @db.VarChar(255)
+  referenceId String?  @map("reference_id")
+  isRead      Boolean  @default(false) @map("is_read")
+  timestamp   DateTime @default(now())
+
+  // Optional: Action buttons data
+  actionData Json? @map("action_data")
+
+  // Relations
+  recipient User @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([recipientId, isRead])
+  @@index([timestamp])
+  @@map("notifications")
 }
 
-enum NotificationType {
-  INFO
-  SUCCESS
-  WARNING
-  ERROR
-  REQUEST_CREATED
-  REQUEST_APPROVED
-  REQUEST_REJECTED
-  LOAN_APPROVED
-  ASSET_ASSIGNED
-  MAINTENANCE_DUE
+// ============================================
+// WHATSAPP INTEGRATION LOG
+// ============================================
+
+model WhatsAppLog {
+  id            BigInt    @id @default(autoincrement())
+  targetGroup   String    @map("target_group") @db.VarChar(100)
+  groupName     String    @map("group_name") @db.VarChar(255)
+  message       String    @db.Text
+  referenceId   String?   @map("reference_id")
+  referenceType String?   @map("reference_type") @db.VarChar(50)
+  status        String    @default("pending") @db.VarChar(50)
+  sentAt        DateTime? @map("sent_at")
+  errorMessage  String?   @map("error_message") @db.Text
+  sentById      Int       @map("sent_by_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([referenceId, referenceType])
+  @@index([status, createdAt])
+  @@index([sentById])
+  @@map("whatsapp_logs")
+}
+
+// ============================================
+// SYSTEM CONFIGURATION
+// ============================================
+
+model SystemConfig {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  dataType    String   @map("data_type") @db.VarChar(20)
+  category    String   @db.VarChar(50)
+  description String?  @db.Text
+  isPublic    Boolean  @default(false) @map("is_public")
+  updatedById Int?     @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([category])
+  @@index([key])
+  @@map("system_configs")
 }

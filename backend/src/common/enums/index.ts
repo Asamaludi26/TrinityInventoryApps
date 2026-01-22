@@ -16,7 +16,7 @@ export {
   // Asset Management
   AssetStatus,
   AssetCondition,
-  AssetClassification,
+  ItemClassification,
   TrackingMethod,
   BulkType,
 

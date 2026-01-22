@@ -51,3 +51,7 @@ uploads/*
 
 # Debug
 *.map
+
+/generated/prisma
+
+/generated/prisma

@@ -90,20 +90,20 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-trinity_admin}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB:-trinity_assetflow}
+      - POSTGRES_DB=${POSTGRES_DB:-trinity_inventory}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "5432:5432"
     networks:
       - trinity-network
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-trinity_admin} -d ${POSTGRES_DB:-trinity_assetflow}",
+          "pg_isready -U ${POSTGRES_USER:-trinity_admin} -d ${POSTGRES_DB:-trinity_inventory}",
         ]
       interval: 10s
       timeout: 5s
