@@ -12,38 +12,53 @@ services:
   # ===========================================================================
   # PostgreSQL Database (Development)
   # ===========================================================================
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: trinity-db-dev
+    container_name: trinity-postgres
+    build:
+      context: ./backend
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trinity_assetflow
-    volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+      POSTGRES_USER: trinity_admin
+      POSTGRES_PASSWORD: "Tr1n1ty_Db2026_SecureP4ss"
+      POSTGRES_DB: trinity_inventory_db
     ports:
       - "5432:5432"
-    networks:
-      - trinity-dev-network
+    volumes:
+      - trinity_postgres_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d trinity_assetflow"]
+      test: ["CMD-SHELL", "pg_isready -U trinity_admin -d trinity_inventory_db"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
-# =============================================================================
-# Networks
-# =============================================================================
-networks:
-  trinity-dev-network:
-    driver: bridge
-    name: trinity-dev-network
+#   Optional: pgAdmin for database management
+#   pgadmin:
+#     image: dpage/pgadmin4:latest
+#     container_name: trinity-pgadmin-db
+#     restart: unless-stopped
+#     environment:
+#       PGADMIN_DEFAULT_EMAIL: adminTrinity@trinity.local
+#       PGADMIN_DEFAULT_PASSWORD: admin123$
+#       PGADMIN_CONFIG_SERVER_MODE: "False"
+#     ports:
+#       - "5050:80"
+#     volumes:
+#       - trinity_pgadmin_db_data:/var/lib/pgadmin
+#     depends_on:
+#       - db
+
+# # =============================================================================
+# # Networks
+# # =============================================================================
+# networks:
+#   trinity-inventory_dev-network:
+#     driver: bridge
+#     name: trinity-inventory_dev-network
 
 # =============================================================================
 # Volumes
 # =============================================================================
 volumes:
-  postgres_dev_data:
-    name: trinity_postgres_dev_data
+  trinity_postgres_db_data:
+  trinity_pgadmin_db_data:
