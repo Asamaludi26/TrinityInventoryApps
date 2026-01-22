@@ -44,6 +44,18 @@ export class AuthService {
 
     const user = await this.usersService.findByEmail(normalizedEmail);
 
+    // --- LOG DEBUGGING (HAPUS NANTI) ---
+    // console.log('--- DEBUG AUTH ---');
+    // console.log('1. Email Input:', normalizedEmail);
+    // console.log('2. Password Input:', password);
+    // console.log('3. User Found:', user ? 'YES' : 'NO');
+    // if (user) {
+    //   console.log('4. Stored Hash:', user.password);
+    //   const isMatch = await bcrypt.compare(password, user.password);
+    //   console.log('5. Match Result:', isMatch);
+    // }
+    // -----------------------------------
+
     // Security: Always perform bcrypt compare even if user not found
     // This prevents timing attacks that could reveal if email exists
     const dummyHash = '$2b$12$dummy.hash.for.timing.attack.prevention';
