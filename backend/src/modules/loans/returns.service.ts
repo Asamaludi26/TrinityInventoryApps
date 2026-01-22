@@ -2,7 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { ProcessReturnDto } from './dto/process-return.dto';
-import { AssetReturnStatus, LoanStatus, AssetStatus, Prisma } from '@prisma/client';
+import {
+  AssetReturnStatus,
+  LoanRequestStatus,
+  AssetStatus,
+  Prisma,
+  ReturnItemStatus,
+  AssetCondition,
+} from '@prisma/client';
 
 @Injectable()
 export class ReturnsService {
@@ -28,12 +35,13 @@ export class ReturnsService {
     return `${prefix}${sequence.toString().padStart(4, '0')}`;
   }
 
-  async create(dto: CreateReturnDto, returnedBy: string) {
+  async create(dto: CreateReturnDto, returnerId: number, returnerName: string) {
     const docNumber = await this.generateDocNumber();
 
     // Verify loan exists
     const loan = await this.prisma.loanRequest.findUnique({
       where: { id: dto.loanRequestId },
+      include: { assetAssignments: true },
     });
 
     if (!loan) {
@@ -41,8 +49,7 @@ export class ReturnsService {
     }
 
     // Validate loan status - can only return if ON_LOAN
-    // Note: Partially returned loans are still ON_LOAN until all assets are returned
-    if (loan.status !== LoanStatus.ON_LOAN) {
+    if (loan.status !== LoanRequestStatus.ON_LOAN) {
       throw new BadRequestException(
         `Tidak dapat membuat return untuk loan dengan status ${loan.status}. ` +
           `Status harus ON_LOAN`,
@@ -50,15 +57,11 @@ export class ReturnsService {
     }
 
     // Validate asset ownership - all items must belong to the loan's assigned assets
-    const assignedAssets = (loan.assignedAssets as Record<string, string[]>) || {};
-    const allAssignedIds = new Set(Object.values(assignedAssets).flat());
-    const returnedAssets = new Set(loan.returnedAssets || []);
+    const assignedAssetIds = new Set(loan.assetAssignments.map(a => a.assetId));
 
     const invalidItems = dto.items.filter(item => {
       // Check if asset was assigned to this loan
-      if (!allAssignedIds.has(item.assetId)) return true;
-      // Check if asset was already returned
-      if (returnedAssets.has(item.assetId)) return true;
+      if (!assignedAssetIds.has(item.assetId)) return true;
       return false;
     });
 
@@ -72,16 +75,26 @@ export class ReturnsService {
 
     return this.prisma.assetReturn.create({
       data: {
-        id: docNumber,
         docNumber,
         loanRequestId: dto.loanRequestId,
-        status: AssetReturnStatus.PENDING,
+        status: AssetReturnStatus.PENDING_APPROVAL,
         returnDate: new Date(dto.returnDate),
-        returnedBy,
-        items: dto.items.map(item => ({ ...item })),
+        returnedById: returnerId,
+        returnedByName: returnerName,
+        items: {
+          create: dto.items.map(item => ({
+            asset: { connect: { id: item.assetId } },
+            returnedCondition: (item.returnedCondition ||
+              item.condition ||
+              'GOOD') as AssetCondition,
+            notes: item.notes,
+            status: ReturnItemStatus.PENDING,
+          })),
+        },
       },
       include: {
         loanRequest: true,
+        items: true,
       },
     });
   }
@@ -92,15 +105,15 @@ export class ReturnsService {
 
     return this.prisma.assetReturn.findMany({
       where,
-      include: { loanRequest: true },
-      orderBy: { createdAt: 'desc' },
+      include: { loanRequest: true, items: true },
+      orderBy: { returnDate: 'desc' },
     });
   }
 
   async findOne(id: string) {
     const ret = await this.prisma.assetReturn.findUnique({
       where: { id },
-      include: { loanRequest: true },
+      include: { loanRequest: true, items: true },
     });
 
     if (!ret) {
@@ -113,10 +126,10 @@ export class ReturnsService {
   /**
    * Process return batch - implements BACKEND_GUIDE.md Section 6.7
    */
-  async processReturn(id: string, dto: ProcessReturnDto, processedBy: string) {
+  async processReturn(id: string, dto: ProcessReturnDto, verifierId: number, verifierName: string) {
     const returnDoc = await this.findOne(id);
 
-    if (returnDoc.status !== AssetReturnStatus.PENDING) {
+    if (returnDoc.status !== AssetReturnStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Return sudah diproses');
     }
 
@@ -141,34 +154,36 @@ export class ReturnsService {
         });
       }
 
-      // Update return document
+      // Update return document with correct fields
       await tx.assetReturn.update({
         where: { id },
         data: {
-          status: AssetReturnStatus.APPROVED,
-          processedBy,
-          processedDate: new Date(),
+          status: AssetReturnStatus.COMPLETED,
+          verifiedById: verifierId,
+          verifiedByName: verifierName,
+          verificationDate: new Date(),
         },
       });
 
       // Update loan request - add returned assets
+      // LoanRequest uses 'returnedAssetIds' as Json field
       const loan = await tx.loanRequest.findUnique({
         where: { id: returnDoc.loanRequestId },
+        include: { assetAssignments: true },
       });
 
-      const currentReturned = loan?.returnedAssets || [];
+      const currentReturned = (loan?.returnedAssetIds as string[]) || [];
       const newReturned = [...currentReturned, ...dto.acceptedAssetIds];
 
-      // Check if all assets returned
-      const assignedAssets = (loan?.assignedAssets as Record<string, string[]>) || {};
-      const totalAssigned = Object.values(assignedAssets).flat().length;
+      // Check if all assets returned based on assignments
+      const totalAssigned = loan?.assetAssignments.length || 0;
       const allReturned = newReturned.length >= totalAssigned;
 
       await tx.loanRequest.update({
         where: { id: returnDoc.loanRequestId },
         data: {
-          returnedAssets: newReturned,
-          status: allReturned ? LoanStatus.RETURNED : LoanStatus.ON_LOAN,
+          returnedAssetIds: newReturned,
+          status: allReturned ? LoanRequestStatus.RETURNED : LoanRequestStatus.ON_LOAN,
         },
       });
 
@@ -182,8 +197,8 @@ export class ReturnsService {
   async update(id: string, data: any, updatedBy: string) {
     const returnDoc = await this.findOne(id);
 
-    // Only allow updates to PENDING returns
-    if (returnDoc.status !== AssetReturnStatus.PENDING && !data.status) {
+    // Only allow updates to PENDING_APPROVAL returns (AssetReturnStatus has no PENDING)
+    if (returnDoc.status !== AssetReturnStatus.PENDING_APPROVAL && !data.status) {
       throw new BadRequestException('Return yang sudah diproses tidak dapat diupdate');
     }
 
@@ -196,14 +211,15 @@ export class ReturnsService {
       include: { loanRequest: true },
     });
 
-    // Log activity
+    // Log activity - ActivityLog uses 'details' not 'changes', 'userName' not 'performedBy'
     await this.prisma.activityLog.create({
       data: {
         entityType: 'AssetReturn',
         entityId: id,
         action: 'UPDATED',
-        changes: data,
-        performedBy: updatedBy,
+        details: JSON.stringify(data),
+        userId: 0, // TODO: Get actual user ID from context
+        userName: updatedBy,
       },
     });
 
@@ -221,12 +237,12 @@ export class ReturnsService {
   ) {
     const returnDoc = await this.findOne(id);
 
-    if (returnDoc.status !== AssetReturnStatus.PENDING) {
+    if (returnDoc.status !== AssetReturnStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Return sudah diverifikasi');
     }
 
     const acceptedAssetIds = dto.acceptedAssetIds || [];
-    const verifiedBy = dto.verifiedBy || userName;
+    const verifiedByName = dto.verifiedBy || userName;
 
     // Get all item asset IDs from return document
     const returnItems = (returnDoc.items as any[]) || [];
@@ -254,15 +270,6 @@ export class ReturnsService {
         });
       }
 
-      // Update return document items with verification status
-      const updatedItems = returnItems.map(item => ({
-        ...item,
-        status: acceptedAssetIds.includes(item.assetId) ? 'ACCEPTED' : 'REJECTED',
-        verificationNotes: acceptedAssetIds.includes(item.assetId)
-          ? 'Diverifikasi OK'
-          : 'Ditolak saat verifikasi',
-      }));
-
       // Determine final status
       const allAccepted = rejectedAssetIds.length === 0;
       const allRejected = acceptedAssetIds.length === 0;
@@ -272,15 +279,14 @@ export class ReturnsService {
           ? AssetReturnStatus.COMPLETED
           : AssetReturnStatus.APPROVED;
 
-      // Update return document
+      // Update return document - verifiedBy is a relation, use verifiedById/Name instead
+      // Note: AssetReturn doesn't have a notes field
       const updated = await tx.assetReturn.update({
         where: { id },
         data: {
           status: finalStatus,
-          verifiedBy,
+          verifiedByName: verifiedByName,
           verificationDate: new Date(),
-          items: updatedItems,
-          notes: dto.notes,
         },
         include: { loanRequest: true },
       });
@@ -288,39 +294,40 @@ export class ReturnsService {
       // Update loan request - add returned assets
       const loan = await tx.loanRequest.findUnique({
         where: { id: returnDoc.loanRequestId },
+        include: { assetAssignments: true },
       });
 
       if (loan && acceptedAssetIds.length > 0) {
-        const currentReturned = loan.returnedAssets || [];
+        const currentReturned = (loan.returnedAssetIds as string[]) || [];
         const newReturned = [...currentReturned, ...acceptedAssetIds];
 
-        // Check if all assets returned
-        const assignedAssets = (loan.assignedAssets as Record<string, string[]>) || {};
-        const totalAssigned = Object.values(assignedAssets).flat().length;
+        // Check if all assets returned based on assignments
+        const totalAssigned = loan.assetAssignments.length;
         const allReturned = newReturned.length >= totalAssigned;
 
         await tx.loanRequest.update({
           where: { id: returnDoc.loanRequestId },
           data: {
-            returnedAssets: newReturned,
-            status: allReturned ? LoanStatus.RETURNED : LoanStatus.ON_LOAN,
+            returnedAssetIds: newReturned,
+            status: allReturned ? LoanRequestStatus.RETURNED : LoanRequestStatus.ON_LOAN,
             actualReturnDate: allReturned ? new Date() : loan.actualReturnDate,
           },
         });
       }
 
-      // Log activity
+      // Log activity - use correct fields
       await tx.activityLog.create({
         data: {
           entityType: 'AssetReturn',
           entityId: id,
           action: 'VERIFIED',
-          changes: {
+          details: JSON.stringify({
             acceptedCount: acceptedAssetIds.length,
             rejectedCount: rejectedAssetIds.length,
             finalStatus,
-          },
-          performedBy: verifiedBy,
+          }),
+          userId: 0, // TODO: Get actual user ID
+          userName: verifiedByName,
         },
       });
 

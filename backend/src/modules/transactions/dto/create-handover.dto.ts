@@ -2,21 +2,38 @@ import {
   IsString,
   IsNotEmpty,
   IsDateString,
-  IsEnum,
   IsOptional,
   IsArray,
   ValidateNested,
+  IsInt,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PartyType } from '@prisma/client';
+import { ItemStatus } from '@prisma/client';
 
 class HandoverItemDto {
+  @IsOptional()
+  @IsString()
+  assetId?: string;
+
   @IsNotEmpty()
   @IsString()
-  assetId: string;
+  itemName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  itemTypeBrand: string;
+
+  @IsNotEmpty()
+  @IsString()
+  conditionNotes: string;
+
+  @IsNotEmpty()
+  quantity: number;
 
   @IsOptional()
-  quantity?: number;
+  @IsString()
+  unit?: string;
 
   @IsOptional()
   @IsString()
@@ -28,21 +45,40 @@ export class CreateHandoverDto {
   @IsDateString()
   handoverDate: string;
 
+  // Menyerahkan (Giver)
   @IsNotEmpty()
-  @IsString()
-  giverName: string;
-
-  @IsOptional()
-  @IsEnum(PartyType)
-  giverType?: PartyType;
+  @IsInt()
+  menyerahkanId: number;
 
   @IsNotEmpty()
   @IsString()
-  receiverName: string;
+  menyerahkanName: string;
+
+  // Penerima (Receiver)
+  @IsNotEmpty()
+  @IsInt()
+  penerimaId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  penerimaName: string;
+
+  // Mengetahui (Acknowledger)
+  @IsNotEmpty()
+  @IsInt()
+  mengetahuiId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  mengetahuiName: string;
 
   @IsOptional()
-  @IsEnum(PartyType)
-  receiverType?: PartyType;
+  @IsString()
+  woRoIntNumber?: string;
+
+  @IsOptional()
+  @IsEnum(ItemStatus)
+  status?: ItemStatus;
 
   @IsOptional()
   @IsString()

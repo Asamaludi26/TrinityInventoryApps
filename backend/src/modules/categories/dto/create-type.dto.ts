@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber } from 'class-validator';
-import { AssetClassification, TrackingMethod } from '@prisma/client';
+import { ItemClassification, TrackingMethod } from '@prisma/client';
 
 export class CreateTypeDto {
   @IsNotEmpty()
@@ -11,8 +11,8 @@ export class CreateTypeDto {
   name: string;
 
   @IsOptional()
-  @IsEnum(AssetClassification)
-  classification?: AssetClassification;
+  @IsEnum(ItemClassification)
+  classification?: ItemClassification;
 
   @IsOptional()
   @IsEnum(TrackingMethod)

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsArray,
   IsNumber,
+  IsInt,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -34,6 +35,14 @@ export class MaterialUsedDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  materialAssetId?: string;
 }
 
 export class CreateInstallationDto {
@@ -50,8 +59,12 @@ export class CreateInstallationDto {
   customerName: string;
 
   @IsNotEmpty()
+  @IsInt()
+  technicianId: number;
+
+  @IsNotEmpty()
   @IsString()
-  technician: string;
+  technicianName: string;
 
   @IsArray()
   @ValidateNested({ each: true })
@@ -67,4 +80,8 @@ export class CreateInstallationDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  requestNumber?: string;
 }

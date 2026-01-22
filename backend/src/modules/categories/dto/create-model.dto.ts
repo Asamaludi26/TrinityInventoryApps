@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber } from 'class-validator';
-import { BulkType } from '@prisma/client';
+import { BulkTrackingMode } from '@prisma/client';
 
 export class CreateModelDto {
   @IsNotEmpty()
@@ -15,8 +15,8 @@ export class CreateModelDto {
   brand: string;
 
   @IsOptional()
-  @IsEnum(BulkType)
-  bulkType?: BulkType;
+  @IsEnum(BulkTrackingMode)
+  bulkType?: BulkTrackingMode;
 
   @IsOptional()
   @IsString()

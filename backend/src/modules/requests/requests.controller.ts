@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UserRole, RequestStatus } from '@prisma/client';
+import { UserRole, ItemStatus } from '@prisma/client';
 
 @Controller('requests')
 @UseGuards(JwtAuthGuard)
@@ -35,7 +35,7 @@ export class RequestsController {
   findAll(
     @Query('skip') skip?: number,
     @Query('take') take?: number,
-    @Query('status') status?: RequestStatus,
+    @Query('status') status?: ItemStatus,
     @Query('requesterId') requesterId?: number,
     @Query('division') division?: string,
     @Query('dateFrom') dateFrom?: string,
@@ -83,9 +83,10 @@ export class RequestsController {
   registerAssets(
     @Param('id') id: string,
     @Body() dto: RegisterAssetsDto,
+    @CurrentUser('id') userId: number,
     @CurrentUser('name') userName: string,
   ) {
-    return this.requestsService.registerAssets(id, dto, userName);
+    return this.requestsService.registerAssets(id, dto, userId, userName);
   }
 
   @Post(':id/reject')
@@ -95,9 +96,10 @@ export class RequestsController {
   reject(
     @Param('id') id: string,
     @Body('reason') reason: string,
+    @CurrentUser('id') userId: number,
     @CurrentUser('name') userName: string,
   ) {
-    return this.requestsService.reject(id, reason, userName);
+    return this.requestsService.reject(id, reason, userId, userName);
   }
 
   @Patch(':id/arrived')
@@ -119,8 +121,9 @@ export class RequestsController {
   cancel(
     @Param('id') id: string,
     @Body('reason') reason: string,
+    @CurrentUser('id') userId: number,
     @CurrentUser('name') userName: string,
   ) {
-    return this.requestsService.cancel(id, reason, userName);
+    return this.requestsService.cancel(id, reason, userId, userName);
   }
 }

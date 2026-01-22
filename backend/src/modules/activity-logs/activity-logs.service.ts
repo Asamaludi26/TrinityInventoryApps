@@ -31,8 +31,13 @@ export interface LogActivityOptions {
   entityType: string;
   entityId: string;
   action: string;
-  performedBy: string;
-  changes?: Record<string, any>;
+  userId: number;
+  userName: string;
+  details?: string;
+  referenceId?: string;
+  assetId?: string;
+  customerId?: string;
+  requestId?: string;
 }
 
 @Injectable()
@@ -41,6 +46,7 @@ export class ActivityLogsService {
 
   /**
    * Log an activity
+   * Note: ActivityLog schema uses: userId, userName, action, details, entityType, entityId
    */
   async log(options: LogActivityOptions) {
     return this.prisma.activityLog.create({
@@ -48,8 +54,13 @@ export class ActivityLogsService {
         entityType: options.entityType,
         entityId: options.entityId,
         action: options.action,
-        performedBy: options.performedBy,
-        changes: options.changes || {},
+        userId: options.userId,
+        userName: options.userName,
+        details: options.details || JSON.stringify({}),
+        referenceId: options.referenceId,
+        assetId: options.assetId,
+        customerId: options.customerId,
+        requestId: options.requestId,
       },
     });
   }
@@ -61,7 +72,7 @@ export class ActivityLogsService {
     entityType?: string;
     entityId?: string;
     action?: string;
-    performedBy?: string;
+    userName?: string;
     startDate?: Date;
     endDate?: Date;
     page?: number;
@@ -85,27 +96,27 @@ export class ActivityLogsService {
       where.action = options.action;
     }
 
-    if (options?.performedBy) {
-      where.performedBy = {
-        contains: options.performedBy,
+    if (options?.userName) {
+      where.userName = {
+        contains: options.userName,
         mode: 'insensitive',
       };
     }
 
     if (options?.startDate || options?.endDate) {
-      where.createdAt = {};
+      where.timestamp = {};
       if (options?.startDate) {
-        where.createdAt.gte = options.startDate;
+        where.timestamp.gte = options.startDate;
       }
       if (options?.endDate) {
-        where.createdAt.lte = options.endDate;
+        where.timestamp.lte = options.endDate;
       }
     }
 
     const [logs, total] = await Promise.all([
       this.prisma.activityLog.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         skip,
         take: limit,
       }),
@@ -132,7 +143,7 @@ export class ActivityLogsService {
         entityType,
         entityId,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
     });
   }
 
@@ -141,15 +152,15 @@ export class ActivityLogsService {
    */
   async getRecent(limit = 10) {
     return this.prisma.activityLog.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
       take: limit,
       select: {
         id: true,
         entityType: true,
         entityId: true,
         action: true,
-        performedBy: true,
-        createdAt: true,
+        userName: true,
+        timestamp: true,
       },
     });
   }
@@ -160,9 +171,9 @@ export class ActivityLogsService {
   async findByUser(userName: string, limit = 50) {
     return this.prisma.activityLog.findMany({
       where: {
-        performedBy: userName,
+        userName: userName,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
       take: limit,
     });
   }
@@ -176,7 +187,7 @@ export class ActivityLogsService {
 
     return this.prisma.activityLog.deleteMany({
       where: {
-        createdAt: { lt: cutoffDate },
+        timestamp: { lt: cutoffDate },
       },
     });
   }
@@ -185,53 +196,63 @@ export class ActivityLogsService {
   // CONVENIENCE METHODS FOR COMMON LOGGING PATTERNS
   // =========================================================================
 
-  async logAssetCreated(assetId: string, performedBy: string, assetData?: any) {
+  async logAssetCreated(assetId: string, userId: number, userName: string, assetData?: any) {
     return this.log({
       entityType: 'asset',
       entityId: assetId,
       action: 'CREATE',
-      performedBy,
-      changes: assetData,
+      userId,
+      userName,
+      details: assetData ? JSON.stringify(assetData) : undefined,
+      assetId,
     });
   }
 
-  async logAssetUpdated(assetId: string, performedBy: string, changes?: any) {
+  async logAssetUpdated(assetId: string, userId: number, userName: string, changes?: any) {
     return this.log({
       entityType: 'asset',
       entityId: assetId,
       action: 'UPDATE',
-      performedBy,
-      changes,
+      userId,
+      userName,
+      details: changes ? JSON.stringify(changes) : undefined,
+      assetId,
     });
   }
 
-  async logRequestCreated(requestId: string, performedBy: string, details?: any) {
+  async logRequestCreated(requestId: string, userId: number, userName: string, details?: any) {
     return this.log({
       entityType: 'request',
       entityId: requestId,
       action: 'CREATE',
-      performedBy,
-      changes: details,
+      userId,
+      userName,
+      details: details ? JSON.stringify(details) : undefined,
+      requestId,
     });
   }
 
-  async logRequestApproved(requestId: string, performedBy: string, details?: any) {
+  async logRequestApproved(requestId: string, userId: number, userName: string, details?: any) {
     return this.log({
       entityType: 'request',
       entityId: requestId,
       action: 'APPROVE',
-      performedBy,
-      changes: details,
+      userId,
+      userName,
+      details: details ? JSON.stringify(details) : undefined,
+      requestId,
     });
   }
 
-  async logRequestRejected(requestId: string, performedBy: string, reason: string) {
+  async logRequestRejected(requestId: string, userId: number, userName: string, reason: string) {
     return this.log({
       entityType: 'request',
       entityId: requestId,
       action: 'REJECT',
-      performedBy,
-      changes: { reason },
+      userId,
+      userName,
+      details: JSON.stringify({ reason }),
+      requestId,
     });
   }
 
@@ -240,7 +261,8 @@ export class ActivityLogsService {
       entityType: 'user',
       entityId: userId.toString(),
       action: 'LOGIN',
-      performedBy: userName,
+      userId,
+      userName,
     });
   }
 
@@ -249,7 +271,8 @@ export class ActivityLogsService {
       entityType: 'user',
       entityId: userId.toString(),
       action: 'LOGOUT',
-      performedBy: userName,
+      userId,
+      userName,
     });
   }
 }

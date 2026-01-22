@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateHandoverDto } from './dto/create-handover.dto';
-import { HandoverStatus, AssetStatus, Prisma } from '@prisma/client';
+import { ItemStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class HandoversService {
@@ -32,58 +32,79 @@ export class HandoversService {
 
     // Create handover with items
     const handover = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Validate all assets exist and are available
-      const assetIds = dto.items.map(i => i.assetId);
-      const assets = await tx.asset.findMany({
-        where: {
-          id: { in: assetIds },
-          deletedAt: null,
-        },
-        select: { id: true, status: true },
-      });
+      // Filter items that have assetIds for asset validation
+      const assetIds = dto.items
+        .map(i => i.assetId)
+        .filter((id): id is string => id !== undefined && id !== null);
 
-      // Check all asset IDs exist
-      const foundIds = new Set(assets.map(a => a.id));
-      const missingIds = assetIds.filter(id => !foundIds.has(id));
-      if (missingIds.length > 0) {
-        throw new BadRequestException(`Asset tidak ditemukan: ${missingIds.join(', ')}`);
-      }
+      let assetMap = new Map<
+        string,
+        { id: string; status: string; name: string; brand: string | null }
+      >();
 
-      // Check all assets are available (IN_STORAGE)
-      const unavailableAssets = assets.filter(a => a.status !== AssetStatus.IN_STORAGE);
-      if (unavailableAssets.length > 0) {
-        throw new BadRequestException(
-          `Asset tidak tersedia untuk handover (status bukan IN_STORAGE): ${unavailableAssets.map(a => a.id).join(', ')}`,
-        );
+      if (assetIds.length > 0) {
+        const assets = await tx.asset.findMany({
+          where: {
+            id: { in: assetIds },
+          },
+          select: { id: true, status: true, name: true, brand: true },
+        });
+
+        // Check all asset IDs exist
+        const foundIds = new Set(assets.map(a => a.id));
+        const missingIds = assetIds.filter(id => !foundIds.has(id));
+        if (missingIds.length > 0) {
+          throw new BadRequestException(`Asset tidak ditemukan: ${missingIds.join(', ')}`);
+        }
+
+        // Check all assets are available (IN_STORAGE)
+        const unavailableAssets = assets.filter(a => a.status !== AssetStatus.IN_STORAGE);
+        if (unavailableAssets.length > 0) {
+          throw new BadRequestException(
+            `Asset tidak tersedia untuk handover (status bukan IN_STORAGE): ${unavailableAssets.map(a => a.id).join(', ')}`,
+          );
+        }
+
+        // Create asset map for easy lookup
+        assetMap = new Map(assets.map(a => [a.id, a]));
       }
 
       const ho = await tx.handover.create({
         data: {
-          id: docNumber,
           docNumber,
           handoverDate: new Date(dto.handoverDate),
-          giverName: dto.giverName,
-          giverType: dto.giverType,
-          receiverName: dto.receiverName,
-          receiverType: dto.receiverType,
-          status: HandoverStatus.COMPLETED,
-          notes: dto.notes,
+          menyerahkanId: dto.menyerahkanId,
+          menyerahkanName: dto.menyerahkanName,
+          penerimaId: dto.penerimaId,
+          penerimaName: dto.penerimaName,
+          mengetahuiId: dto.mengetahuiId,
+          mengetahuiName: dto.mengetahuiName,
+          woRoIntNumber: dto.woRoIntNumber,
+          status: dto.status || ItemStatus.COMPLETED,
           items: {
-            create: dto.items.map(item => ({
-              assetId: item.assetId,
-              quantity: item.quantity || 1,
-              notes: item.notes,
-            })),
+            create: dto.items.map(item => {
+              const asset = item.assetId ? assetMap.get(item.assetId) : undefined;
+              return {
+                assetId: item.assetId || null,
+                itemName: item.itemName || asset?.name || 'Unknown Item',
+                itemTypeBrand: item.itemTypeBrand || asset?.brand || '',
+                conditionNotes: item.conditionNotes || 'Baik',
+                quantity: item.quantity || 1,
+                unit: item.unit,
+              };
+            }),
           },
         },
         include: { items: { include: { asset: true } } },
       });
 
-      // Update asset statuses
-      await tx.asset.updateMany({
-        where: { id: { in: assetIds } },
-        data: { status: AssetStatus.IN_USE },
-      });
+      // Update asset statuses only for items with asset IDs
+      if (assetIds.length > 0) {
+        await tx.asset.updateMany({
+          where: { id: { in: assetIds } },
+          data: { status: AssetStatus.IN_USE },
+        });
+      }
 
       // Log activity
       await tx.activityLog.create({
@@ -91,12 +112,12 @@ export class HandoversService {
           entityType: 'Handover',
           entityId: docNumber,
           action: 'CREATED',
-          changes: {
+          userId: dto.menyerahkanId,
+          userName: dto.menyerahkanName,
+          details: JSON.stringify({
             assetIds,
-            receiver: dto.receiverName,
-            receiverType: dto.receiverType,
-          },
-          performedBy: dto.giverName,
+            receiver: dto.penerimaName,
+          }),
         },
       });
 

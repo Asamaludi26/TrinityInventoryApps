@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, User } from '@prisma/client';
 
 @Controller('returns')
 @UseGuards(JwtAuthGuard)
@@ -25,8 +25,8 @@ export class ReturnsController {
   constructor(private readonly returnsService: ReturnsService) {}
 
   @Post()
-  create(@Body() dto: CreateReturnDto, @CurrentUser('name') returnedBy: string) {
-    return this.returnsService.create(dto, returnedBy);
+  create(@Body() dto: CreateReturnDto, @CurrentUser() user: User) {
+    return this.returnsService.create(dto, user.id, user.name);
   }
 
   @Get()
@@ -50,12 +50,8 @@ export class ReturnsController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK)
   @HttpCode(HttpStatus.OK)
-  process(
-    @Param('id') id: string,
-    @Body() dto: ProcessReturnDto,
-    @CurrentUser('name') userName: string,
-  ) {
-    return this.returnsService.processReturn(id, dto, userName);
+  process(@Param('id') id: string, @Body() dto: ProcessReturnDto, @CurrentUser() user: User) {
+    return this.returnsService.processReturn(id, dto, user.id, user.name);
   }
 
   @Post(':id/verify')

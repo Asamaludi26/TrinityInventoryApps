@@ -6,11 +6,12 @@ import { UpdateRequestDto } from './dto/update-request.dto';
 import { ApproveRequestDto } from './dto/approve-request.dto';
 import { RegisterAssetsDto } from './dto/register-assets.dto';
 import {
-  RequestStatus,
+  ItemStatus,
   ItemApprovalStatus,
   AllocationTarget,
   AssetStatus,
   Prisma,
+  OrderType,
 } from '@prisma/client';
 
 @Injectable()
@@ -36,7 +37,7 @@ export class RequestsService {
     });
 
     let sequence = 1;
-    if (lastRequest) {
+    if (lastRequest && lastRequest.docNumber) {
       const lastSequence = parseInt(lastRequest.docNumber.split('-').pop() || '0');
       sequence = lastSequence + 1;
     }
@@ -51,6 +52,16 @@ export class RequestsService {
   async create(createRequestDto: CreateRequestDto, requesterId: number) {
     const docNumber = await this.generateDocNumber();
 
+    // Get requester info
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      include: { division: true },
+    });
+
+    if (!requester) {
+      throw new NotFoundException('Requester tidak ditemukan');
+    }
+
     // Check stock availability for each item
     const itemsWithStatus = await Promise.all(
       createRequestDto.items.map(async item => {
@@ -60,71 +71,76 @@ export class RequestsService {
           item.quantity,
         );
 
-        let status: ItemApprovalStatus;
+        let approvalStatus: ItemApprovalStatus;
         let reason: string;
 
         if (stockCheck.isSufficient) {
-          status = ItemApprovalStatus.STOCK_ALLOCATED;
+          approvalStatus = ItemApprovalStatus.STOCK_ALLOCATED;
           reason = stockCheck.isFragmented
             ? 'Stok tersedia (terpecah di beberapa batch)'
             : 'Stok tersedia di gudang';
         } else {
-          status = ItemApprovalStatus.PROCUREMENT_NEEDED;
+          approvalStatus = ItemApprovalStatus.PROCUREMENT_NEEDED;
           reason = `Stok kurang ${stockCheck.deficit} unit, perlu pengadaan`;
         }
 
         return {
           ...item,
-          status,
+          approvalStatus,
           approvedQuantity: item.quantity,
-          reason,
+          rejectionReason: reason,
+          keterangan: item.keterangan || '', // Required field
         };
       }),
     );
 
-    // Determine initial request status
+    // Determine initial request status (use ItemStatus, not RequestStatus)
     const allStockAvailable = itemsWithStatus.every(
-      item => item.status === ItemApprovalStatus.STOCK_ALLOCATED,
+      item => item.approvalStatus === ItemApprovalStatus.STOCK_ALLOCATED,
     );
 
-    let initialStatus: RequestStatus;
+    let initialStatus: ItemStatus;
     const allocationTarget = createRequestDto.allocationTarget || AllocationTarget.USAGE;
+    const orderType = createRequestDto.orderType || OrderType.REGULAR_STOCK;
 
-    if (allStockAvailable && createRequestDto.orderType === 'REGULAR_STOCK') {
+    if (allStockAvailable && orderType === OrderType.REGULAR_STOCK) {
       if (allocationTarget === AllocationTarget.INVENTORY) {
         // Restock request with available stock - unusual, complete immediately
-        initialStatus = RequestStatus.COMPLETED;
+        initialStatus = ItemStatus.COMPLETED;
       } else {
         // Usage request with available stock - ready for handover
-        initialStatus = RequestStatus.AWAITING_HANDOVER;
+        initialStatus = ItemStatus.AWAITING_HANDOVER;
       }
     } else {
       // Needs approval or procurement
-      initialStatus = RequestStatus.PENDING;
+      initialStatus = ItemStatus.PENDING;
     }
 
-    // Create request with items
+    // Create request with items - use correct field names
     const request = await this.prisma.request.create({
       data: {
         id: docNumber,
         docNumber,
         requesterId,
-        division: createRequestDto.division,
+        requesterName: requester.name,
+        divisionId: requester.divisionId || 0,
+        divisionName: requester.division?.name || 'Unknown',
         status: initialStatus,
         requestDate: new Date(createRequestDto.requestDate),
-        orderType: createRequestDto.orderType,
+        orderType: orderType,
         justification: createRequestDto.justification,
-        project: createRequestDto.project,
+        projectName: createRequestDto.project,
         allocationTarget,
         items: {
           create: itemsWithStatus.map(item => ({
             itemName: item.itemName,
             itemTypeBrand: item.itemTypeBrand,
             quantity: item.quantity,
-            unit: item.unit,
-            status: item.status,
+            unit: item.unit || '',
+            keterangan: item.keterangan,
+            approvalStatus: item.approvalStatus,
             approvedQuantity: item.approvedQuantity,
-            reason: item.reason,
+            rejectionReason: item.rejectionReason,
           })),
         },
       },
@@ -136,14 +152,15 @@ export class RequestsService {
       },
     });
 
-    // Log activity
+    // Log activity - ActivityLog uses 'details' not 'changes', 'userId'/'userName' not 'performedBy'
     await this.prisma.activityLog.create({
       data: {
         entityType: 'Request',
         entityId: request.id,
         action: 'CREATE',
-        changes: { status: initialStatus, itemCount: itemsWithStatus.length },
-        performedBy: `User#${requesterId}`,
+        details: JSON.stringify({ status: initialStatus, itemCount: itemsWithStatus.length }),
+        userId: requesterId,
+        userName: requester.name,
       },
     });
 
@@ -153,7 +170,7 @@ export class RequestsService {
   async findAll(params?: {
     skip?: number;
     take?: number;
-    status?: RequestStatus;
+    status?: ItemStatus;
     requesterId?: number;
     division?: string;
     dateFrom?: string;
@@ -215,15 +232,21 @@ export class RequestsService {
 
     const { items, ...data } = updateRequestDto;
 
+    // Transform items to ensure keterangan has a default value (required by schema)
+    const transformedItems = items?.map(item => ({
+      ...item,
+      keterangan: item.keterangan || '',
+    }));
+
     return this.prisma.request.update({
       where: { id },
       data: {
         ...data,
-        ...(items && {
+        ...(transformedItems && {
           items: {
             deleteMany: {},
             createMany: {
-              data: items,
+              data: transformedItems,
             },
           },
         }),
@@ -239,7 +262,7 @@ export class RequestsService {
   async approveRequest(id: string, dto: ApproveRequestDto, approverName: string) {
     const request = await this.findOne(id);
 
-    if (request.status !== RequestStatus.PENDING) {
+    if (request.status !== ItemStatus.PENDING) {
       throw new BadRequestException('Request tidak dalam status PENDING');
     }
 
@@ -264,36 +287,38 @@ export class RequestsService {
         return this.prisma.requestItem.update({
           where: { id: item.id },
           data: {
-            status,
+            approvalStatus: status, // RequestItem uses 'approvalStatus' not 'status'
             approvedQuantity: adjustment.approvedQuantity,
-            reason: adjustment.reason,
+            rejectionReason: adjustment.reason, // RequestItem uses 'rejectionReason' not 'reason'
           },
         });
       }),
     );
 
     // Determine next status
-    const allRejected = updatedItems.every(item => item.status === ItemApprovalStatus.REJECTED);
+    const allRejected = updatedItems.every(
+      item => item.approvalStatus === ItemApprovalStatus.REJECTED,
+    );
 
-    let nextStatus: RequestStatus;
+    let nextStatus: ItemStatus;
     if (allRejected) {
-      nextStatus = RequestStatus.REJECTED;
+      nextStatus = ItemStatus.REJECTED;
     } else if (dto.approvalType === 'logistic') {
-      nextStatus = RequestStatus.LOGISTIC_APPROVED;
+      nextStatus = ItemStatus.LOGISTIC_APPROVED;
     } else {
-      nextStatus = RequestStatus.PURCHASE_APPROVED;
+      nextStatus = ItemStatus.APPROVED; // No PURCHASE_APPROVED in ItemStatus, use APPROVED
     }
 
-    // Update request
+    // Update request - use correct field names
     const updateData: any = {
       status: nextStatus,
     };
 
     if (dto.approvalType === 'logistic') {
-      updateData.logisticApprover = approverName;
+      updateData.logisticApproverName = approverName;
       updateData.logisticApprovalDate = new Date();
     } else {
-      updateData.finalApprover = approverName;
+      updateData.finalApproverName = approverName;
       updateData.finalApprovalDate = new Date();
     }
 
@@ -303,14 +328,15 @@ export class RequestsService {
       include: { items: true },
     });
 
-    // Log activity
+    // Log activity - use correct fields
     await this.prisma.activityLog.create({
       data: {
         entityType: 'Request',
         entityId: id,
         action: 'APPROVED',
-        changes: { previousStatus: request.status, newStatus: nextStatus },
-        performedBy: approverName,
+        details: JSON.stringify({ previousStatus: request.status, newStatus: nextStatus }),
+        userId: 0, // TODO: Get user ID from context
+        userName: approverName,
       },
     });
 
@@ -321,13 +347,19 @@ export class RequestsService {
    * Register assets from approved request (Request to Asset conversion)
    * Implements logic from BACKEND_GUIDE.md Section 6.6.C
    */
-  async registerAssets(id: string, dto: RegisterAssetsDto, performedBy: string) {
+  async registerAssets(
+    id: string,
+    dto: RegisterAssetsDto,
+    performedById: number,
+    performedBy: string,
+  ) {
     const request = await this.findOne(id);
 
-    const validStatuses: RequestStatus[] = [
-      RequestStatus.ARRIVED,
-      RequestStatus.PURCHASE_APPROVED,
-      RequestStatus.LOGISTIC_APPROVED,
+    // No PURCHASE_APPROVED in ItemStatus, use APPROVED instead
+    const validStatuses: ItemStatus[] = [
+      ItemStatus.ARRIVED,
+      ItemStatus.APPROVED,
+      ItemStatus.LOGISTIC_APPROVED,
     ];
 
     if (!validStatuses.includes(request.status)) {
@@ -356,6 +388,7 @@ export class RequestsService {
 
         const assetId = `${prefix}${sequence.toString().padStart(4, '0')}`;
 
+        // Asset requires: condition, category, recordedBy
         const asset = await tx.asset.create({
           data: {
             id: assetId,
@@ -363,11 +396,14 @@ export class RequestsService {
             brand: assetData.brand,
             serialNumber: assetData.serialNumber,
             status: AssetStatus.IN_STORAGE,
+            condition: 'GOOD', // Default condition
             location: 'Gudang',
             woRoIntNumber: request.id,
             purchasePrice: assetData.purchasePrice,
             purchaseDate: assetData.purchaseDate ? new Date(assetData.purchaseDate) : null,
             vendor: assetData.vendor,
+            categoryId: assetData.categoryId || 1, // Required field
+            recordedById: performedById, // Required field
           },
         });
 
@@ -397,7 +433,7 @@ export class RequestsService {
         data: {
           partiallyRegisteredItems: currentPartial,
           isRegistered: isFullyRegistered,
-          status: isFullyRegistered ? RequestStatus.AWAITING_HANDOVER : request.status,
+          status: isFullyRegistered ? ItemStatus.AWAITING_HANDOVER : request.status,
         },
       });
 
@@ -407,8 +443,9 @@ export class RequestsService {
           entityType: 'Request',
           entityId: id,
           action: 'ASSETS_REGISTERED',
-          changes: { assetsCreated: createdAssets.length, isFullyRegistered },
-          performedBy,
+          details: JSON.stringify({ assetsCreated: createdAssets.length, isFullyRegistered }),
+          userId: performedById,
+          userName: performedBy,
         },
       });
 
@@ -420,18 +457,19 @@ export class RequestsService {
     });
   }
 
-  async reject(id: string, reason: string, rejectedBy: string) {
+  async reject(id: string, reason: string, rejectedById: number, rejectedByName: string) {
     const request = await this.findOne(id);
 
-    if (request.status === RequestStatus.REJECTED || request.status === RequestStatus.COMPLETED) {
+    if (request.status === ItemStatus.REJECTED || request.status === ItemStatus.COMPLETED) {
       throw new BadRequestException('Request sudah dalam status final');
     }
 
     return this.prisma.request.update({
       where: { id },
       data: {
-        status: RequestStatus.REJECTED,
-        rejectedBy,
+        status: ItemStatus.REJECTED,
+        rejectedById,
+        rejectedByName,
         rejectionReason: reason,
         rejectionDate: new Date(),
       },
@@ -443,7 +481,7 @@ export class RequestsService {
 
     return this.prisma.request.update({
       where: { id },
-      data: { status: RequestStatus.ARRIVED },
+      data: { status: ItemStatus.ARRIVED },
     });
   }
 
@@ -452,7 +490,7 @@ export class RequestsService {
 
     return this.prisma.request.update({
       where: { id },
-      data: { status: RequestStatus.COMPLETED },
+      data: { status: ItemStatus.COMPLETED },
     });
   }
 
@@ -460,11 +498,11 @@ export class RequestsService {
    * Cancel a request (user-initiated cancellation)
    * Only PENDING requests can be cancelled
    */
-  async cancel(id: string, reason: string, cancelledBy: string) {
+  async cancel(id: string, reason: string, cancelledById: number, cancelledByName: string) {
     const request = await this.findOne(id);
 
     // Only PENDING requests can be cancelled
-    if (request.status !== RequestStatus.PENDING) {
+    if (request.status !== ItemStatus.PENDING) {
       throw new BadRequestException(
         `Request tidak dapat dibatalkan karena status sudah ${request.status}`,
       );
@@ -473,8 +511,9 @@ export class RequestsService {
     const updated = await this.prisma.request.update({
       where: { id },
       data: {
-        status: RequestStatus.REJECTED,
-        rejectedBy: cancelledBy,
+        status: ItemStatus.REJECTED,
+        rejectedById: cancelledById,
+        rejectedByName: cancelledByName,
         rejectionReason: reason || 'Dibatalkan oleh pengguna',
         rejectionDate: new Date(),
       },
@@ -492,11 +531,12 @@ export class RequestsService {
         entityType: 'Request',
         entityId: id,
         action: 'CANCELLED',
-        changes: {
-          status: { old: RequestStatus.PENDING, new: RequestStatus.REJECTED },
+        details: JSON.stringify({
+          status: { old: ItemStatus.PENDING, new: ItemStatus.REJECTED },
           reason: reason || 'Dibatalkan oleh pengguna',
-        },
-        performedBy: cancelledBy,
+        }),
+        userId: cancelledById,
+        userName: cancelledByName,
       },
     });
 

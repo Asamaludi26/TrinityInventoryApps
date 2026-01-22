@@ -3,26 +3,30 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { ApproveLoanDto } from './dto/approve-loan.dto';
 import { SubmitReturnDto } from './dto/submit-return.dto';
-import { LoanStatus, AssetStatus, Prisma } from '@prisma/client';
+import { LoanRequestStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class LoansService {
   constructor(private prisma: PrismaService) {}
 
-  private async generateDocNumber(): Promise<string> {
+  /**
+   * Generate a unique loan request ID in format RL-YYYY-MM-XXXX
+   * LoanRequest model uses 'id' as the document number (cuid by default, but we override)
+   */
+  private async generateLoanId(): Promise<string> {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `RL-${year}-${month}-`;
 
     const lastLoan = await this.prisma.loanRequest.findFirst({
-      where: { docNumber: { startsWith: prefix } },
-      orderBy: { docNumber: 'desc' },
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: 'desc' },
     });
 
     let sequence = 1;
     if (lastLoan) {
-      const lastSeq = parseInt(lastLoan.docNumber.split('-').pop() || '0');
+      const lastSeq = parseInt(lastLoan.id.split('-').pop() || '0');
       sequence = lastSeq + 1;
     }
 
@@ -30,23 +34,44 @@ export class LoansService {
   }
 
   async create(dto: CreateLoanDto, requesterId: number) {
-    const docNumber = await this.generateDocNumber();
+    const loanId = await this.generateLoanId();
+
+    // Get requester info
+    const requester = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { id: true, name: true, divisionId: true, division: { select: { name: true } } },
+    });
+
+    if (!requester) {
+      throw new NotFoundException('Requester tidak ditemukan');
+    }
 
     return this.prisma.loanRequest.create({
       data: {
-        id: docNumber,
-        docNumber,
+        id: loanId,
         requesterId,
-        status: LoanStatus.PENDING,
+        requesterName: requester.name,
+        divisionId: requester.divisionId || 0,
+        divisionName: requester.division?.name || 'Unknown',
+        status: LoanRequestStatus.PENDING,
         requestDate: new Date(dto.requestDate),
-        purpose: dto.purpose,
-        expectedReturn: dto.expectedReturn ? new Date(dto.expectedReturn) : null,
-        items: dto.items.map(item => ({ ...item })),
+        notes: dto.purpose,
+        items: {
+          create: dto.items.map(item => ({
+            itemName: item.itemName,
+            brand: item.brand || '',
+            quantity: item.quantity,
+            unit: item.unit || '',
+            keterangan: item.keterangan || '',
+            returnDate: item.returnDate ? new Date(item.returnDate) : null,
+          })),
+        },
       },
       include: {
         requester: {
           select: { id: true, name: true, email: true },
         },
+        items: true,
       },
     });
   }
@@ -54,7 +79,7 @@ export class LoansService {
   async findAll(params?: {
     skip?: number;
     take?: number;
-    status?: LoanStatus;
+    status?: LoanRequestStatus;
     requesterId?: number;
   }) {
     const { skip = 0, take = 50, status, requesterId } = params || {};
@@ -84,7 +109,8 @@ export class LoansService {
       where: { id },
       include: {
         requester: { select: { id: true, name: true, email: true } },
-        assetReturns: true,
+        items: true,
+        returns: true,
       },
     });
 
@@ -95,10 +121,10 @@ export class LoansService {
     return loan;
   }
 
-  async approve(id: string, dto: ApproveLoanDto, approverName: string) {
+  async approve(id: string, dto: ApproveLoanDto, approverId: number, approverName: string) {
     const loan = await this.findOne(id);
 
-    if (loan.status !== LoanStatus.PENDING) {
+    if (loan.status !== LoanRequestStatus.PENDING) {
       throw new BadRequestException('Loan request tidak dalam status PENDING');
     }
 
@@ -110,11 +136,10 @@ export class LoansService {
     }
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Validate all assets exist, are available, and not deleted
+      // Validate all assets exist and are available
       const assets = await tx.asset.findMany({
         where: {
           id: { in: allAssetIds },
-          deletedAt: null,
         },
         select: { id: true, status: true },
       });
@@ -134,34 +159,46 @@ export class LoansService {
         );
       }
 
-      // Update asset statuses to ON_LOAN
+      // Update asset statuses to IN_CUSTODY (loaned out)
       await tx.asset.updateMany({
         where: { id: { in: allAssetIds } },
-        data: { status: AssetStatus.ON_LOAN },
+        data: { status: AssetStatus.IN_CUSTODY },
       });
 
-      // Update loan request
+      // Update loan request - using correct schema fields
       await tx.loanRequest.update({
         where: { id },
         data: {
-          status: LoanStatus.ON_LOAN,
-          assignedAssets: dto.assignedAssetIds,
-          approver: approverName,
+          status: LoanRequestStatus.ON_LOAN,
+          approverId: approverId,
+          approverName: approverName,
           approvalDate: new Date(),
         },
       });
 
-      // Log activity
+      // Create asset assignments
+      for (const assetId of allAssetIds) {
+        await tx.loanAssetAssignment.create({
+          data: {
+            loanRequestId: id,
+            loanItemId: 1, // TODO: Map to actual item
+            assetId: assetId,
+          },
+        });
+      }
+
+      // Log activity with correct fields
       await tx.activityLog.create({
         data: {
           entityType: 'LoanRequest',
           entityId: id,
           action: 'APPROVED',
-          changes: {
-            status: { old: LoanStatus.PENDING, new: LoanStatus.ON_LOAN },
+          details: JSON.stringify({
+            status: { old: LoanRequestStatus.PENDING, new: LoanRequestStatus.ON_LOAN },
             assignedAssets: allAssetIds,
-          },
-          performedBy: approverName,
+          }),
+          userId: approverId,
+          userName: approverName,
         },
       });
     });
@@ -169,11 +206,11 @@ export class LoansService {
     return this.findOne(id);
   }
 
-  async reject(id: string, reason: string, rejectedBy: string) {
+  async reject(id: string, reason: string, rejectorId: number, rejectorName: string) {
     const loan = await this.findOne(id);
 
     // Validate status - can only reject PENDING loans
-    if (loan.status !== LoanStatus.PENDING) {
+    if (loan.status !== LoanRequestStatus.PENDING) {
       throw new BadRequestException(
         `Loan request tidak dapat di-reject karena status sudah ${loan.status}`,
       );
@@ -182,24 +219,23 @@ export class LoansService {
     const updated = await this.prisma.loanRequest.update({
       where: { id },
       data: {
-        status: LoanStatus.REJECTED,
-        rejectedBy,
+        status: LoanRequestStatus.REJECTED,
         rejectionReason: reason,
-        rejectionDate: new Date(),
       },
     });
 
-    // Log activity
+    // Log activity with correct fields
     await this.prisma.activityLog.create({
       data: {
         entityType: 'LoanRequest',
         entityId: id,
         action: 'REJECTED',
-        changes: {
-          status: { old: LoanStatus.PENDING, new: LoanStatus.REJECTED },
+        details: JSON.stringify({
+          status: { old: LoanRequestStatus.PENDING, new: LoanRequestStatus.REJECTED },
           reason,
-        },
-        performedBy: rejectedBy,
+        }),
+        userId: rejectorId,
+        userName: rejectorName,
       },
     });
 
@@ -209,30 +245,34 @@ export class LoansService {
   /**
    * Delete a loan request (only PENDING or REJECTED can be deleted)
    */
-  async delete(id: string, deletedBy: string) {
+  async delete(id: string, deletorId: number, deletorName: string) {
     const loan = await this.findOne(id);
 
     // Only allow deletion of PENDING or REJECTED requests
-    const deletableStatuses: LoanStatus[] = [LoanStatus.PENDING, LoanStatus.REJECTED];
+    const deletableStatuses: LoanRequestStatus[] = [
+      LoanRequestStatus.PENDING,
+      LoanRequestStatus.REJECTED,
+    ];
     if (!deletableStatuses.includes(loan.status)) {
       throw new BadRequestException(
         `Loan request tidak dapat dihapus karena status ${loan.status}`,
       );
     }
 
-    // Soft delete or hard delete based on your preference
+    // Delete the loan request
     await this.prisma.loanRequest.delete({
       where: { id },
     });
 
-    // Log activity
+    // Log activity with correct fields
     await this.prisma.activityLog.create({
       data: {
         entityType: 'LoanRequest',
         entityId: id,
         action: 'DELETED',
-        changes: { previousStatus: loan.status },
-        performedBy: deletedBy,
+        details: JSON.stringify({ previousStatus: loan.status }),
+        userId: deletorId,
+        userName: deletorName,
       },
     });
 
@@ -243,11 +283,11 @@ export class LoansService {
    * Submit return for a loan request
    * Creates a return document and updates asset statuses
    */
-  async submitReturn(id: string, dto: SubmitReturnDto, returnedBy: string) {
+  async submitReturn(id: string, dto: SubmitReturnDto, returnerId: number, returnerName: string) {
     const loan = await this.findOne(id);
 
     // Validate loan is in ON_LOAN status
-    if (loan.status !== LoanStatus.ON_LOAN) {
+    if (loan.status !== LoanRequestStatus.ON_LOAN) {
       throw new BadRequestException(
         `Loan request tidak dalam status ON_LOAN (status saat ini: ${loan.status})`,
       );
@@ -272,22 +312,24 @@ export class LoansService {
 
     const docNumber = `${prefix}${sequence.toString().padStart(4, '0')}`;
 
-    // Create return document with items
+    // Create return document - using correct AssetReturn schema
+    const { AssetReturnStatus } = await import('@prisma/client');
     const assetReturn = await this.prisma.assetReturn.create({
       data: {
-        id: docNumber,
         docNumber,
         loanRequestId: id,
-        returnedBy,
+        returnedById: returnerId,
+        returnedByName: returnerName,
         returnDate: dto.returnDate ? new Date(dto.returnDate) : now,
-        status: 'PENDING',
-        items: dto.items.map(item => ({
-          assetId: item.assetId,
-          assetName: item.assetName,
-          returnedCondition: item.returnedCondition || item.condition,
-          notes: item.notes,
-          status: 'PENDING',
-        })),
+        status: AssetReturnStatus.PENDING_APPROVAL,
+        items: {
+          create: dto.items.map(item => ({
+            assetId: item.assetId,
+            returnedCondition: item.returnedCondition || item.condition || 'GOOD',
+            notes: item.notes,
+            status: 'PENDING',
+          })),
+        },
       },
     });
 
@@ -298,17 +340,18 @@ export class LoansService {
       data: { status: AssetStatus.AWAITING_RETURN },
     });
 
-    // Log activity
+    // Log activity with correct fields
     await this.prisma.activityLog.create({
       data: {
         entityType: 'LoanRequest',
         entityId: id,
         action: 'RETURN_SUBMITTED',
-        changes: {
+        details: JSON.stringify({
           returnDocNumber: docNumber,
           assetCount: dto.items.length,
-        },
-        performedBy: returnedBy,
+        }),
+        userId: returnerId,
+        userName: returnerName,
       },
     });
 

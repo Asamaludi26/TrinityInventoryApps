@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
-import { MaintenanceStatus, AssetStatus, Prisma } from '@prisma/client';
+import { ItemStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class MaintenancesService {
@@ -33,48 +33,47 @@ export class MaintenancesService {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const maintenance = await tx.maintenance.create({
         data: {
-          id: docNumber,
           docNumber,
           maintenanceDate: new Date(dto.maintenanceDate),
-          assetId: dto.assetId,
-          type: dto.type,
-          status: MaintenanceStatus.IN_PROGRESS,
-          problemDescription: dto.problemDescription,
-          technician: dto.technician,
-          materialsUsed: dto.materialsUsed || [],
+          customerId: dto.customerId,
+          customerName: dto.customerName || '',
+          technicianId: dto.technicianId,
+          technicianName: dto.technicianName,
+          status: ItemStatus.IN_PROGRESS,
+          problemDescription: dto.problemDescription || '',
+          actionsTaken: '',
+          workTypes: dto.workTypes || [],
           notes: dto.notes,
+          materialsUsed: dto.materialsUsed?.length
+            ? {
+                create: dto.materialsUsed.map(m => ({
+                  itemName: m.itemName,
+                  brand: m.brand || '',
+                  quantity: m.quantity,
+                  unit: m.unit || 'pcs',
+                })),
+              }
+            : undefined,
         },
-        include: { asset: true },
-      });
-
-      // Update asset status
-      await tx.asset.update({
-        where: { id: dto.assetId },
-        data: { status: AssetStatus.UNDER_REPAIR },
+        include: { assets: true, materialsUsed: true },
       });
 
       return maintenance;
     });
   }
 
-  async findAll(params?: {
-    skip?: number;
-    take?: number;
-    status?: MaintenanceStatus;
-    assetId?: string;
-  }) {
-    const { skip = 0, take = 50, status, assetId } = params || {};
+  async findAll(params?: { skip?: number; take?: number; status?: ItemStatus; assetId?: string }) {
+    const { skip = 0, take = 50, status } = params || {};
 
     const where: any = {};
     if (status) where.status = status;
-    if (assetId) where.assetId = assetId;
 
     const [maintenances, total] = await Promise.all([
       this.prisma.maintenance.findMany({
         where,
         skip,
         take,
-        include: { asset: true },
+        include: { assets: true, materialsUsed: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.maintenance.count({ where }),
@@ -86,7 +85,7 @@ export class MaintenancesService {
   async findOne(id: string) {
     const maintenance = await this.prisma.maintenance.findUnique({
       where: { id },
-      include: { asset: true },
+      include: { assets: true, materialsUsed: true },
     });
 
     if (!maintenance) {
@@ -96,27 +95,28 @@ export class MaintenancesService {
     return maintenance;
   }
 
-  async complete(id: string, actionTaken: string, laborCost?: number, partsCost?: number) {
-    const maintenance = await this.findOne(id);
+  async complete(id: string, actionsTaken: string, laborCost?: number, partsCost?: number) {
+    await this.findOne(id);
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update maintenance
-      await tx.maintenance.update({
+      const updated = await tx.maintenance.update({
         where: { id },
         data: {
-          status: MaintenanceStatus.COMPLETED,
-          actionTaken,
-          laborCost,
-          partsCost,
-          completedDate: new Date(),
+          status: ItemStatus.COMPLETED,
+          actionsTaken,
+          completionDate: new Date(),
         },
+        include: { assets: true },
       });
 
-      // Restore asset status
-      await tx.asset.update({
-        where: { id: maintenance.assetId },
-        data: { status: AssetStatus.IN_STORAGE },
-      });
+      // Restore asset statuses for all assets in this maintenance
+      for (const asset of updated.assets) {
+        await tx.asset.update({
+          where: { id: asset.id },
+          data: { status: AssetStatus.IN_STORAGE },
+        });
+      }
 
       return this.findOne(id);
     });

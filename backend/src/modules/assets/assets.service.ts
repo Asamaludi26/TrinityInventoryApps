@@ -82,19 +82,22 @@ export class AssetsService {
         ...sanitized,
         id,
       } as any,
-      include: { model: true },
+      include: { type: true, category: true },
     });
 
     // Log stock movement
+    // Note: StockMovement uses: assetName, brand, type, quantity, balanceAfter, actorId, actorName
     await this.prisma.stockMovement.create({
       data: {
-        assetId: asset.id,
-        movementType: MovementType.RECEIVED,
+        assetName: asset.name,
+        brand: asset.brand,
+        type: MovementType.IN_PURCHASE,
         quantity: createAssetDto.quantity || 1,
-        unit: 'Unit',
-        referenceType: 'REGISTRATION',
-        performedBy: 'SYSTEM',
+        balanceAfter: createAssetDto.quantity || 1,
+        actorId: (createAssetDto as any).recordedById || 0,
+        actorName: 'SYSTEM',
         notes: 'Asset registered',
+        relatedAssetId: asset.id,
       },
     });
 
@@ -103,19 +106,21 @@ export class AssetsService {
 
   async createBulk(dto: CreateBulkAssetsDto) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const assets = [];
+      const assets: any[] = [];
 
-      // Validate all models exist
-      const modelIds = [...new Set(dto.items.map(i => i.modelId).filter(Boolean))] as number[];
-      if (modelIds.length > 0) {
-        const existingModels = await tx.assetModel.findMany({
-          where: { id: { in: modelIds } },
+      // Validate all types exist (schema uses AssetType, not AssetModel)
+      const typeIds = [
+        ...new Set(dto.items.map(i => (i as any).typeId).filter(Boolean)),
+      ] as number[];
+      if (typeIds.length > 0) {
+        const existingTypes = await tx.assetType.findMany({
+          where: { id: { in: typeIds } },
           select: { id: true },
         });
-        const existingModelIds = new Set(existingModels.map(m => m.id));
-        const missingModels = modelIds.filter(id => !existingModelIds.has(id));
-        if (missingModels.length > 0) {
-          throw new BadRequestException(`Model tidak ditemukan: ${missingModels.join(', ')}`);
+        const existingTypeIds = new Set(existingTypes.map(t => t.id));
+        const missingTypes = typeIds.filter(id => !existingTypeIds.has(id));
+        if (missingTypes.length > 0) {
+          throw new BadRequestException(`Type tidak ditemukan: ${missingTypes.join(', ')}`);
         }
       }
 
@@ -146,16 +151,18 @@ export class AssetsService {
         data: assets as any,
       });
 
-      // Log movements
+      // Log movements using correct StockMovement schema
       await tx.stockMovement.createMany({
         data: assets.map(asset => ({
-          assetId: asset.id,
-          movementType: MovementType.RECEIVED,
+          assetName: asset.name || 'Unknown',
+          brand: asset.brand || 'Unknown',
+          type: MovementType.IN_PURCHASE,
           quantity: asset.quantity || 1,
-          unit: 'Unit',
-          referenceType: 'BULK_REGISTRATION',
-          performedBy: dto.performedBy || 'SYSTEM',
-          notes: dto.notes || 'Bulk asset registration',
+          balanceAfter: asset.quantity || 1,
+          actorId: (dto as any).recordedById || 0,
+          actorName: (dto as any).performedBy || 'SYSTEM',
+          notes: (dto as any).notes || 'Bulk asset registration',
+          relatedAssetId: asset.id,
         })),
       });
 
@@ -170,20 +177,16 @@ export class AssetsService {
     name?: string;
     brand?: string;
     location?: string;
-    customerId?: string;
     search?: string;
   }) {
-    const { skip = 0, take = 50, status, name, brand, location, customerId, search } = params || {};
+    const { skip = 0, take = 50, status, name, brand, location, search } = params || {};
 
-    const where: any = {
-      deletedAt: null,
-    };
+    const where: any = {};
 
     if (status) where.status = status;
     if (name) where.name = { contains: name, mode: 'insensitive' };
     if (brand) where.brand = { contains: brand, mode: 'insensitive' };
     if (location) where.location = { contains: location, mode: 'insensitive' };
-    if (customerId) where.customerId = customerId;
 
     if (search) {
       where.OR = [
@@ -199,7 +202,7 @@ export class AssetsService {
         where,
         skip,
         take,
-        include: { model: true },
+        include: { type: true, category: true },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.asset.count({ where }),
@@ -212,9 +215,10 @@ export class AssetsService {
     const asset = await this.prisma.asset.findUnique({
       where: { id },
       include: {
-        model: {
-          include: { type: { include: { category: true } } },
+        type: {
+          include: { category: true },
         },
+        category: true,
         maintenances: {
           orderBy: { createdAt: 'desc' },
           take: 5,
@@ -236,7 +240,7 @@ export class AssetsService {
     return this.prisma.asset.update({
       where: { id },
       data: sanitized,
-      include: { model: true },
+      include: { type: true, category: true },
     });
   }
 
@@ -255,8 +259,10 @@ export class AssetsService {
         entityType: 'Asset',
         entityId: id,
         action: 'STATUS_CHANGE',
-        changes: { status: { old: previousStatus, new: status } },
-        performedBy,
+        details: JSON.stringify({ status: { old: previousStatus, new: status } }),
+        userId: 0, // TODO: Get from context
+        userName: performedBy,
+        assetId: id,
       },
     });
 
@@ -266,9 +272,10 @@ export class AssetsService {
   async remove(id: string) {
     await this.findOne(id);
 
+    // Note: Asset model doesn't have deletedAt. Mark as DECOMMISSIONED instead.
     return this.prisma.asset.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { status: AssetStatus.DECOMMISSIONED },
     });
   }
 
@@ -281,7 +288,6 @@ export class AssetsService {
         name: { equals: name, mode: 'insensitive' },
         brand: { equals: brand, mode: 'insensitive' },
         status: AssetStatus.IN_STORAGE,
-        deletedAt: null,
       },
     });
 
@@ -291,10 +297,10 @@ export class AssetsService {
 
     for (const asset of assets) {
       if (asset.currentBalance !== null) {
-        // Measurement item
-        totalAvailable += asset.currentBalance;
+        // Measurement item - convert Decimal to number
+        totalAvailable += asset.currentBalance.toNumber();
       } else if (asset.quantity !== null) {
-        // Count item
+        // Count item - quantity is Int, no conversion needed
         totalAvailable += asset.quantity;
       } else {
         // Individual item
@@ -327,7 +333,6 @@ export class AssetsService {
             name: { equals: item.itemName, mode: 'insensitive' },
             brand: { equals: item.brand, mode: 'insensitive' },
             status: AssetStatus.IN_STORAGE,
-            deletedAt: null,
           },
           orderBy: { currentBalance: 'desc' }, // Use largest stock first
         });
@@ -338,8 +343,9 @@ export class AssetsService {
           if (remaining <= 0) break;
 
           if (asset.currentBalance !== null) {
-            const consume = Math.min(asset.currentBalance, remaining);
-            const newBalance = asset.currentBalance - consume;
+            const currentBalanceNum = asset.currentBalance.toNumber();
+            const consume = Math.min(currentBalanceNum, remaining);
+            const newBalance = currentBalanceNum - consume;
 
             await tx.asset.update({
               where: { id: asset.id },
@@ -349,17 +355,18 @@ export class AssetsService {
               },
             });
 
+            // Use correct StockMovement schema fields
             await tx.stockMovement.create({
               data: {
-                assetId: asset.id,
-                movementType: MovementType.CONSUMED,
+                assetName: asset.name,
+                brand: asset.brand,
+                type: MovementType.OUT_USAGE_CUSTODY, // No CONSUMED in MovementType
                 quantity: consume,
-                unit: item.unit,
-                previousBalance: asset.currentBalance,
-                newBalance,
-                referenceType: dto.context.referenceType,
-                referenceId: dto.context.referenceId,
-                performedBy: dto.context.technician || 'SYSTEM',
+                balanceAfter: newBalance,
+                actorId: 0, // TODO: Pass actor from context
+                actorName: dto.context.technician || 'SYSTEM',
+                notes: `${dto.context.referenceType}: ${dto.context.referenceId}`,
+                relatedAssetId: asset.id,
               },
             });
 
@@ -389,54 +396,44 @@ export class AssetsService {
     startDate?: string;
     endDate?: string;
   }) {
-    const { assetName, brand, type, startDate, endDate } = params || {};
+    const { assetName, brand, type: movementType, startDate, endDate } = params || {};
 
     const where: any = {};
 
-    if (type) {
-      where.movementType = type;
+    // StockMovement uses 'type' field (MovementType enum)
+    if (movementType) {
+      where.type = movementType;
     }
 
+    // StockMovement uses 'date' field, not 'createdAt'
     if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate);
+      if (endDate) where.date.lte = new Date(endDate);
     }
 
-    // If filtering by asset name/brand, we need to get asset IDs first
-    if (assetName || brand) {
-      const assetWhere: any = { deletedAt: null };
-      if (assetName) assetWhere.name = { contains: assetName, mode: 'insensitive' };
-      if (brand) assetWhere.brand = { contains: brand, mode: 'insensitive' };
-
-      const assets = await this.prisma.asset.findMany({
-        where: assetWhere,
-        select: { id: true },
-      });
-
-      where.assetId = { in: assets.map(a => a.id) };
+    // StockMovement has assetName and brand fields directly
+    if (assetName) {
+      where.assetName = { contains: assetName, mode: 'insensitive' };
+    }
+    if (brand) {
+      where.brand = { contains: brand, mode: 'insensitive' };
     }
 
     const movements = await this.prisma.stockMovement.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { date: 'desc' },
       take: 100, // Limit results
-    });
-
-    // Enhance with asset info
-    const assetIds = [...new Set(movements.map(m => m.assetId).filter(Boolean))] as string[];
-    const assets = assetIds.length > 0
-      ? await this.prisma.asset.findMany({
-          where: { id: { in: assetIds } },
+      include: {
+        relatedAsset: {
           select: { id: true, name: true, brand: true },
-        })
-      : [];
-
-    const assetMap = new Map(assets.map(a => [a.id, a]));
+        },
+      },
+    });
 
     return movements.map(m => ({
       ...m,
-      asset: m.assetId ? assetMap.get(m.assetId) : null,
+      asset: m.relatedAsset,
     }));
   }
 
@@ -444,10 +441,10 @@ export class AssetsService {
    * Get stock summary grouped by name and brand
    */
   async getStockSummary() {
+    // Asset has no deletedAt field
     const assets = await this.prisma.asset.findMany({
       where: {
         status: AssetStatus.IN_STORAGE,
-        deletedAt: null,
       },
       select: {
         name: true,
@@ -472,8 +469,9 @@ export class AssetsService {
       }
 
       if (asset.currentBalance !== null) {
-        summary[key].total += asset.currentBalance;
+        summary[key].total += asset.currentBalance.toNumber();
       } else if (asset.quantity !== null) {
+        // quantity is Int, no conversion needed
         summary[key].total += asset.quantity;
       } else {
         summary[key].total += 1;

@@ -23,7 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UserRole, DismantleStatus, MaintenanceStatus } from '@prisma/client';
+import { UserRole, ItemStatus } from '@prisma/client';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
@@ -56,7 +56,7 @@ export class TransactionsController {
   // --- INSTALLATIONS ---
   @Post('installations')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   createInstallation(@Body() dto: CreateInstallationDto) {
     return this.installationsService.create(dto);
   }
@@ -78,7 +78,7 @@ export class TransactionsController {
   // --- DISMANTLES ---
   @Post('dismantles')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   createDismantle(@Body() dto: CreateDismantleDto) {
     return this.dismantlesService.create(dto);
   }
@@ -87,7 +87,7 @@ export class TransactionsController {
   findAllDismantles(
     @Query('skip') skip?: number,
     @Query('take') take?: number,
-    @Query('status') status?: DismantleStatus,
+    @Query('status') status?: ItemStatus,
   ) {
     return this.dismantlesService.findAll({ skip, take, status });
   }
@@ -111,7 +111,7 @@ export class TransactionsController {
   // --- MAINTENANCES ---
   @Post('maintenances')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   createMaintenance(@Body() dto: CreateMaintenanceDto) {
     return this.maintenancesService.create(dto);
   }
@@ -120,7 +120,7 @@ export class TransactionsController {
   findAllMaintenances(
     @Query('skip') skip?: number,
     @Query('take') take?: number,
-    @Query('status') status?: MaintenanceStatus,
+    @Query('status') status?: ItemStatus,
     @Query('assetId') assetId?: string,
   ) {
     return this.maintenancesService.findAll({ skip, take, status, assetId });
@@ -133,7 +133,7 @@ export class TransactionsController {
 
   @Patch('maintenances/:id/complete')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   @HttpCode(HttpStatus.OK)
   completeMaintenance(
     @Param('id') id: string,

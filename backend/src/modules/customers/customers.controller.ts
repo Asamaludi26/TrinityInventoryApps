@@ -24,7 +24,7 @@ export class CustomersController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   create(@Body() dto: CreateCustomerDto) {
     return this.customersService.create(dto);
   }

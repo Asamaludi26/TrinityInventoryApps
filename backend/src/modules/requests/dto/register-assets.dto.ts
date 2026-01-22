@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsNumber,
   IsDateString,
+  IsInt,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -34,6 +35,10 @@ class AssetRegistrationDto {
   @IsOptional()
   @IsNumber()
   requestItemId?: number;
+
+  @IsOptional()
+  @IsInt()
+  categoryId?: number;
 }
 
 export class RegisterAssetsDto {

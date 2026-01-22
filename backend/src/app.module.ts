@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AssetsModule } from './modules/assets/assets.module';
@@ -18,6 +17,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { HealthController } from './common/health/health.controller';
 import { THROTTLE_TTL, THROTTLE_LIMIT } from './common/constants';
 import { PrismaService } from '../prisma.service';
+import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -57,7 +57,6 @@ import { PrismaService } from '../prisma.service';
     // Database
     // ==========================================================================
     PrismaModule,
-    PrismaService,
 
     // ==========================================================================
     // Feature Modules
@@ -78,6 +77,8 @@ import { PrismaService } from '../prisma.service';
   controllers: [HealthController],
   exports: [PrismaService],
   providers: [
+    //Prisma
+    PrismaService,
     // Global rate limiting guard
     {
       provide: APP_GUARD,

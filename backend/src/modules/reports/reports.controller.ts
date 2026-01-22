@@ -3,7 +3,7 @@ import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole, AssetStatus, AssetCondition, RequestStatus } from '@prisma/client';
+import { UserRole, AssetStatus, AssetCondition, ItemStatus } from '@prisma/client';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -21,7 +21,6 @@ export class ReportsController {
     @Query('condition') condition?: AssetCondition,
     @Query('categoryId') categoryId?: string,
     @Query('typeId') typeId?: string,
-    @Query('modelId') modelId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
@@ -30,7 +29,6 @@ export class ReportsController {
       condition,
       categoryId: categoryId ? parseInt(categoryId, 10) : undefined,
       typeId: typeId ? parseInt(typeId, 10) : undefined,
-      modelId: modelId ? parseInt(modelId, 10) : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
@@ -54,7 +52,7 @@ export class ReportsController {
    */
   @Get('requests')
   async getRequestReport(
-    @Query('status') status?: RequestStatus,
+    @Query('status') status?: ItemStatus,
     @Query('requestedBy') requestedBy?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,

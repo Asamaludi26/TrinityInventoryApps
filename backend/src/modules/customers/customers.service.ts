@@ -66,9 +66,7 @@ export class CustomersService {
   }) {
     const { skip = 0, take = 50, status, search } = params || {};
 
-    const where: any = {
-      deletedAt: null,
-    };
+    const where: any = {};
 
     if (status) where.status = status;
 
@@ -118,18 +116,18 @@ export class CustomersService {
   async remove(id: string) {
     await this.findOne(id);
 
-    return this.prisma.customer.update({
+    // Customer has no deletedAt field - do a hard delete
+    return this.prisma.customer.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 
   async getCustomerAssets(id: string) {
     await this.findOne(id);
 
-    return this.prisma.asset.findMany({
-      where: { customerId: id, deletedAt: null },
-      include: { model: true },
+    // Assets are related to customers through installed materials
+    return this.prisma.installedMaterial.findMany({
+      where: { customerId: id },
     });
   }
 }

@@ -1,5 +1,35 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsArray, IsEnum } from 'class-validator';
-import { MaintenanceType } from '@prisma/client';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsOptional,
+  IsArray,
+  IsInt,
+  ValidateNested,
+  IsNumber,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class MaintenanceMaterialDto {
+  @IsNotEmpty()
+  @IsString()
+  itemName: string;
+
+  @IsNumber()
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  materialAssetId?: string;
+}
 
 export class CreateMaintenanceDto {
   @IsNotEmpty()
@@ -8,29 +38,47 @@ export class CreateMaintenanceDto {
 
   @IsNotEmpty()
   @IsString()
-  assetId: string;
+  customerId: string;
 
   @IsNotEmpty()
-  @IsEnum(MaintenanceType)
-  type: MaintenanceType;
+  @IsString()
+  customerName: string;
+
+  @IsNotEmpty()
+  @IsInt()
+  technicianId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  technicianName: string;
 
   @IsOptional()
   @IsString()
   problemDescription?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  technician: string;
+  actionsTaken?: string;
 
   @IsOptional()
   @IsArray()
-  materialsUsed?: Array<{
-    itemName: string;
-    quantity: number;
-    unit?: string;
-  }>;
+  workTypes?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MaintenanceMaterialDto)
+  materialsUsed?: MaintenanceMaterialDto[];
 
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  requestNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
 }

@@ -10,8 +10,9 @@ import {
 import { Type } from 'class-transformer';
 
 export class LoanItemDto {
+  @IsOptional()
   @IsNumber()
-  id: number;
+  id?: number;
 
   @IsNotEmpty()
   @IsString()
@@ -23,6 +24,18 @@ export class LoanItemDto {
 
   @IsNumber()
   quantity: number;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsString()
+  keterangan?: string;
+
+  @IsOptional()
+  @IsDateString()
+  returnDate?: string;
 }
 
 export class CreateLoanDto {

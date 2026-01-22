@@ -27,6 +27,10 @@ class RequestItemDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @IsOptional()
+  @IsString()
+  keterangan?: string;
 }
 
 export class CreateRequestDto {

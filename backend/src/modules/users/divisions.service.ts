@@ -15,7 +15,6 @@ export class DivisionsService {
 
   async findAll() {
     return this.prisma.division.findMany({
-      where: { deletedAt: null },
       include: {
         _count: {
           select: { users: true },
@@ -30,7 +29,7 @@ export class DivisionsService {
       where: { id },
       include: {
         users: {
-          where: { deletedAt: null },
+          where: { isActive: true },
           select: {
             id: true,
             name: true,
@@ -60,10 +59,9 @@ export class DivisionsService {
   async remove(id: number) {
     await this.findOne(id);
 
-    // Soft delete
-    return this.prisma.division.update({
+    // Hard delete
+    return this.prisma.division.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 }

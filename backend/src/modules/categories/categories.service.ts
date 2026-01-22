@@ -61,22 +61,28 @@ export class CategoriesService {
 
   // --- Categories ---
   async createCategory(dto: CreateCategoryDto) {
-    const sanitized = this.sanitizeCategoryData(dto);
+    const { associatedDivisions, ...rest } = dto;
+
     return this.prisma.assetCategory.create({
-      data: sanitized as CreateCategoryDto,
+      data: {
+        ...rest,
+        // Handle relation to Division - use connect with array of ids
+        ...(associatedDivisions && associatedDivisions.length > 0
+          ? { associatedDivisions: { connect: associatedDivisions.map(id => ({ id })) } }
+          : {}),
+      },
+      include: {
+        associatedDivisions: true,
+      },
     });
   }
 
   async findAllCategories() {
     return this.prisma.assetCategory.findMany({
-      where: { deletedAt: null },
       include: {
         types: {
-          where: { deletedAt: null },
           include: {
-            models: {
-              where: { deletedAt: null },
-            },
+            standardItems: true,
           },
         },
       },
@@ -89,8 +95,7 @@ export class CategoriesService {
       where: { id },
       include: {
         types: {
-          where: { deletedAt: null },
-          include: { models: { where: { deletedAt: null } } },
+          include: { standardItems: true },
         },
       },
     });
@@ -104,18 +109,27 @@ export class CategoriesService {
 
   async updateCategory(id: number, dto: Partial<CreateCategoryDto>) {
     await this.findOneCategory(id);
-    const sanitized = this.sanitizeCategoryData(dto);
+    const { associatedDivisions, ...rest } = dto;
+
     return this.prisma.assetCategory.update({
       where: { id },
-      data: sanitized,
+      data: {
+        ...rest,
+        // Handle relation - set replaces existing connections
+        ...(associatedDivisions !== undefined
+          ? { associatedDivisions: { set: associatedDivisions.map(divId => ({ id: divId })) } }
+          : {}),
+      },
+      include: {
+        associatedDivisions: true,
+      },
     });
   }
 
   async removeCategory(id: number) {
     await this.findOneCategory(id);
-    return this.prisma.assetCategory.update({
+    return this.prisma.assetCategory.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 
@@ -129,12 +143,12 @@ export class CategoriesService {
   }
 
   async findAllTypes(categoryId?: number) {
-    const where: any = { deletedAt: null };
+    const where: any = {};
     if (categoryId) where.categoryId = categoryId;
 
     return this.prisma.assetType.findMany({
       where,
-      include: { category: true, models: { where: { deletedAt: null } } },
+      include: { category: true, standardItems: true },
       orderBy: { name: 'asc' },
     });
   }
@@ -142,7 +156,7 @@ export class CategoriesService {
   async findOneType(id: number) {
     const type = await this.prisma.assetType.findUnique({
       where: { id },
-      include: { category: true, models: { where: { deletedAt: null } } },
+      include: { category: true, standardItems: true },
     });
 
     if (!type) {
@@ -163,26 +177,25 @@ export class CategoriesService {
 
   async removeType(id: number) {
     await this.findOneType(id);
-    return this.prisma.assetType.update({
+    return this.prisma.assetType.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 
-  // --- Models ---
+  // --- StandardItems (Models) ---
   async createModel(dto: CreateModelDto) {
     const sanitized = this.sanitizeModelData(dto);
-    return this.prisma.assetModel.create({
+    return this.prisma.standardItem.create({
       data: sanitized as CreateModelDto,
       include: { type: { include: { category: true } } },
     });
   }
 
   async findAllModels(typeId?: number) {
-    const where: any = { deletedAt: null };
+    const where: any = {};
     if (typeId) where.typeId = typeId;
 
-    return this.prisma.assetModel.findMany({
+    return this.prisma.standardItem.findMany({
       where,
       include: { type: { include: { category: true } } },
       orderBy: { name: 'asc' },
@@ -190,7 +203,7 @@ export class CategoriesService {
   }
 
   async findOneModel(id: number) {
-    const model = await this.prisma.assetModel.findUnique({
+    const model = await this.prisma.standardItem.findUnique({
       where: { id },
       include: { type: { include: { category: true } } },
     });
@@ -205,7 +218,7 @@ export class CategoriesService {
   async updateModel(id: number, dto: Partial<CreateModelDto>) {
     await this.findOneModel(id);
     const sanitized = this.sanitizeModelData(dto);
-    return this.prisma.assetModel.update({
+    return this.prisma.standardItem.update({
       where: { id },
       data: sanitized,
     });
@@ -213,9 +226,8 @@ export class CategoriesService {
 
   async removeModel(id: number) {
     await this.findOneModel(id);
-    return this.prisma.assetModel.update({
+    return this.prisma.standardItem.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 
@@ -235,13 +247,21 @@ export class CategoriesService {
     // Use transaction for atomicity and better performance
     return this.prisma.$transaction(
       validCategories.map(category => {
-        const { id, ...dataToUpdate } = category;
-        // Sanitize data to only include valid fields
-        const sanitized = this.sanitizeCategoryData(dataToUpdate);
+        const { id, associatedDivisions, ...rest } = category;
 
         return this.prisma.assetCategory.update({
           where: { id },
-          data: sanitized,
+          data: {
+            ...rest,
+            // Handle relation - set replaces existing connections
+            ...(associatedDivisions !== undefined
+              ? {
+                  associatedDivisions: {
+                    set: associatedDivisions.map((divId: number) => ({ id: divId })),
+                  },
+                }
+              : {}),
+          },
         });
       }),
     );

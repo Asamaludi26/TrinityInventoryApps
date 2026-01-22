@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateDismantleDto } from './dto/create-dismantle.dto';
 import { CompleteDismantleDto } from './dto/complete-dismantle.dto';
-import { DismantleStatus, AssetStatus, Prisma } from '@prisma/client';
+import { ItemStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class DismantlesService {
@@ -33,20 +33,23 @@ export class DismantlesService {
 
     return this.prisma.dismantle.create({
       data: {
-        id: docNumber,
         docNumber,
         dismantleDate: new Date(dto.dismantleDate),
+        assetId: dto.assetId,
+        assetName: dto.assetName,
         customerId: dto.customerId,
         customerName: dto.customerName,
-        technician: dto.technician,
-        status: DismantleStatus.PENDING,
-        assetsRetrieved: dto.assetsRetrieved,
+        customerAddress: dto.customerAddress || '',
+        technicianId: dto.technicianId,
+        technicianName: dto.technicianName,
+        retrievedCondition: dto.retrievedCondition,
+        status: ItemStatus.PENDING,
         notes: dto.notes,
       },
     });
   }
 
-  async findAll(params?: { skip?: number; take?: number; status?: DismantleStatus }) {
+  async findAll(params?: { skip?: number; take?: number; status?: ItemStatus }) {
     const { skip = 0, take = 50, status } = params || {};
 
     const where: any = {};
@@ -77,7 +80,7 @@ export class DismantlesService {
     return dismantle;
   }
 
-  async complete(id: string, dto: CompleteDismantleDto, receivedBy: string) {
+  async complete(id: string, dto: CompleteDismantleDto, acknowledgerName: string) {
     const dismantle = await this.findOne(id);
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -85,30 +88,21 @@ export class DismantlesService {
       await tx.dismantle.update({
         where: { id },
         data: {
-          status: DismantleStatus.COMPLETED,
-          receivedBy,
-          receivedDate: new Date(),
+          status: ItemStatus.COMPLETED,
+          acknowledgerName,
         },
       });
 
-      // Update assets back to storage
-      const assets = dismantle.assetsRetrieved as Array<{
-        assetId: string;
-        condition: string;
-      }>;
-
-      for (const asset of assets) {
-        const condition = dto.assetConditions?.[asset.assetId];
-        await tx.asset.update({
-          where: { id: asset.assetId },
-          data: {
-            status: condition === 'DAMAGED' ? AssetStatus.DAMAGED : AssetStatus.IN_STORAGE,
-            customerId: null,
-            location: 'Gudang',
-            isDismantled: true,
-          },
-        });
-      }
+      // Update asset back to storage based on retrieved condition
+      const condition = dto.assetConditions?.[dismantle.assetId];
+      await tx.asset.update({
+        where: { id: dismantle.assetId },
+        data: {
+          status: condition === 'DAMAGED' ? AssetStatus.DAMAGED : AssetStatus.IN_STORAGE,
+          location: 'Gudang',
+          isDismantled: true,
+        },
+      });
 
       return this.findOne(id);
     });

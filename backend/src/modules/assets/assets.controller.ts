@@ -56,7 +56,6 @@ export class AssetsController {
       name,
       brand,
       location,
-      customerId,
       search,
     });
   }
@@ -106,7 +105,7 @@ export class AssetsController {
 
   @Patch(':id/status')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   updateStatus(
     @Param('id') id: string,
     @Body('status') status: AssetStatus,
@@ -124,7 +123,7 @@ export class AssetsController {
 
   @Post('consume')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.TEKNISI)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK, UserRole.STAFF)
   consumeStock(@Body() dto: ConsumeStockDto) {
     return this.assetsService.consumeStock(dto);
   }

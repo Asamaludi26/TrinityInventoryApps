@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsOptional, IsInt, IsEnum } from 'class-validator';
+import { AssetCondition } from '@prisma/client';
 
 export class CreateDismantleDto {
   @IsNotEmpty()
@@ -15,16 +16,33 @@ export class CreateDismantleDto {
 
   @IsNotEmpty()
   @IsString()
-  technician: string;
+  customerAddress: string;
 
-  @IsArray()
-  assetsRetrieved: Array<{
-    assetId: string;
-    name: string;
-    condition: string;
-  }>;
+  @IsNotEmpty()
+  @IsInt()
+  technicianId: number;
+
+  @IsNotEmpty()
+  @IsString()
+  technicianName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  assetId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  assetName: string;
+
+  @IsNotEmpty()
+  @IsEnum(AssetCondition)
+  retrievedCondition: AssetCondition;
 
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  requestNumber?: string;
 }

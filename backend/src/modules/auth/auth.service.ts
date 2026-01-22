@@ -56,7 +56,7 @@ export class AuthService {
       throw new UnauthorizedException('Email atau password salah');
     }
 
-    if (user.deletedAt) {
+    if (!user.isActive) {
       throw new UnauthorizedException('Akun tidak aktif');
     }
 
@@ -144,7 +144,7 @@ export class AuthService {
       const payload = this.jwtService.verify<JwtPayload>(token);
       const user = await this.usersService.findOne(payload.sub);
 
-      if (!user || user.deletedAt) {
+      if (!user || !user.isActive) {
         throw new UnauthorizedException('Token tidak valid');
       }
 

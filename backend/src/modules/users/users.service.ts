@@ -165,10 +165,10 @@ export class UsersService {
   async remove(id: number) {
     await this.findOne(id); // Ensure exists
 
-    // Soft delete
+    // Soft delete via isActive flag
     return this.prisma.user.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { isActive: false },
     });
   }
 

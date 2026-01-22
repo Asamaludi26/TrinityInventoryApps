@@ -92,25 +92,22 @@ export interface AssetQueryParams extends PrismaPaginationParams {
   name?: string;
   brand?: string;
   location?: string;
-  customerId?: string;
   search?: string;
 }
 
 /**
  * Build type-safe Asset where clause
+ * Note: Asset model doesn't have deletedAt or customerId in schema
  */
 export function buildAssetWhereClause(params: AssetQueryParams): Prisma.AssetWhereInput {
-  const { status, name, brand, location, customerId, search } = params;
+  const { status, name, brand, location, search } = params;
 
-  const where: Prisma.AssetWhereInput = {
-    deletedAt: null,
-  };
+  const where: Prisma.AssetWhereInput = {};
 
   if (status) where.status = status as Prisma.EnumAssetStatusFilter;
   if (name) where.name = containsFilter(name);
   if (brand) where.brand = containsFilter(brand);
   if (location) where.location = containsFilter(location);
-  if (customerId) where.customerId = customerId;
 
   if (search) {
     where.OR = [
@@ -137,15 +134,16 @@ export interface RequestQueryParams extends PrismaPaginationParams {
 
 /**
  * Build type-safe Request where clause
+ * Note: Request uses ItemStatus enum (not RequestStatus)
  */
 export function buildRequestWhereClause(params: RequestQueryParams): Prisma.RequestWhereInput {
   const { status, requesterId, division, dateFrom, dateTo } = params;
 
   const where: Prisma.RequestWhereInput = {};
 
-  if (status) where.status = status as Prisma.EnumRequestStatusFilter;
+  if (status) where.status = status as Prisma.EnumItemStatusFilter;
   if (requesterId) where.requesterId = requesterId;
-  if (division) where.division = containsFilter(division);
+  if (division) where.divisionName = containsFilter(division);
 
   const dateRange = buildDateRangeFilter(dateFrom, dateTo);
   if (dateRange) where.requestDate = dateRange;
@@ -164,12 +162,13 @@ export interface UserQueryParams extends PrismaPaginationParams {
 
 /**
  * Build type-safe User where clause
+ * Note: User model doesn't have deletedAt - use isActive instead
  */
 export function buildUserWhereClause(params: UserQueryParams): Prisma.UserWhereInput {
   const { role, divisionId, search } = params;
 
   const where: Prisma.UserWhereInput = {
-    deletedAt: null,
+    isActive: true,
   };
 
   if (role) where.role = role as Prisma.EnumUserRoleFilter;
@@ -194,13 +193,14 @@ export interface LoanQueryParams extends PrismaPaginationParams {
 
 /**
  * Build type-safe LoanRequest where clause
+ * Note: LoanRequest uses LoanRequestStatus enum
  */
 export function buildLoanWhereClause(params: LoanQueryParams): Prisma.LoanRequestWhereInput {
   const { status, requesterId, dateFrom, dateTo } = params;
 
   const where: Prisma.LoanRequestWhereInput = {};
 
-  if (status) where.status = status as Prisma.EnumLoanStatusFilter;
+  if (status) where.status = status as Prisma.EnumLoanRequestStatusFilter;
   if (requesterId) where.requesterId = requesterId;
 
   const dateRange = buildDateRangeFilter(dateFrom, dateTo);
@@ -219,13 +219,12 @@ export interface CustomerQueryParams extends PrismaPaginationParams {
 
 /**
  * Build type-safe Customer where clause
+ * Note: Customer model doesn't have deletedAt in schema
  */
 export function buildCustomerWhereClause(params: CustomerQueryParams): Prisma.CustomerWhereInput {
   const { search, status } = params;
 
-  const where: Prisma.CustomerWhereInput = {
-    deletedAt: null,
-  };
+  const where: Prisma.CustomerWhereInput = {};
 
   if (status) where.status = status as Prisma.EnumCustomerStatusFilter;
 
@@ -244,7 +243,7 @@ export function buildCustomerWhereClause(params: CustomerQueryParams): Prisma.Cu
  * Activity Log query parameters
  */
 export interface ActivityLogQueryParams extends PrismaPaginationParams {
-  performedBy?: string;
+  userName?: string;
   action?: string;
   entityType?: string;
   entityId?: string;
@@ -254,21 +253,22 @@ export interface ActivityLogQueryParams extends PrismaPaginationParams {
 
 /**
  * Build type-safe ActivityLog where clause
+ * Note: ActivityLog uses userName (not performedBy) and timestamp (not createdAt)
  */
 export function buildActivityLogWhereClause(
   params: ActivityLogQueryParams,
 ): Prisma.ActivityLogWhereInput {
-  const { performedBy, action, entityType, entityId, dateFrom, dateTo } = params;
+  const { userName, action, entityType, entityId, dateFrom, dateTo } = params;
 
   const where: Prisma.ActivityLogWhereInput = {};
 
-  if (performedBy) where.performedBy = containsFilter(performedBy);
+  if (userName) where.userName = containsFilter(userName);
   if (action) where.action = containsFilter(action);
   if (entityType) where.entityType = entityType;
   if (entityId) where.entityId = entityId;
 
   const dateRange = buildDateRangeFilter(dateFrom, dateTo);
-  if (dateRange) where.createdAt = dateRange;
+  if (dateRange) where.timestamp = dateRange;
 
   return where;
 }

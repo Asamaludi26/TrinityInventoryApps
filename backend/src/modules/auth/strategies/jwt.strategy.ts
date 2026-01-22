@@ -26,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     const user = await this.usersService.findOne(payload.sub);
 
-    if (!user || user.deletedAt) {
+    if (!user || !user.isActive) {
       throw new UnauthorizedException('User tidak ditemukan atau tidak aktif');
     }
 

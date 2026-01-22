@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateInstallationDto } from './dto/create-installation.dto';
-import { InstallationStatus, AssetStatus, Prisma } from '@prisma/client';
+import { ItemStatus, AssetStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class InstallationsService {
@@ -34,17 +34,29 @@ export class InstallationsService {
       // Create installation record
       const installation = await tx.installation.create({
         data: {
-          id: docNumber,
           docNumber,
-          installDate: new Date(dto.installDate),
+          installationDate: new Date(dto.installDate),
           customerId: dto.customerId,
           customerName: dto.customerName,
-          technician: dto.technician,
-          status: InstallationStatus.COMPLETED,
-          assetsInstalled: dto.assetsInstalled.map(a => ({ ...a })),
-          materialsUsed: dto.materialsUsed?.map(m => ({ ...m })) ?? [],
-          notes: dto.notes,
+          technicianId: dto.technicianId,
+          technicianName: dto.technicianName,
+          status: ItemStatus.COMPLETED,
+          notes: dto.notes || '',
+          assetsInstalled: {
+            connect: dto.assetsInstalled.map((a: any) => ({ id: a.assetId })),
+          },
+          materialsUsed: dto.materialsUsed?.length
+            ? {
+                create: dto.materialsUsed.map(m => ({
+                  itemName: m.itemName,
+                  brand: m.brand || '',
+                  quantity: m.quantity,
+                  unit: m.unit || 'pcs',
+                })),
+              }
+            : undefined,
         },
+        include: { assetsInstalled: true, materialsUsed: true },
       });
 
       // Update installed asset statuses
@@ -53,7 +65,6 @@ export class InstallationsService {
         where: { id: { in: assetIds } },
         data: {
           status: AssetStatus.IN_USE,
-          customerId: dto.customerId,
         },
       });
 

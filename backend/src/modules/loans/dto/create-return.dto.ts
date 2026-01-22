@@ -15,8 +15,13 @@ export class ReturnItemDto {
   @IsString()
   assetId: string;
 
+  @IsOptional()
   @IsEnum(AssetCondition)
-  condition: AssetCondition;
+  condition?: AssetCondition;
+
+  @IsOptional()
+  @IsString()
+  returnedCondition?: string;
 
   @IsOptional()
   @IsString()

@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AssetStatus, RequestStatus, LoanStatus, CustomerStatus } from '@prisma/client';
+import { AssetStatus, ItemStatus, LoanRequestStatus, CustomerStatus } from '@prisma/client';
 
 export interface DashboardSummary {
   assets: {
     total: number;
     inStorage: number;
     inUse: number;
-    onLoan: number;
+    inCustody: number;
     underRepair: number;
   };
   requests: {
@@ -29,12 +29,12 @@ export interface DashboardSummary {
     inactive: number;
   };
   recentActivities: {
-    id: number;
+    id: bigint;
     action: string;
     entityType: string;
     entityId: string;
-    performedBy: string;
-    createdAt: Date;
+    userName: string;
+    timestamp: Date;
   }[];
 }
 
@@ -47,7 +47,7 @@ export interface StockSummary {
   totalStock: number;
   inStorage: number;
   inUse: number;
-  onLoan: number;
+  inCustody: number;
 }
 
 @Injectable()
@@ -71,11 +71,10 @@ export class DashboardService {
       customerStats,
       recentActivities,
     ] = await Promise.all([
-      // Asset statistics
+      // Asset statistics (Asset has no deletedAt field)
       this.prisma.asset.groupBy({
         by: ['status'],
         _count: { id: true },
-        where: { deletedAt: null },
       }),
 
       // Request statistics
@@ -97,32 +96,30 @@ export class DashboardService {
         _count: { id: true },
       }),
 
-      // Overdue loans
+      // Overdue loans - LoanRequest uses LoanRequestStatus
       this.prisma.loanRequest.count({
         where: {
-          status: LoanStatus.APPROVED,
-          expectedReturn: { lt: now },
+          status: LoanRequestStatus.ON_LOAN,
         },
       }),
 
-      // Customer statistics
+      // Customer statistics (Customer model doesn't have deletedAt)
       this.prisma.customer.groupBy({
         by: ['status'],
         _count: { id: true },
-        where: { deletedAt: null },
       }),
 
-      // Recent activities (last 10)
+      // Recent activities (last 10) - ActivityLog uses timestamp and userName
       this.prisma.activityLog.findMany({
         take: 10,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         select: {
           id: true,
           action: true,
           entityType: true,
           entityId: true,
-          performedBy: true,
-          createdAt: true,
+          userName: true,
+          timestamp: true,
         },
       }),
     ]);
@@ -133,29 +130,29 @@ export class DashboardService {
       total: Object.values(assetCounts).reduce((a, b) => a + b, 0),
       inStorage: assetCounts[AssetStatus.IN_STORAGE] || 0,
       inUse: assetCounts[AssetStatus.IN_USE] || 0,
-      onLoan: assetCounts[AssetStatus.ON_LOAN] || 0,
+      inCustody: assetCounts[AssetStatus.IN_CUSTODY] || 0,
       underRepair: assetCounts[AssetStatus.UNDER_REPAIR] || 0,
     };
 
-    // Process request stats
+    // Process request stats - Request uses ItemStatus
     const requestCounts = this.aggregateGroupBy(requestStats, 'status');
     const requests = {
       total: Object.values(requestCounts).reduce((a, b) => a + b, 0),
-      pending: requestCounts[RequestStatus.PENDING] || 0,
+      pending: requestCounts[ItemStatus.PENDING] || 0,
       approved:
-        (requestCounts[RequestStatus.LOGISTIC_APPROVED] || 0) +
-        (requestCounts[RequestStatus.PURCHASE_APPROVED] || 0),
-      completed: requestCounts[RequestStatus.COMPLETED] || 0,
+        (requestCounts[ItemStatus.LOGISTIC_APPROVED] || 0) +
+        (requestCounts[ItemStatus.APPROVED] || 0),
+      completed: requestCounts[ItemStatus.COMPLETED] || 0,
       thisMonth: requestsThisMonth,
     };
 
-    // Process loan stats
+    // Process loan stats - LoanRequest uses LoanRequestStatus
     const loanCounts = this.aggregateGroupBy(loanStats, 'status');
     const loans = {
       total: Object.values(loanCounts).reduce((a, b) => a + b, 0),
-      active: loanCounts[LoanStatus.APPROVED] || 0,
+      active: loanCounts[LoanRequestStatus.ON_LOAN] || 0,
       overdue: overdueLoans,
-      returned: loanCounts[LoanStatus.RETURNED] || 0,
+      returned: loanCounts[LoanRequestStatus.RETURNED] || 0,
     };
 
     // Process customer stats
@@ -176,39 +173,34 @@ export class DashboardService {
   }
 
   /**
-   * Get stock summary by model
+   * Get stock summary by type (schema uses StandardItem, not AssetModel)
    */
   async getStockSummary(): Promise<StockSummary[]> {
-    const models = await this.prisma.assetModel.findMany({
+    const types = await this.prisma.assetType.findMany({
       include: {
-        type: {
-          include: {
-            category: true,
-          },
-        },
+        category: true,
         assets: {
-          where: { deletedAt: null },
           select: { status: true },
         },
       },
     });
 
-    return models.map(model => {
+    return types.map(type => {
       const statusCounts: Record<string, number> = {};
-      model.assets.forEach(asset => {
+      type.assets.forEach(asset => {
         statusCounts[asset.status] = (statusCounts[asset.status] || 0) + 1;
       });
 
       return {
-        modelId: model.id,
-        modelName: model.name,
-        brand: model.brand,
-        typeName: model.type.name,
-        categoryName: model.type.category.name,
-        totalStock: model.assets.length,
+        modelId: type.id,
+        modelName: type.name,
+        brand: '', // Type doesn't have brand
+        typeName: type.name,
+        categoryName: type.category.name,
+        totalStock: type.assets.length,
         inStorage: statusCounts[AssetStatus.IN_STORAGE] || 0,
         inUse: statusCounts[AssetStatus.IN_USE] || 0,
-        onLoan: statusCounts[AssetStatus.ON_LOAN] || 0,
+        inCustody: statusCounts[AssetStatus.IN_CUSTODY] || 0,
       };
     });
   }
@@ -259,60 +251,67 @@ export class DashboardService {
 
   /**
    * Get low stock alerts (items with stock below threshold)
+   * Uses AssetType since there's no AssetModel in schema
    */
   async getLowStockAlerts(threshold = 5) {
-    const models = await this.prisma.assetModel.findMany({
+    const types = await this.prisma.assetType.findMany({
       include: {
-        type: {
-          include: { category: true },
-        },
-        _count: {
-          select: {
-            assets: {
-              where: {
-                status: AssetStatus.IN_STORAGE,
-                deletedAt: null,
-              },
-            },
+        category: true,
+        assets: {
+          where: {
+            status: AssetStatus.IN_STORAGE,
           },
         },
       },
     });
 
-    return models
-      .filter(model => model._count.assets < threshold)
-      .map(model => ({
-        modelId: model.id,
-        modelName: model.name,
-        brand: model.brand,
-        typeName: model.type.name,
-        categoryName: model.type.category.name,
-        currentStock: model._count.assets,
+    return types
+      .filter(type => type.assets.length < threshold)
+      .map(type => ({
+        typeId: type.id,
+        typeName: type.name,
+        brand: '', // Type doesn't have brand in schema
+        categoryName: type.category.name,
+        currentStock: type.assets.length,
         threshold,
       }));
   }
 
   /**
    * Get upcoming loan returns (due in next 7 days)
+   * LoanRequest doesn't have expectedReturn - return dates are on LoanItem
    */
   async getUpcomingReturns(days = 7) {
     const now = new Date();
     const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
+    // Query loans with items that have return dates in the upcoming window
     return this.prisma.loanRequest.findMany({
       where: {
-        status: LoanStatus.APPROVED,
-        expectedReturn: {
-          gte: now,
-          lte: futureDate,
+        status: LoanRequestStatus.ON_LOAN,
+        items: {
+          some: {
+            returnDate: {
+              gte: now,
+              lte: futureDate,
+            },
+          },
         },
       },
       include: {
         requester: {
           select: { id: true, name: true, email: true },
         },
+        items: {
+          where: {
+            returnDate: {
+              gte: now,
+              lte: futureDate,
+            },
+          },
+          orderBy: { returnDate: 'asc' },
+        },
       },
-      orderBy: { expectedReturn: 'asc' },
     });
   }
 

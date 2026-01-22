@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { NotificationType } from '@prisma/client';
 
 export interface CreateNotificationDto {
   recipientId: number;
-  type: NotificationType;
-  title: string;
+  type: string;
   message: string;
-  referenceType?: string;
+  actorName: string;
   referenceId?: string;
 }
 
@@ -23,9 +21,8 @@ export class NotificationsService {
       data: {
         recipientId: dto.recipientId,
         type: dto.type,
-        title: dto.title,
         message: dto.message,
-        referenceType: dto.referenceType,
+        actorName: dto.actorName,
         referenceId: dto.referenceId,
       },
     });
@@ -42,9 +39,8 @@ export class NotificationsService {
       data: recipientIds.map(recipientId => ({
         recipientId,
         type: notification.type,
-        title: notification.title,
         message: notification.message,
-        referenceType: notification.referenceType,
+        actorName: notification.actorName,
         referenceId: notification.referenceId,
       })),
     });
@@ -73,7 +69,7 @@ export class NotificationsService {
     const [notifications, total] = await Promise.all([
       this.prisma.notification.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         skip,
         take: limit,
       }),
@@ -114,7 +110,6 @@ export class NotificationsService {
       },
       data: {
         isRead: true,
-        readAt: new Date(),
       },
     });
   }
@@ -130,7 +125,6 @@ export class NotificationsService {
       },
       data: {
         isRead: true,
-        readAt: new Date(),
       },
     });
   }
@@ -156,7 +150,7 @@ export class NotificationsService {
 
     return this.prisma.notification.deleteMany({
       where: {
-        createdAt: { lt: cutoffDate },
+        timestamp: { lt: cutoffDate },
         isRead: true,
       },
     });
@@ -171,10 +165,9 @@ export class NotificationsService {
    */
   async notifyNewRequest(adminUserIds: number[], requestId: string, requesterName: string) {
     return this.createBulk(adminUserIds, {
-      type: NotificationType.REQUEST_CREATED,
-      title: 'Permintaan Baru',
+      type: 'REQUEST_CREATED',
       message: `${requesterName} membuat permintaan baru`,
-      referenceType: 'request',
+      actorName: requesterName,
       referenceId: requestId,
     });
   }
@@ -185,10 +178,9 @@ export class NotificationsService {
   async notifyRequestApproved(recipientId: number, requestId: string, approverName: string) {
     return this.create({
       recipientId,
-      type: NotificationType.REQUEST_APPROVED,
-      title: 'Permintaan Disetujui',
+      type: 'REQUEST_APPROVED',
       message: `Permintaan Anda telah disetujui oleh ${approverName}`,
-      referenceType: 'request',
+      actorName: approverName,
       referenceId: requestId,
     });
   }
@@ -199,10 +191,9 @@ export class NotificationsService {
   async notifyLoanApproved(recipientId: number, loanId: string, approverName: string) {
     return this.create({
       recipientId,
-      type: NotificationType.LOAN_APPROVED,
-      title: 'Pinjaman Disetujui',
+      type: 'LOAN_APPROVED',
       message: `Pinjaman Anda telah disetujui oleh ${approverName}`,
-      referenceType: 'loan',
+      actorName: approverName,
       referenceId: loanId,
     });
   }
@@ -213,10 +204,9 @@ export class NotificationsService {
   async notifyMaintenanceDue(technicianId: number, assetId: string, assetName: string) {
     return this.create({
       recipientId: technicianId,
-      type: NotificationType.MAINTENANCE_DUE,
-      title: 'Jadwal Maintenance',
+      type: 'MAINTENANCE_DUE',
       message: `${assetName} memerlukan maintenance`,
-      referenceType: 'asset',
+      actorName: 'System',
       referenceId: assetId,
     });
   }
