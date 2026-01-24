@@ -51,7 +51,7 @@ export interface StockSummary {
 }
 
 // Interface baru untuk fix line 212
-interface MonthlyTrend {
+export interface MonthlyTrend {
   month: string;
   requests: number;
   handovers: number;

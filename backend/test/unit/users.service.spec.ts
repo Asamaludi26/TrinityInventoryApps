@@ -25,7 +25,8 @@ describe('UsersService', () => {
     permissions: [],
     passwordResetRequested: false,
     passwordResetRequestDate: null,
-    deletedAt: null,
+    // Type assertion ini membantu saat mockUser digunakan di tempat lain
+    deletedAt: null as Date | null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -182,15 +183,24 @@ describe('UsersService', () => {
 
   describe('remove', () => {
     it('should soft delete a user', async () => {
-      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
-      (prisma.user.update as jest.Mock).mockResolvedValue({
+      // Mock return value yang memiliki deletedAt terisi
+      const deletedUser = {
         ...mockUser,
         deletedAt: new Date(),
-      });
+      };
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.user.update as jest.Mock).mockResolvedValue(deletedUser);
 
       const result = await service.remove(1);
 
-      expect(result.deletedAt).not.toBeNull();
+      /**
+       * PERBAIKAN UTAMA:
+       * Menggunakan casting '(result as any)' karena TypeScript menganggap tipe 'User'
+       * dari Prisma belum memiliki properti 'deletedAt' secara definisi statis.
+       */
+      expect((result as any).deletedAt).not.toBeNull();
+      expect((result as any).deletedAt).toBeInstanceOf(Date);
     });
   });
 

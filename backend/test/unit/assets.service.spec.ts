@@ -2,25 +2,33 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AssetsService } from '../../src/modules/assets/assets.service';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { AssetStatus, MovementType } from '@prisma/client';
+import { AssetStatus } from '@prisma/client';
 
 describe('AssetsService', () => {
   let service: AssetsService;
   let prisma: jest.Mocked<PrismaService>;
 
+  // Helper untuk membuat mock Decimal yang valid
+  const createMockDecimal = (value: number) => ({
+    toNumber: () => value,
+    toString: () => value.toString(),
+    // Tambahkan properti/method Decimal lain jika diperlukan
+  });
+
   const mockAsset = {
     id: 'AST-2025-0001',
     name: 'Router',
     brand: 'Mikrotik',
-    modelId: 1,
+    typeId: 1, // Updated from modelId
     serialNumber: 'SN12345',
     status: AssetStatus.IN_STORAGE,
     condition: 'GOOD',
-    currentBalance: null,
+    currentBalance: null, // Default null for count items
     quantity: 1,
     location: 'Gudang A',
     deletedAt: null,
-    model: { id: 1, name: 'RB750', brand: 'Mikrotik' },
+    type: { id: 1, name: 'RB750' }, // Updated from model
+    category: { id: 1, name: 'Networking' },
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -51,7 +59,8 @@ describe('AssetsService', () => {
             activityLog: {
               create: jest.fn(),
             },
-            assetModel: {
+            // Mock assetType instead of assetModel
+            assetType: {
               findMany: jest.fn(),
             },
             $transaction: mockTransaction,
@@ -81,7 +90,8 @@ describe('AssetsService', () => {
       const dto = {
         name: 'Router',
         brand: 'Mikrotik',
-        modelId: 1,
+        typeId: 1, // Updated DTO
+        categoryId: 1,
       };
 
       const result = await service.create(dto);
@@ -112,7 +122,12 @@ describe('AssetsService', () => {
     it('should return availability info for individual assets', async () => {
       (prisma.asset.findMany as jest.Mock).mockResolvedValue([
         { ...mockAsset, currentBalance: null, quantity: null },
-        { ...mockAsset, id: 'AST-2025-0002', currentBalance: null, quantity: null },
+        {
+          ...mockAsset,
+          id: 'AST-2025-0002',
+          currentBalance: null,
+          quantity: null,
+        },
       ]);
 
       const result = await service.checkAvailability('Router', 'Mikrotik', 2);
@@ -134,9 +149,10 @@ describe('AssetsService', () => {
 
   describe('consumeStock', () => {
     it('should consume stock atomically in a transaction', async () => {
+      // PERBAIKAN 1: Gunakan createMockDecimal untuk currentBalance
       const measurementAsset = {
         ...mockAsset,
-        currentBalance: 100,
+        currentBalance: createMockDecimal(100),
         quantity: null,
       };
 
@@ -154,7 +170,14 @@ describe('AssetsService', () => {
       });
 
       const dto = {
-        items: [{ itemName: 'Cable', brand: 'Generic', quantity: 50, unit: 'Meter' }],
+        items: [
+          {
+            itemName: 'Cable',
+            brand: 'Generic',
+            quantity: 50,
+            unit: 'Meter',
+          },
+        ],
         context: {
           referenceType: 'INSTALLATION',
           referenceId: 'INST-2025-0001',
@@ -169,9 +192,10 @@ describe('AssetsService', () => {
     });
 
     it('should throw BadRequestException if stock insufficient', async () => {
+      // PERBAIKAN 1: Gunakan createMockDecimal
       const lowStockAsset = {
         ...mockAsset,
-        currentBalance: 10,
+        currentBalance: createMockDecimal(10),
         quantity: null,
       };
 
@@ -189,7 +213,14 @@ describe('AssetsService', () => {
       });
 
       const dto = {
-        items: [{ itemName: 'Cable', brand: 'Generic', quantity: 100, unit: 'Meter' }],
+        items: [
+          {
+            itemName: 'Cable',
+            brand: 'Generic',
+            quantity: 100,
+            unit: 'Meter',
+          },
+        ],
         context: {
           referenceType: 'INSTALLATION',
           referenceId: 'INST-2025-0001',
@@ -202,14 +233,10 @@ describe('AssetsService', () => {
 
   describe('createBulk', () => {
     it('should create multiple assets in a transaction', async () => {
-      const createdAssets = [
-        { ...mockAsset, id: 'AST-2025-0001' },
-        { ...mockAsset, id: 'AST-2025-0002' },
-      ];
-
       mockTransaction.mockImplementation(async callback => {
         const tx = {
-          assetModel: {
+          // PERBAIKAN 2: Mock assetType, bukan assetModel
+          assetType: {
             findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
           },
           asset: {
@@ -221,14 +248,14 @@ describe('AssetsService', () => {
             createMany: jest.fn(),
           },
         };
-        // Mock generateAssetId using the service's internal method
+        // Mock generateAssetId logic (simplified via return)
         return { created: 2, ids: ['AST-2025-0001', 'AST-2025-0002'] };
       });
 
       const dto = {
         items: [
-          { name: 'Router', brand: 'Mikrotik', modelId: 1 },
-          { name: 'Router', brand: 'Mikrotik', modelId: 1 },
+          { name: 'Router', brand: 'Mikrotik', typeId: 1 },
+          { name: 'Router', brand: 'Mikrotik', typeId: 1 },
         ],
         performedBy: 'Admin',
         notes: 'Bulk registration',
@@ -240,18 +267,19 @@ describe('AssetsService', () => {
       expect(result.ids).toHaveLength(2);
     });
 
-    it('should throw BadRequestException if model not found', async () => {
+    it('should throw BadRequestException if type not found', async () => {
       mockTransaction.mockImplementation(async callback => {
         const tx = {
-          assetModel: {
-            findMany: jest.fn().mockResolvedValue([]), // No models found
+          // PERBAIKAN 2: Mock assetType dengan array kosong (not found scenario)
+          assetType: {
+            findMany: jest.fn().mockResolvedValue([]),
           },
         };
         return callback(tx);
       });
 
       const dto = {
-        items: [{ name: 'Router', brand: 'Mikrotik', modelId: 999 }],
+        items: [{ name: 'Router', brand: 'Mikrotik', typeId: 999 }],
       };
 
       await expect(service.createBulk(dto)).rejects.toThrow(BadRequestException);
@@ -260,18 +288,26 @@ describe('AssetsService', () => {
     it('should throw BadRequestException if serial number already exists', async () => {
       mockTransaction.mockImplementation(async callback => {
         const tx = {
-          assetModel: {
+          // PERBAIKAN 2: Mock assetType dan asset
+          assetType: {
             findMany: jest.fn().mockResolvedValue([{ id: 1 }]),
           },
           asset: {
-            findMany: jest.fn().mockResolvedValue([{ serialNumber: 'SN12345' }]), // Duplicate serial
+            findMany: jest.fn().mockResolvedValue([{ serialNumber: 'SN12345' }]),
           },
         };
         return callback(tx);
       });
 
       const dto = {
-        items: [{ name: 'Router', brand: 'Mikrotik', modelId: 1, serialNumber: 'SN12345' }],
+        items: [
+          {
+            name: 'Router',
+            brand: 'Mikrotik',
+            typeId: 1,
+            serialNumber: 'SN12345',
+          },
+        ],
       };
 
       await expect(service.createBulk(dto)).rejects.toThrow(BadRequestException);

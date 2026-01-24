@@ -18,6 +18,7 @@ describe('AuthService', () => {
   let usersService: jest.Mocked<UsersService>;
   let jwtService: jest.Mocked<JwtService>;
 
+  // PERBAIKAN DI SINI: Menambahkan isActive: true
   const mockUser = {
     id: 1,
     email: 'test@example.com',
@@ -26,6 +27,7 @@ describe('AuthService', () => {
     role: 'STAFF',
     division: { name: 'Engineering' },
     permissions: ['assets:read'],
+    isActive: true, // <--- Properti wajib agar lolos validasi akun aktif
     deletedAt: null,
   };
 
@@ -89,6 +91,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should return user and token on successful login', async () => {
+      // Login memanggil validateUser, jadi mockUser harus memiliki isActive: true
       usersService.findByEmail.mockResolvedValue(mockUser as any);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
