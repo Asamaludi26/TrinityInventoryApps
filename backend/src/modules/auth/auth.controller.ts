@@ -12,33 +12,35 @@ import {
   Headers,
 } from '@nestjs/common';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
+// 1. IMPORT BARU DARI SWAGGER
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { THROTTLE_LOGIN_TTL, THROTTLE_LOGIN_LIMIT } from '../../common/constants';
-// PERBAIKAN: Import User untuk type definition
 import { User } from '@prisma/client';
 
-// Interface helper untuk Request yang sudah diautentikasi
 interface RequestWithUser {
   user: User;
 }
 
+// 2. TAMBAHKAN TAG UNTUK GROUPING
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
   constructor(private authService: AuthService) {}
 
-  /**
-   * Login endpoint with strict rate limiting
-   * - 5 attempts per minute to prevent brute force
-   * - Logs all login attempts for security audit
-   */
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  // 3. TAMBAHKAN DOKUMENTASI OPERASI
+  @ApiOperation({ summary: 'Login user to get JWT token' })
+  @ApiResponse({ status: 200, description: 'Login successful, returns access token' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @Throttle({
     default: { ttl: THROTTLE_LOGIN_TTL, limit: THROTTLE_LOGIN_LIMIT },
   })
@@ -47,7 +49,6 @@ export class AuthController {
     @Ip() ip: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    // PERBAIKAN LINE 39: Menggunakan userAgent di dalam log audit
     this.logger.log(
       `Login attempt for ${loginDto.email} from IP: ${ip}, UA: ${userAgent || 'Unknown'}`,
     );
@@ -64,31 +65,36 @@ export class AuthController {
   }
 
   @Post('register')
-  @Throttle({ default: { ttl: 60000, limit: 3 } }) // 3 registrations per minute
+  @ApiOperation({ summary: 'Register a new user' }) // Dokumentasi
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  // 4. KUNCI UTAMA: BERITAHU SWAGGER BAHWA INI BUTUH TOKEN
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current user profile (Requires Token)' })
   @SkipThrottle()
-  // PERBAIKAN LINE 64: Menggunakan tipe spesifik 'RequestWithUser' alih-alih 'any'
   async getCurrentUser(@Request() req: RequestWithUser) {
     return req.user;
   }
 
   @Post('verify')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth') // Tambahkan juga di sini
+  @ApiOperation({ summary: 'Verify if token is valid' })
   @HttpCode(HttpStatus.OK)
   @SkipThrottle()
-  // PERBAIKAN LINE 72: Menggunakan tipe spesifik 'RequestWithUser' alih-alih 'any'
   async verifyToken(@Request() req: RequestWithUser) {
     return { valid: true, user: req.user };
   }
 
   @Post('request-password-reset')
+  @ApiOperation({ summary: 'Request password reset email' })
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60000, limit: 3 } }) // 3 requests per minute
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
     return this.authService.requestPasswordReset(dto.email);
   }

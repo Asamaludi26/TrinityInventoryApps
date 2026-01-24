@@ -18,6 +18,7 @@ import { HealthController } from './common/health/health.controller';
 import { THROTTLE_TTL, THROTTLE_LIMIT } from './common/constants';
 import { PrismaService } from '../prisma.service';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -74,7 +75,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
     ActivityLogsModule,
     ReportsModule,
   ],
-  controllers: [HealthController],
+  controllers: [AppController, HealthController],
   exports: [PrismaService],
   providers: [
     //Prisma
