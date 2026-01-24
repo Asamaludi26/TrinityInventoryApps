@@ -52,28 +52,46 @@ async function main() {
       // permissions: ['*'], // Hapus baris ini jika kolom permissions tidak ada di schema User
     },
   });
-
   console.log('👤 Admin created:', admin.email);
 
-  // Create asset categories
-  const categories = [
-    { name: 'Network Equipment', isCustomerInstallable: true },
-    { name: 'Computer Hardware', isCustomerInstallable: false },
-    { name: 'Office Equipment', isCustomerInstallable: false },
-    { name: 'Cable & Accessories', isCustomerInstallable: true },
-  ];
+  const logistik = await prisma.user.upsert({
+    where: { email: 'logistik@trinity.com' }, // Pastikan ini sesuai dengan logic login Anda
+    update: {
+      password: hashedPassword, // Paksa update password
+      isActive: true, // Sekalian pastikan aktif
+    },
+    create: {
+      name: 'Logistik',
+      email: 'logistik@trinity.com',
+      password: hashedPassword,
+      role: 'ADMIN_LOGISTIK', // PERHATIKAN: Pastikan value ini ada di ENUM Role Anda di schema.prisma
+      divisionId: divisionLogistik.id,
+      isActive: true,
+      // permissions: ['*'], // Hapus baris ini jika kolom permissions tidak ada di schema User
+    },
+  });
+  console.log('👤 Admin created:', logistik.email);
 
-  for (const cat of categories) {
-    await prisma.assetCategory.upsert({
-      where: { name: cat.name },
-      update: {},
-      create: cat,
-    });
-  }
+  // Create asset categories
+  // const categories = [
+  //   { name: 'Network Equipment', isCustomerInstallable: true },
+  //   { name: 'Computer Hardware', isCustomerInstallable: false },
+  //   { name: 'Office Equipment', isCustomerInstallable: false },
+  //   { name: 'Cable & Accessories', isCustomerInstallable: true },
+  // ];
+
+  // for (const cat of categories) {
+  //   await prisma.assetCategory.upsert({
+  //     where: { name: cat.name },
+  //     update: {},
+  //     create: cat,
+  //   });
+  // }
 
   console.log('✅ Seeding completed.');
 }
 
+// Jalankan fungsi main dan tangani error
 main()
   .catch(e => {
     console.error('❌ Seeding failed:', e);

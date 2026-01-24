@@ -57,7 +57,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       disabled,
       ...props
     },
-    ref,
+    ref
   ) => {
     const sizeStyles = {
       sm: "px-3 py-2 text-sm",
@@ -66,9 +66,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     };
 
     const variantStyles = {
-      default: `bg-white border border-gray-300 hover:border-gray-400 ${error ? "border-danger-500" : success ? "border-success-500" : ""}`,
-      filled: "bg-gray-50 border-b-2 border-gray-300 hover:bg-gray-100",
-      flushed: "bg-transparent border-b-2 border-gray-300 px-0",
+      default: `bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 ${error ? "border-danger-500" : success ? "border-success-500" : ""}`,
+      filled:
+        "bg-gray-50 dark:bg-slate-900 border-b-2 border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-800",
+      flushed: "bg-transparent border-b-2 border-gray-300 dark:border-slate-600 px-0",
     };
 
     const inputClassName = cn(
@@ -81,7 +82,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       success && inputStyles.success,
       icon && iconPosition === "left" && "pl-10",
       icon && iconPosition === "right" && "pr-10",
-      className,
+      className
     );
 
     return (
@@ -102,13 +103,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
 
           {/* Input Element */}
-          <input
-            ref={ref}
-            type={type}
-            disabled={disabled}
-            className={inputClassName}
-            {...props}
-          />
+          <input ref={ref} type={type} disabled={disabled} className={inputClassName} {...props} />
 
           {/* Right Icon (Error or Success indicator) */}
           {iconPosition === "right" && icon && (
@@ -120,11 +115,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {/* Error Indicator Icon */}
           {error && !icon && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <svg
-                className="w-5 h-5 text-danger-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
+              <svg className="w-5 h-5 text-danger-500" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M18.21 5.79A1 1 0 0016 5h-1V4a1 1 0 10-2 0v1h-2V4a1 1 0 10-2 0v1H9V4a1 1 0 10-2 0v1H5V4a1 1 0 10-2 0v1H2a1 1 0 100 2h16a1 1 0 100-2zM2 8h16v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8z"
@@ -137,11 +128,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {/* Success Indicator Icon */}
           {success && !error && !icon && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <svg
-                className="w-5 h-5 text-success-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
+              <svg className="w-5 h-5 text-success-500" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -153,21 +140,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {/* Error Message */}
-        {error && (
-          <p className="mt-1 text-sm text-danger-600 dark:text-danger-400">
-            {error}
-          </p>
-        )}
+        {error && <p className="mt-1 text-sm text-danger-600 dark:text-danger-400">{error}</p>}
 
         {/* Hint or Helper Text */}
         {(hint || helperText) && !error && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {hint || helperText}
-          </p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hint || helperText}</p>
         )}
       </div>
     );
-  },
+  }
 );
 
 Input.displayName = "Input";

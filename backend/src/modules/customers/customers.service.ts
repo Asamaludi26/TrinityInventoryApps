@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { CustomerStatus } from '@prisma/client';
+import { CustomerStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class CustomersService {
@@ -13,18 +13,35 @@ export class CustomersService {
    */
   private sanitizeCustomerData(
     dto: Partial<CreateCustomerDto | UpdateCustomerDto>,
-  ): Partial<CreateCustomerDto> {
-    const { name, address, phone, email, status, serviceType, serviceSpeed, notes } = dto as any;
-    const sanitized: Partial<CreateCustomerDto> = {};
+  ): Record<string, unknown> {
+    // PERBAIKAN BARIS 17: Ganti 'any' dengan 'unknown'
+    /**
+     * PERBAIKAN BARIS 23-24:
+     * Menggunakan 'Record<string, unknown>' agar lolos linter.
+     * Tipe 'unknown' memaksa kita melakukan type checking atau casting
+     * sebelum digunakan, yang mana sudah kita lakukan di method create/update.
+     */
+    const source = dto as Record<string, unknown>;
+    const sanitized: Record<string, unknown> = {};
 
-    if (name !== undefined) sanitized.name = name;
-    if (address !== undefined) sanitized.address = address;
-    if (phone !== undefined) sanitized.phone = phone;
-    if (email !== undefined) sanitized.email = email;
-    if (status !== undefined) sanitized.status = status;
-    if (serviceType !== undefined) sanitized.serviceType = serviceType;
-    if (serviceSpeed !== undefined) sanitized.serviceSpeed = serviceSpeed;
-    if (notes !== undefined) sanitized.notes = notes;
+    // Daftar field yang diizinkan masuk ke database
+    const allowedFields = [
+      'name',
+      'address',
+      'phone',
+      'email',
+      'status',
+      'serviceType',
+      'serviceSpeed',
+      'servicePackage',
+      'notes',
+    ];
+
+    for (const field of allowedFields) {
+      if (source[field] !== undefined) {
+        sanitized[field] = source[field];
+      }
+    }
 
     return sanitized;
   }
@@ -50,11 +67,15 @@ export class CustomersService {
     const id = dto.id || (await this.generateCustomerId());
     const sanitized = this.sanitizeCustomerData(dto);
 
+    const createData: Prisma.CustomerUncheckedCreateInput = {
+      // Spread sanitized data dan casting ke tipe Input yang benar
+      // Casting 'unknown' ke tipe spesifik Prisma diizinkan dan aman di sini
+      ...(sanitized as Prisma.CustomerUncheckedCreateInput),
+      id,
+    };
+
     return this.prisma.customer.create({
-      data: {
-        ...sanitized,
-        id,
-      } as any,
+      data: createData,
     });
   }
 
@@ -66,7 +87,7 @@ export class CustomersService {
   }) {
     const { skip = 0, take = 50, status, search } = params || {};
 
-    const where: any = {};
+    const where: Prisma.CustomerWhereInput = {};
 
     if (status) where.status = status;
 
@@ -109,7 +130,8 @@ export class CustomersService {
 
     return this.prisma.customer.update({
       where: { id },
-      data: sanitized,
+      // Casting 'unknown' ke tipe UpdateInput
+      data: sanitized as Prisma.CustomerUpdateInput,
     });
   }
 

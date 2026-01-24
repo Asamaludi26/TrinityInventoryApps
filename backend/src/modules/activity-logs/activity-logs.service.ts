@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+// PERBAIKAN: Import 'Prisma' untuk akses tipe WhereInput
+import { Prisma } from '@prisma/client';
 
 export type EntityType =
   | 'asset'
@@ -82,7 +84,11 @@ export class ActivityLogsService {
     const limit = options?.limit || 50;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    /**
+     * PERBAIKAN BARIS 85:
+     * Menggunakan Prisma.ActivityLogWhereInput menggantikan 'any'.
+     */
+    const where: Prisma.ActivityLogWhereInput = {};
 
     if (options?.entityType) {
       where.entityType = options.entityType;
@@ -196,7 +202,16 @@ export class ActivityLogsService {
   // CONVENIENCE METHODS FOR COMMON LOGGING PATTERNS
   // =========================================================================
 
-  async logAssetCreated(assetId: string, userId: number, userName: string, assetData?: any) {
+  async logAssetCreated(
+    assetId: string,
+    userId: number,
+    userName: string,
+    /**
+     * PERBAIKAN BARIS 199:
+     * Menggunakan Record<string, unknown> daripada any.
+     */
+    assetData?: Record<string, unknown>,
+  ) {
     return this.log({
       entityType: 'asset',
       entityId: assetId,
@@ -208,7 +223,16 @@ export class ActivityLogsService {
     });
   }
 
-  async logAssetUpdated(assetId: string, userId: number, userName: string, changes?: any) {
+  async logAssetUpdated(
+    assetId: string,
+    userId: number,
+    userName: string,
+    /**
+     * PERBAIKAN BARIS 211:
+     * Menggunakan Record<string, unknown> daripada any.
+     */
+    changes?: Record<string, unknown>,
+  ) {
     return this.log({
       entityType: 'asset',
       entityId: assetId,
@@ -220,7 +244,16 @@ export class ActivityLogsService {
     });
   }
 
-  async logRequestCreated(requestId: string, userId: number, userName: string, details?: any) {
+  async logRequestCreated(
+    requestId: string,
+    userId: number,
+    userName: string,
+    /**
+     * PERBAIKAN BARIS 223:
+     * Menggunakan Record<string, unknown> daripada any.
+     */
+    details?: Record<string, unknown>,
+  ) {
     return this.log({
       entityType: 'request',
       entityId: requestId,
@@ -232,7 +265,16 @@ export class ActivityLogsService {
     });
   }
 
-  async logRequestApproved(requestId: string, userId: number, userName: string, details?: any) {
+  async logRequestApproved(
+    requestId: string,
+    userId: number,
+    userName: string,
+    /**
+     * PERBAIKAN BARIS 235:
+     * Menggunakan Record<string, unknown> daripada any.
+     */
+    details?: Record<string, unknown>,
+  ) {
     return this.log({
       entityType: 'request',
       entityId: requestId,

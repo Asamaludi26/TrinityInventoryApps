@@ -55,7 +55,8 @@ model User {
   email    String   @unique @db.VarChar(255)
   password String   @db.VarChar(255) // bcrypt hashed
   role     UserRole
-  divisionId Int? @map("division_id")
+  //Foreign Key
+  divisionId Int? @map("division_id") 
 
   // RBAC
   permissions String[] // Array of permission strings
@@ -96,8 +97,31 @@ model User {
   assetReturnsVerified     AssetReturn[]   @relation("ReturnVerifier")
   stockThresholdsCreated   StockThreshold[] @relation("ThresholdCreator")
 
-  @@index([email])
-  @@index([role, divisionId])
+  // =======================================
+  // INDEXING STRATEGY (UPDATED)
+  // =======================================
+
+  // 1. Foreign Key Indexing (Wajib untuk performa JOIN relasi Division)
+  @@index([divisionId])
+
+  // 2. Dashboard Filtering
+  // Berguna untuk: "Tampilkan semua STAFF di divisi IT"
+  @@index([role, divisionId]) 
+
+  // 3. User Listing & Management
+  // Berguna untuk: "Tampilkan user yang Aktif saja" (Sering dipakai di dropdown)
+  @@index([isActive])
+
+  // 4. Search & Autocomplete
+  // Berguna untuk pencarian nama user
+  @@index([name])
+
+  // 5. Security (Opsional tapi disarankan)
+  // Mempercepat query audit untuk mencari user berdasarkan refresh token
+  // Hanya jika refreshToken tidak terlalu panjang (Prisma Text mapping ke SQL Text bisa diindex tapi ada batas size)
+  // @@index([refreshToken]) 
+
+  // CATATAN: @@index([email]) DIHAPUS karena sudah @unique
   @@map("users")
 }
 
@@ -125,6 +149,7 @@ model UserPreference {
   @@map("user_preferences")
 }
 
+
 // ============================================
 // ASSET CATEGORY & TYPE HIERARCHY
 // ============================================
@@ -142,6 +167,7 @@ model AssetCategory {
   assets              Asset[]
   stockThresholds     StockThreshold[]
 
+  @@index([isCustomerInstallable])
   @@map("asset_categories")
 }
 
@@ -182,6 +208,7 @@ model AssetType {
   assets        Asset[]
 
   @@unique([categoryId, name])
+  @@index([name])
   @@index([classification, trackingMethod])
   @@map("asset_types")
 }
@@ -201,7 +228,8 @@ model StandardItem {
   type AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
 
   @@unique([typeId, name, brand])
-  @@index([name, brand])
+  @@index([brand])
+  @@index([name])
   @@map("standard_items")
 }
 

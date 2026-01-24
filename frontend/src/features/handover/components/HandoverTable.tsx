@@ -36,7 +36,7 @@ const SortableHeader: React.FC<{
   return (
     <th
       scope="col"
-      className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 cursor-pointer group hover:bg-gray-50 transition-colors"
+      className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400 cursor-pointer group hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
       onClick={() => requestSort(columnKey)}
     >
       <div className="flex items-center gap-1">
@@ -49,7 +49,7 @@ const SortableHeader: React.FC<{
               <SortDescIcon className="w-4 h-4 text-primary-500" />
             )
           ) : (
-            <SortIcon className="w-4 h-4 text-gray-400" />
+            <SortIcon className="w-4 h-4 text-gray-400 dark:text-slate-600" />
           )}
         </span>
       </div>
@@ -72,8 +72,8 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
   const longPressHandlers = useLongPress(onEnterBulkMode, 500);
 
   return (
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+      <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-slate-800/90 shadow-sm">
         <tr>
           {isBulkSelectMode && (
             <th scope="col" className="px-6 py-3 w-10">
@@ -102,13 +102,13 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
           </SortableHeader>
           <th
             scope="col"
-            className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500"
+            className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400"
           >
             Pihak Terlibat
           </th>
           <th
             scope="col"
-            className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500"
+            className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400"
           >
             Detail Barang
           </th>
@@ -124,7 +124,7 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
           </th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
+      <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
         {handovers.length > 0 ? (
           handovers.map((ho) => (
             <tr
@@ -133,7 +133,7 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
               onClick={() =>
                 isBulkSelectMode ? onSelectOne(ho.id) : onDetailClick(ho)
               }
-              className={`transition-colors cursor-pointer ${selectedHandoverIds.includes(ho.id) ? "bg-blue-50" : "hover:bg-gray-50"}`}
+              className={`transition-colors cursor-pointer ${selectedHandoverIds.includes(ho.id) ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-gray-50 dark:hover:bg-slate-700"}`}
             >
               {isBulkSelectMode && (
                 <td
@@ -147,12 +147,12 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
                 </td>
               )}
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm font-bold text-gray-900">
+                <div className="text-sm font-bold text-gray-900 dark:text-white">
                   {ho.docNumber}
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 dark:text-slate-400">
                   {new Date(ho.handoverDate).toLocaleDateString("id-ID", {
                     day: "numeric",
                     month: "short",
@@ -161,17 +161,17 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
                   {ho.menyerahkan}
                 </div>
-                <div className="text-xs text-gray-500">ke {ho.penerima}</div>
+                <div className="text-xs text-gray-500 dark:text-slate-400">ke {ho.penerima}</div>
               </td>
-              <td className="px-6 py-4 text-sm text-gray-500">
-                <div className="font-medium text-gray-800">
+              <td className="px-6 py-4 text-sm text-gray-500 dark:text-slate-400">
+                <div className="font-medium text-gray-800 dark:text-white">
                   {ho.items.length} item
                 </div>
                 <div
-                  className="text-xs truncate text-gray-500 max-w-[200px]"
+                  className="text-xs truncate text-gray-500 dark:text-slate-400 max-w-[200px]"
                   title={ho.items[0]?.itemName}
                 >
                   {ho.items[0]?.itemName}
@@ -188,7 +188,7 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
                       e.stopPropagation();
                       onDetailClick(ho);
                     }}
-                    className="p-2 text-slate-400 hover:text-primary-600 hover:bg-blue-50 rounded-full transition-colors"
+                    className="p-2 text-slate-400 dark:text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
                   >
                     <EyeIcon className="w-5 h-5" />
                   </button>
@@ -197,7 +197,7 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
                       e.stopPropagation();
                       onDeleteClick(ho.id);
                     }}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
                   >
                     <TrashIcon className="w-5 h-5" />
                   </button>
@@ -209,11 +209,11 @@ export const HandoverTable: React.FC<HandoverTableProps> = ({
           <tr>
             <td
               colSpan={isBulkSelectMode ? 7 : 6}
-              className="px-6 py-12 text-center text-gray-500"
+              className="px-6 py-12 text-center text-gray-500 dark:text-slate-400"
             >
               <div className="flex flex-col items-center">
-                <InboxIcon className="w-12 h-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                <InboxIcon className="w-12 h-12 text-gray-400 dark:text-slate-500" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
                   Tidak Ada Data Handover
                 </h3>
               </div>

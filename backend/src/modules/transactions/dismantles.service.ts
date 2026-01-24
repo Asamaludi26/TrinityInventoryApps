@@ -52,8 +52,16 @@ export class DismantlesService {
   async findAll(params?: { skip?: number; take?: number; status?: ItemStatus }) {
     const { skip = 0, take = 50, status } = params || {};
 
-    const where: any = {};
-    if (status) where.status = status;
+    /**
+     * PERBAIKAN BARIS 55:
+     * Menggunakan 'Prisma.DismantleWhereInput' menggantikan 'any'.
+     * Ini memberikan validasi tipe yang ketat untuk filtering database.
+     */
+    const where: Prisma.DismantleWhereInput = {};
+
+    if (status) {
+      where.status = status;
+    }
 
     const [dismantles, total] = await Promise.all([
       this.prisma.dismantle.findMany({

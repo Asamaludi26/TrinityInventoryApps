@@ -331,11 +331,11 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
     <>
       <div className="p-4 sm:p-6 md:p-8">
         <div className="flex flex-col items-start justify-between gap-4 mb-6 md:flex-row md:items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Daftar Pelanggan</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Daftar Pelanggan</h1>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => exportToCSV(customers, "daftar_pelanggan.csv")}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
             >
               <ExportIcon className="w-4 h-4" /> Export CSV
             </button>
@@ -399,19 +399,19 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
           />
         </div>
 
-        <div className="p-4 mb-4 bg-white border border-gray-200/80 rounded-xl shadow-md">
+        <div className="p-4 mb-4 bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-grow">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 {" "}
-                <SearchIcon className="w-5 h-5 text-gray-400" />{" "}
+                <SearchIcon className="w-5 h-5 text-gray-400 dark:text-slate-500" />{" "}
               </div>
               <input
                 type="text"
                 placeholder="Cari ID, Nama, Alamat..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-primary-500 focus:border-primary-500 placeholder-gray-400 dark:placeholder-slate-500"
               />
             </div>
             <div className="relative" ref={filterPanelRef}>
@@ -421,7 +421,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                   setIsFilterPanelOpen((p) => !p);
                 }}
                 className={`inline-flex items-center justify-center gap-2 w-full h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto 
-                                    ${activeFilterCount > 0 ? "bg-gray-50 border-primary-500 text-primary-600" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}
+                                    ${activeFilterCount > 0 ? "bg-gray-50 dark:bg-slate-700 border-primary-500 text-primary-600 dark:text-primary-400" : "bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"}
                                 `}
               >
                 <FilterIcon className="w-4 h-4" /> <span>Filter</span>{" "}
@@ -437,14 +437,14 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                     onClick={() => setIsFilterPanelOpen(false)}
                     className="fixed inset-0 z-20 bg-black/25 sm:hidden"
                   />
-                  <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 bg-white shadow-lg sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
-                    <div className="flex items-center justify-between p-4 border-b">
-                      <h3 className="text-lg font-semibold text-gray-800">
+                  <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg dark:shadow-xl dark:shadow-black/30 sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
+                    <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                         Filter Pelanggan
                       </h3>
                       <button
                         onClick={() => setIsFilterPanelOpen(false)}
-                        className="p-1 text-gray-400 rounded-full hover:bg-gray-100"
+                        className="p-1 text-gray-400 dark:text-slate-500 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
                       >
                         <CloseIcon className="w-5 h-5" />
                       </button>
@@ -573,10 +573,10 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
           </div>
         )}
 
-        <div className="overflow-hidden bg-white border border-gray-200/80 rounded-xl shadow-md">
+        <div className="overflow-hidden bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+              <thead className="bg-gray-50 dark:bg-slate-900">
                 <tr>
                   {isBulkSelectMode && (
                     <th className="px-6 py-3">
@@ -596,20 +596,20 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                       />
                     </th>
                   )}
-                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500">
+                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400">
                     Pelanggan
                   </th>
-                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500">
+                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400">
                     Kontak
                   </th>
-                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500">
+                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400">
                     Paket
                   </th>
-                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500">
+                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400">
                     Aset & Material
                   </th>{" "}
                   {/* Ubah Header */}
-                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500">
+                  <th className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400">
                     Status
                   </th>
                   <th className="relative px-6 py-3">
@@ -617,7 +617,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                 {paginatedCustomers.map((customer) => {
                   const assetCount = assets.filter(
                     (a) => a.currentUser === customer.id,
@@ -638,7 +638,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                             )
                           : onShowPreview({ type: "customer", id: customer.id })
                       }
-                      className={`cursor-pointer transition-colors ${selectedCustomerIds.includes(customer.id) ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                      className={`cursor-pointer transition-colors ${selectedCustomerIds.includes(customer.id) ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-slate-700"}`}
                     >
                       {isBulkSelectMode && (
                         <td
@@ -658,23 +658,23 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                         </td>
                       )}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
                           {customer.name}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 dark:text-slate-400">
                           {customer.id}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-800">
+                        <div className="text-sm text-gray-800 dark:text-slate-200">
                           {customer.phone}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 dark:text-slate-400">
                           {customer.address}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-800 font-medium">
+                        <div className="text-sm text-gray-800 dark:text-slate-200 font-medium">
                           {customer.servicePackage}
                         </div>
                       </td>
@@ -691,17 +691,17 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                                 id: customer.id,
                               });
                             }}
-                            className="flex items-center gap-2 text-sm font-bold text-gray-800 hover:text-primary-600 transition-colors text-left"
+                            className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-slate-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-left"
                             title="Perangkat (Device) yang terpasang"
                           >
-                            <BsBoxSeam className="w-3.5 h-3.5 text-blue-600" />
+                            <BsBoxSeam className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             {assetCount} Perangkat
                           </button>
 
                           {/* Material Count (Consumed) - Subtle */}
                           {materialCount > 0 && (
                             <div
-                              className="flex items-center gap-2 text-xs text-gray-400 pl-0.5"
+                              className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 pl-0.5"
                               title="Material habis pakai (Kabel, Konektor, dll)"
                             >
                               <BsLightningFill className="w-3 h-3 text-orange-400" />
@@ -730,7 +730,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                                 id: customer.id,
                               });
                             }}
-                            className="flex items-center justify-center w-8 h-8 text-gray-500 transition-colors bg-gray-100 rounded-full hover:bg-info-light hover:text-info-text"
+                            className="flex items-center justify-center w-8 h-8 text-gray-500 dark:text-slate-400 transition-colors bg-gray-100 dark:bg-slate-700 rounded-full hover:bg-info-light dark:hover:bg-blue-900/50 hover:text-info-text dark:hover:text-blue-400"
                           >
                             <EyeIcon className="w-5 h-5" />
                           </button>
@@ -741,7 +741,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                                 customerId: customer.id,
                               });
                             }}
-                            className="flex items-center justify-center w-8 h-8 text-gray-500 transition-colors bg-gray-100 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
+                            className="flex items-center justify-center w-8 h-8 text-gray-500 dark:text-slate-400 transition-colors bg-gray-100 dark:bg-slate-700 rounded-full hover:bg-yellow-100 dark:hover:bg-yellow-900/50 hover:text-yellow-600 dark:hover:text-yellow-400"
                           >
                             <PencilIcon className="w-4 h-4" />
                           </button>

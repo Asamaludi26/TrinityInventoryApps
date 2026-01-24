@@ -108,17 +108,13 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
   // VIEW MODE LOGIC
   // Staff is locked to 'personal'. Admins default to 'global' but can switch.
   const isStaff = currentUser.role === "Staff";
-  const [viewMode, setViewMode] = useState<"global" | "personal">(
-    isStaff ? "personal" : "global",
-  );
+  const [viewMode, setViewMode] = useState<"global" | "personal">(isStaff ? "personal" : "global");
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [editingThresholdKey, setEditingThresholdKey] = useState<string | null>(
-    null,
-  );
+  const [editingThresholdKey, setEditingThresholdKey] = useState<string | null>(null);
   const [tempThreshold, setTempThreshold] = useState<string>("");
 
   // --- FILTER STATE ---
@@ -190,10 +186,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        filterPanelRef.current &&
-        !filterPanelRef.current.contains(event.target as Node)
-      ) {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(event.target as Node)) {
         setIsFilterPanelOpen(false);
       }
     }
@@ -237,18 +230,15 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
   // --- PERSONAL STOCK LOGIC (Available for All Roles) ---
   const { myAssets, loanedAssetDetails } = useMemo(() => {
     // Only calculate if in personal mode
-    if (viewMode !== "personal")
-      return { myAssets: [], loanedAssetDetails: new Map() };
+    if (viewMode !== "personal") return { myAssets: [], loanedAssetDetails: new Map() };
 
-    const permanentlyAssigned = assets.filter(
-      (a) => a.currentUser === currentUser.name,
-    );
+    const permanentlyAssigned = assets.filter((a) => a.currentUser === currentUser.name);
     const myActiveLoans = loanRequests.filter(
       (lr) =>
         lr.requester === currentUser.name &&
         (lr.status === "Dipinjam" ||
           lr.status === "Terlambat" ||
-          lr.status === "Menunggu Pengembalian"),
+          lr.status === "Menunggu Pengembalian")
     );
     const loanedAssetIds = myActiveLoans.flatMap((lr) => {
       const allAssigned = Object.values(lr.assignedAssetIds || {}).flat();
@@ -293,19 +283,12 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
           asset.name.toLowerCase().includes(searchLower) ||
           asset.id.toLowerCase().includes(searchLower) ||
           asset.brand.toLowerCase().includes(searchLower) ||
-          (asset.serialNumber &&
-            asset.serialNumber.toLowerCase().includes(searchLower))
+          (asset.serialNumber && asset.serialNumber.toLowerCase().includes(searchLower))
         );
       })
-      .filter((asset) =>
-        filters.category ? asset.category === filters.category : true,
-      )
-      .filter((asset) =>
-        filters.status ? asset.status === filters.status : true,
-      )
-      .filter((asset) =>
-        filters.condition ? asset.condition === filters.condition : true,
-      );
+      .filter((asset) => (filters.category ? asset.category === filters.category : true))
+      .filter((asset) => (filters.status ? asset.status === filters.status : true))
+      .filter((asset) => (filters.condition ? asset.condition === filters.condition : true));
   }, [myAssets, currentUser, searchQuery, filters, viewMode]);
 
   // Sorting & Pagination for Personal Assets
@@ -318,7 +301,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
   const myAssetsStartIndex = (currentPage - 1) * itemsPerPage;
   const myAssetsPaginated = sortedMyAssets.slice(
     myAssetsStartIndex,
-    myAssetsStartIndex + itemsPerPage,
+    myAssetsStartIndex + itemsPerPage
   );
 
   const staffSummary = useMemo(() => {
@@ -326,18 +309,16 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
     return {
       total: myAssets.length,
       goodCondition: myAssets.filter((a) =>
-        [
-          AssetCondition.GOOD,
-          AssetCondition.BRAND_NEW,
-          AssetCondition.USED_OKAY,
-        ].includes(a.condition),
+        [AssetCondition.GOOD, AssetCondition.BRAND_NEW, AssetCondition.USED_OKAY].includes(
+          a.condition
+        )
       ).length,
       needsAttention: myAssets.filter((a) =>
         [
           AssetCondition.MINOR_DAMAGE,
           AssetCondition.MAJOR_DAMAGE,
           AssetCondition.FOR_PARTS,
-        ].includes(a.condition),
+        ].includes(a.condition)
       ).length,
     };
   }, [myAssets, viewMode]);
@@ -347,7 +328,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
     const category = assetCategories.find((c) => c.name === asset.category);
     const type = category?.types.find((t) => t.name === asset.type);
     const model = type?.standardItems?.find(
-      (m) => m.name === asset.name && m.brand === asset.brand,
+      (m) => m.name === asset.name && m.brand === asset.brand
     );
 
     if (model && model.bulkType === "measurement") {
@@ -363,9 +344,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
 
     const stockMap = new Map<string, StockItem>();
     // We include all assets to calculate total owned, but specific statuses filter for inStorage etc.
-    const activeAssets = assets.filter(
-      (asset) => asset.status !== AssetStatus.DECOMMISSIONED,
-    );
+    const activeAssets = assets.filter((asset) => asset.status !== AssetStatus.DECOMMISSIONED);
 
     // 1. Initialize Map
     activeAssets.forEach((asset) => {
@@ -378,7 +357,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
         const category = assetCategories.find((c) => c.name === asset.category);
         const type = category?.types.find((t) => t.name === asset.type);
         const model = type?.standardItems?.find(
-          (m) => m.name === normalizedName && m.brand === asset.brand,
+          (m) => m.name === normalizedName && m.brand === asset.brand
         );
 
         const isMeasurement = model?.bulkType === "measurement";
@@ -424,8 +403,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
             : asset.initialBalance || 0;
 
         // Only add to Grand Total if it's NOT a child asset
-        const isChild =
-          asset.id.includes("-PART-") || asset.name.includes("(Potongan)");
+        const isChild = asset.id.includes("-PART-") || asset.name.includes("(Potongan)");
         if (current.isMeasurement && !isChild) {
           const initialContent = asset.initialBalance || 0;
           current.grandTotalBalance += initialContent;
@@ -434,8 +412,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
         switch (asset.status) {
           case AssetStatus.IN_STORAGE:
             current.inStorage++;
-            if (asset.purchasePrice)
-              current.valueInStorage += asset.purchasePrice;
+            if (asset.purchasePrice) current.valueInStorage += asset.purchasePrice;
             if (current.isMeasurement) current.storageBalance += currentContent;
             break;
           case AssetStatus.IN_USE:
@@ -471,7 +448,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       brand: string,
       quantity: number,
       docNumber: string,
-      type: "install" | "maintenance",
+      type: "install" | "maintenance"
     ) => {
       const key = `${itemName}|${brand}`;
       if (!usageMap.has(key)) usageMap.set(key, { totalQty: 0, docs: [] });
@@ -484,25 +461,13 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
 
     installations.forEach((inst) => {
       inst.materialsUsed?.forEach((mat) => {
-        processUsage(
-          mat.itemName,
-          mat.brand,
-          mat.quantity,
-          inst.docNumber,
-          "install",
-        );
+        processUsage(mat.itemName, mat.brand, mat.quantity, inst.docNumber, "install");
       });
     });
 
     maintenances.forEach((mnt) => {
       mnt.materialsUsed?.forEach((mat) => {
-        processUsage(
-          mat.itemName,
-          mat.brand,
-          mat.quantity,
-          mnt.docNumber,
-          "maintenance",
-        );
+        processUsage(mat.itemName, mat.brand, mat.quantity, mnt.docNumber, "maintenance");
       });
     });
 
@@ -517,17 +482,8 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       }
     });
 
-    return Array.from(stockMap.values()).filter(
-      (item) => item.total > 0 || item.inUseBalance > 0,
-    );
-  }, [
-    assets,
-    assetCategories,
-    currentUser,
-    installations,
-    maintenances,
-    viewMode,
-  ]);
+    return Array.from(stockMap.values()).filter((item) => item.total > 0 || item.inUseBalance > 0);
+  }, [assets, assetCategories, currentUser, installations, maintenances, viewMode]);
 
   const summaryData = useMemo(() => {
     if (viewMode === "personal") return null;
@@ -536,9 +492,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       const key = `${item.name}|${item.brand}`;
       const threshold =
         thresholds[key] ??
-        (item.isMeasurement
-          ? DEFAULT_MEASUREMENT_THRESHOLD
-          : DEFAULT_UNIT_THRESHOLD);
+        (item.isMeasurement ? DEFAULT_MEASUREMENT_THRESHOLD : DEFAULT_UNIT_THRESHOLD);
       const stockCount = item.inStorage;
       return stockCount > 0 && stockCount <= threshold;
     }).length;
@@ -548,10 +502,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       return stockCount === 0;
     }).length;
 
-    const totalValueInStorage = aggregatedStock.reduce(
-      (sum, item) => sum + item.valueInStorage,
-      0,
-    );
+    const totalValueInStorage = aggregatedStock.reduce((sum, item) => sum + item.valueInStorage, 0);
     return {
       totalTypes: aggregatedStock.length,
       lowStockItems,
@@ -578,9 +529,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
     : "Rp 0";
 
   const filterOptions = useMemo(() => {
-    const categories = [
-      ...new Set(aggregatedStock.map((item) => item.category)),
-    ];
+    const categories = [...new Set(aggregatedStock.map((item) => item.category))];
     const brands = [...new Set(aggregatedStock.map((item) => item.brand))];
     return { categories, brands };
   }, [aggregatedStock]);
@@ -591,11 +540,9 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       .filter(
         (item) =>
           item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.brand.toLowerCase().includes(searchQuery.toLowerCase()),
+          item.brand.toLowerCase().includes(searchQuery.toLowerCase())
       )
-      .filter((item) =>
-        filters.category ? item.category === filters.category : true,
-      )
+      .filter((item) => (filters.category ? item.category === filters.category : true))
       .filter((item) => (filters.brand ? item.brand === filters.brand : true))
       .filter((item) => {
         if (!filters.lowStockOnly && !filters.outOfStockOnly) return true;
@@ -603,13 +550,10 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
 
         const threshold =
           thresholds[key] ??
-          (item.isMeasurement
-            ? DEFAULT_MEASUREMENT_THRESHOLD
-            : DEFAULT_UNIT_THRESHOLD);
+          (item.isMeasurement ? DEFAULT_MEASUREMENT_THRESHOLD : DEFAULT_UNIT_THRESHOLD);
         const stockCount = item.inStorage;
 
-        if (filters.lowStockOnly)
-          return stockCount > 0 && stockCount <= threshold;
+        if (filters.lowStockOnly) return stockCount > 0 && stockCount <= threshold;
         if (filters.outOfStockOnly) return stockCount === 0;
         return true;
       });
@@ -623,10 +567,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
   const totalItems = sortedStock.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedStock = sortedStock.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const paginatedStock = sortedStock.slice(startIndex, startIndex + itemsPerPage);
 
   // --- DAMAGE REPORT LOGIC ---
   const handleReportDamageClick = (asset: Asset) => {
@@ -638,7 +579,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
     asset: Asset,
     condition: AssetCondition,
     description: string,
-    attachments: Attachment[],
+    attachments: Attachment[]
   ) => {
     const originalAsset = assets.find((a) => a.id === asset.id);
     if (!originalAsset) {
@@ -661,10 +602,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
         activityLog: [...(originalAsset.activityLog || []), newActivityLog],
         attachments: [...(originalAsset.attachments || []), ...attachments],
       });
-      addNotification(
-        `Kerusakan pada ${asset.name} berhasil dilaporkan.`,
-        "success",
-      );
+      addNotification(`Kerusakan pada ${asset.name} berhasil dilaporkan.`, "success");
     } catch (error) {
       addNotification("Gagal melaporkan kerusakan.", "error");
     }
@@ -679,7 +617,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
         label: c,
       })),
     ],
-    [myAssets],
+    [myAssets]
   );
 
   const staffStatusOptions = useMemo(
@@ -687,26 +625,26 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       { value: "", label: "Semua Status" },
       ...Object.values(AssetStatus).map((s) => ({ value: s, label: s })),
     ],
-    [],
+    []
   );
   const staffConditionOptions = useMemo(
     () => [
       { value: "", label: "Semua Kondisi" },
       ...Object.values(AssetCondition).map((s) => ({ value: s, label: s })),
     ],
-    [],
+    []
   );
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {viewMode === "personal" ? "Stok Saya" : "Stok Aset"}
         </h1>
 
         {/* View Switcher for Admins */}
         {!isStaff && (
-          <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
             <button
               onClick={() => setViewMode("global")}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
@@ -778,16 +716,16 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
             </div>
           )}
 
-          <div className="p-4 bg-white border border-gray-200/80 rounded-xl shadow-md">
+          <div className="p-4 bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
             <div className="flex flex-wrap items-center gap-4">
               <div className="relative flex-grow">
-                <SearchIcon className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 top-1/2 left-3" />
+                <SearchIcon className="absolute w-5 h-5 text-gray-400 dark:text-slate-400 transform -translate-y-1/2 top-1/2 left-3" />
                 <input
                   type="text"
                   placeholder="Cari nama, ID, brand, atau SN..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-slate-100 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -797,7 +735,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                     setTempFilters(filters);
                     setIsFilterPanelOpen((p) => !p);
                   }}
-                  className={`inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto ${activeFilterCount > 0 ? "bg-gray-50 border-primary-500 text-primary-600" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                  className={`inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto ${activeFilterCount > 0 ? "bg-gray-50 dark:bg-slate-700 border-primary-500 text-primary-600 dark:text-primary-400" : "bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600"}`}
                 >
                   <FilterIcon className="w-4 h-4" /> <span>Filter</span>{" "}
                   {activeFilterCount > 0 && (
@@ -810,31 +748,29 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                   <>
                     <div
                       onClick={() => setIsFilterPanelOpen(false)}
-                      className="fixed inset-0 z-20 bg-black/25 sm:hidden"
+                      className="fixed inset-0 z-20 bg-black/25 dark:bg-black/50 sm:hidden"
                     />
-                    <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 bg-white shadow-lg sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
-                      <div className="flex items-center justify-between p-4 border-b">
-                        <h3 className="text-lg font-semibold text-gray-800">
+                    <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg dark:shadow-2xl dark:shadow-black/40 sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
+                      <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                           Filter Aset
                         </h3>
                         <button
                           onClick={() => setIsFilterPanelOpen(false)}
-                          className="p-1 text-gray-400 rounded-full hover:bg-gray-100"
+                          className="p-1 text-gray-400 dark:text-slate-400 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
                         >
                           <CloseIcon className="w-5 h-5" />
                         </button>
                       </div>
                       <div className="p-4 space-y-4">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200 mb-2">
                             Kategori
                           </label>
                           <CustomSelect
                             options={staffCategoryOptions}
                             value={tempFilters.category}
-                            onChange={(v) =>
-                              setTempFilters((f) => ({ ...f, category: v }))
-                            }
+                            onChange={(v) => setTempFilters((f) => ({ ...f, category: v }))}
                           />
                         </div>
                         <div>
@@ -844,9 +780,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                           <CustomSelect
                             options={staffStatusOptions}
                             value={tempFilters.status}
-                            onChange={(v) =>
-                              setTempFilters((f) => ({ ...f, status: v }))
-                            }
+                            onChange={(v) => setTempFilters((f) => ({ ...f, status: v }))}
                           />
                         </div>
                         <div>
@@ -856,9 +790,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                           <CustomSelect
                             options={staffConditionOptions}
                             value={tempFilters.condition}
-                            onChange={(v) =>
-                              setTempFilters((f) => ({ ...f, condition: v }))
-                            }
+                            onChange={(v) => setTempFilters((f) => ({ ...f, condition: v }))}
                           />
                         </div>
                       </div>
@@ -885,8 +817,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
               <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 animate-fade-in-up mt-3">
                 {filters.category && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded-full">
-                    Kategori:{" "}
-                    <span className="font-bold">{filters.category}</span>
+                    Kategori: <span className="font-bold">{filters.category}</span>
                     <button
                       onClick={() => handleRemoveFilter("category")}
                       className="p-0.5 ml-1 rounded-full hover:bg-blue-200 text-blue-500"
@@ -908,8 +839,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                 )}
                 {filters.condition && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-100 rounded-full">
-                    Kondisi:{" "}
-                    <span className="font-bold">{filters.condition}</span>
+                    Kondisi: <span className="font-bold">{filters.condition}</span>
                     <button
                       onClick={() => handleRemoveFilter("condition")}
                       className="p-0.5 ml-1 rounded-full hover:bg-orange-200 text-orange-500"
@@ -933,9 +863,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {myAssetsPaginated.map((asset) => {
                   const isLoaned = loanedAssetDetails.has(asset.id);
-                  const loanDetails = isLoaned
-                    ? loanedAssetDetails.get(asset.id)
-                    : null;
+                  const loanDetails = isLoaned ? loanedAssetDetails.get(asset.id) : null;
                   return (
                     <AssetCard
                       key={asset.id}
@@ -1048,25 +976,25 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
             />
           </div>
 
-          <div className="p-4 bg-white border border-gray-200/80 rounded-xl shadow-md">
+          <div className="p-4 bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
             <div className="flex flex-wrap items-center gap-4">
               <div className="relative flex-grow">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <SearchIcon className="w-5 h-5 text-gray-400" />
+                  <SearchIcon className="w-5 h-5 text-gray-400 dark:text-slate-400" />
                 </div>
                 <input
                   type="text"
                   placeholder="Cari nama atau brand aset..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 py-2 pl-10 pr-10 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full h-10 py-2 pl-10 pr-10 text-sm text-gray-900 dark:text-slate-100 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-primary-500 focus:border-primary-500 dark:focus:ring-primary-400 dark:focus:border-primary-400 dark:placeholder-slate-400"
                 />
                 {searchQuery && (
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3">
                     <button
                       type="button"
                       onClick={() => setSearchQuery("")}
-                      className="p-1 text-gray-400 rounded-full hover:bg-gray-200 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="p-1 text-gray-400 dark:text-slate-400 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       aria-label="Hapus pencarian"
                     >
                       <CloseIcon className="w-4 h-4" />
@@ -1080,7 +1008,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                     setTempFilters(filters);
                     setIsFilterPanelOpen((p) => !p);
                   }}
-                  className={`inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto ${activeFilterCount > 0 ? "bg-gray-50 border-primary-500 text-primary-600" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                  className={`inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto ${activeFilterCount > 0 ? "bg-gray-50 dark:bg-slate-700 border-primary-500 text-primary-600 dark:text-primary-400" : "bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600"}`}
                 >
                   <FilterIcon className="w-4 h-4" /> <span>Filter</span>{" "}
                   {activeFilterCount > 0 && (
@@ -1093,23 +1021,21 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                   <>
                     <div
                       onClick={() => setIsFilterPanelOpen(false)}
-                      className="fixed inset-0 z-20 bg-black/25 sm:hidden"
+                      className="fixed inset-0 z-20 bg-black/25 dark:bg-black/50 sm:hidden"
                     />
-                    <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 bg-white shadow-lg sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
-                      <div className="flex items-center justify-between p-4 border-b">
-                        <h3 className="text-lg font-semibold text-gray-800">
-                          Filter Stok
-                        </h3>
+                    <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg dark:shadow-2xl dark:shadow-black/40 sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
+                      <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Filter Stok</h3>
                         <button
                           onClick={() => setIsFilterPanelOpen(false)}
-                          className="p-1 text-gray-400 rounded-full hover:bg-gray-100"
+                          className="p-1 text-gray-400 dark:text-slate-400 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
                         >
                           <CloseIcon className="w-5 h-5" />
                         </button>
                       </div>
                       <div className="p-4 space-y-4">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200 mb-2">
                             Kategori
                           </label>
                           <CustomSelect
@@ -1121,13 +1047,11 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                               })),
                             ]}
                             value={tempFilters.category}
-                            onChange={(v) =>
-                              setTempFilters((f) => ({ ...f, category: v }))
-                            }
+                            onChange={(v) => setTempFilters((f) => ({ ...f, category: v }))}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200 mb-2">
                             Brand
                           </label>
                           <CustomSelect
@@ -1139,13 +1063,11 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                               })),
                             ]}
                             value={tempFilters.brand}
-                            onChange={(v) =>
-                              setTempFilters((f) => ({ ...f, brand: v }))
-                            }
+                            onChange={(v) => setTempFilters((f) => ({ ...f, brand: v }))}
                           />
                         </div>
                         <div>
-                          <div className="flex items-center p-2 -m-2 rounded-md hover:bg-gray-50">
+                          <div className="flex items-center p-2 -m-2 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700">
                             <Checkbox
                               id="low-stock-filter"
                               checked={tempFilters.lowStockOnly}
@@ -1153,20 +1075,18 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                                 setTempFilters((f) => ({
                                   ...f,
                                   lowStockOnly: e.target.checked,
-                                  outOfStockOnly: e.target.checked
-                                    ? false
-                                    : f.outOfStockOnly,
+                                  outOfStockOnly: e.target.checked ? false : f.outOfStockOnly,
                                 }))
                               }
                             />
                             <label
                               htmlFor="low-stock-filter"
-                              className="ml-3 text-sm font-medium text-gray-700 cursor-pointer"
+                              className="ml-3 text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer"
                             >
                               Hanya stok menipis
                             </label>
                           </div>
-                          <div className="flex items-center p-2 -m-2 rounded-md hover:bg-gray-50 mt-2">
+                          <div className="flex items-center p-2 -m-2 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 mt-2">
                             <Checkbox
                               id="out-of-stock-filter"
                               checked={tempFilters.outOfStockOnly}
@@ -1174,31 +1094,29 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
                                 setTempFilters((f) => ({
                                   ...f,
                                   outOfStockOnly: e.target.checked,
-                                  lowStockOnly: e.target.checked
-                                    ? false
-                                    : f.lowStockOnly,
+                                  lowStockOnly: e.target.checked ? false : f.lowStockOnly,
                                 }))
                               }
                             />
                             <label
                               htmlFor="out-of-stock-filter"
-                              className="ml-3 text-sm font-medium text-gray-700 cursor-pointer"
+                              className="ml-3 text-sm font-medium text-gray-700 dark:text-slate-300 cursor-pointer"
                             >
                               Hanya stok habis
                             </label>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-gray-50 border-t">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900/50 border-t dark:border-slate-700">
                         <button
                           onClick={handleResetFilters}
-                          className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50"
+                          className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-600"
                         >
                           Reset
                         </button>
                         <button
                           onClick={handleApplyFilters}
-                          className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg shadow-sm hover:bg-primary-700"
+                          className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 dark:bg-primary-500 rounded-lg shadow-sm hover:bg-primary-700 dark:hover:bg-primary-600"
                         >
                           Terapkan
                         </button>
@@ -1212,8 +1130,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
               <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 animate-fade-in-up mt-3">
                 {filters.category && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded-full">
-                    Kategori:{" "}
-                    <span className="font-bold">{filters.category}</span>
+                    Kategori: <span className="font-bold">{filters.category}</span>
                     <button
                       onClick={() => handleRemoveFilter("category")}
                       className="p-0.5 ml-1 rounded-full hover:bg-blue-200 text-blue-500"
@@ -1265,7 +1182,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
             )}
           </div>
 
-          <div className="overflow-hidden bg-white border border-gray-200/80 rounded-xl shadow-md">
+          <div className="overflow-hidden bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
             <div className="overflow-x-auto custom-scrollbar">
               <StockTable
                 stockItems={paginatedStock}
@@ -1309,9 +1226,7 @@ const StockOverviewPage: React.FC<StockOverviewPageProps> = ({
       {historyModalState.isOpen && (
         <StockHistoryModal
           isOpen={historyModalState.isOpen}
-          onClose={() =>
-            setHistoryModalState((prev) => ({ ...prev, isOpen: false }))
-          }
+          onClose={() => setHistoryModalState((prev) => ({ ...prev, isOpen: false }))}
           itemName={historyModalState.itemName}
           itemBrand={historyModalState.itemBrand}
           movements={historyModalState.movements}

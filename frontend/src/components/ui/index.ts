@@ -2,6 +2,9 @@
  * Component Library Barrel Exports
  * Central export point for all UI components
  * Ensures consistent API and easy imports across the application
+ *
+ * @example
+ * import { Button, Input, Card, Modal, Toast } from '@components/ui';
  */
 
 // ===== NEW DESIGN SYSTEM COMPONENTS =====
@@ -19,6 +22,20 @@ export type { TextProps } from "./Text";
 // Feedback components
 export { default as Badge } from "./Badge";
 export type { BadgeProps } from "./Badge";
+export { Alert } from "./Alert";
+export type { AlertProps } from "./Alert";
+export { Toast, ToastContainer } from "./Toast";
+export type { ToastProps } from "./Toast";
+export { Progress } from "./Progress";
+export type { ProgressProps } from "./Progress";
+
+// Navigation components
+export { Dropdown } from "./Dropdown";
+export { Tabs } from "./Tabs";
+
+// Toggle/Switch components
+export { Switch } from "./Switch";
+export type { SwitchProps } from "./Switch";
 
 // ===== EXISTING COMPONENTS (using named exports) =====
 export { default as Modal } from "./Modal";
@@ -53,6 +70,4 @@ export { MaterialAllocationModal } from "./MaterialAllocationModal";
 export { ModelManagementModal } from "./ModelManagementModal";
 export { TypeManagementModal } from "./TypeManagementModal";
 export { ClickableLink } from "./ClickableLink";
-
-// This index file makes it easy to manage exports
-// Usage: import { Button, Input, Card } from '@components/ui'
+export { EmptyState } from "./EmptyState";

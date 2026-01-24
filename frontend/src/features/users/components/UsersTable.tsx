@@ -30,15 +30,15 @@ interface UsersTableProps {
 const getRoleClass = (role: UserRole) => {
   switch (role) {
     case "Super Admin":
-      return "bg-purple-100 text-purple-800";
+      return "bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300";
     case "Admin Logistik":
-      return "bg-info-light text-info-text";
+      return "bg-info-light text-info-text dark:bg-blue-500/20 dark:text-blue-300";
     case "Admin Purchase":
-      return "bg-teal-100 text-teal-800";
+      return "bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-300";
     case "Leader":
-      return "bg-sky-100 text-sky-800";
+      return "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-300";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "bg-gray-100 text-gray-800 dark:bg-slate-600 dark:text-slate-300";
   }
 };
 
@@ -52,24 +52,19 @@ const SortableUserHeader: React.FC<any> = ({
   const isSorted = sortConfig?.key === columnKey;
   const direction = isSorted ? sortConfig.direction : undefined;
   const getSortIcon = () => {
-    if (!isSorted) return <SortIcon className="w-4 h-4 text-gray-400" />;
+    if (!isSorted) return <SortIcon className="w-4 h-4 text-gray-400 dark:text-slate-500" />;
     if (direction === "ascending")
-      return <SortAscIcon className="w-4 h-4 text-primary-500" />;
-    return <SortDescIcon className="w-4 h-4 text-primary-500" />;
+      return <SortAscIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />;
+    return <SortDescIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />;
   };
   return (
     <th
       scope="col"
-      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 ${className}`}
+      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400 ${className}`}
     >
-      <button
-        onClick={() => requestSort(columnKey)}
-        className="flex items-center space-x-1 group"
-      >
+      <button onClick={() => requestSort(columnKey)} className="flex items-center space-x-1 group">
         <span>{children}</span>
-        <span className="opacity-50 group-hover:opacity-100">
-          {getSortIcon()}
-        </span>
+        <span className="opacity-50 group-hover:opacity-100">{getSortIcon()}</span>
       </button>
     </th>
   );
@@ -93,53 +88,35 @@ export const UsersTable: React.FC<UsersTableProps> = ({
   const longPressHandlers = useLongPress(onEnterBulkMode, 500);
 
   const getDivisionName = (divisionId: number | null) => {
-    if (divisionId === null)
-      return <span className="italic text-gray-500">N/A</span>;
+    if (divisionId === null) return <span className="italic text-gray-500">N/A</span>;
     return divisions.find((d) => d.id === divisionId)?.name || "N/A";
   };
 
   return (
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
+    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+      <thead className="bg-gray-50 dark:bg-slate-900/50">
         <tr>
           {isBulkSelectMode && (
             <th className="px-6 py-3">
               <Checkbox
-                checked={
-                  selectedUserIds.length > 0 &&
-                  selectedUserIds.length === users.length
-                }
-                onChange={(e) =>
-                  onSelectAll(e.target.checked ? users.map((u) => u.id) : [])
-                }
+                checked={selectedUserIds.length > 0 && selectedUserIds.length === users.length}
+                onChange={(e) => onSelectAll(e.target.checked ? users.map((u) => u.id) : [])}
               />
             </th>
           )}
-          <SortableUserHeader
-            columnKey="name"
-            sortConfig={sortConfig}
-            requestSort={requestSort}
-          >
+          <SortableUserHeader columnKey="name" sortConfig={sortConfig} requestSort={requestSort}>
             Nama
           </SortableUserHeader>
-          <SortableUserHeader
-            columnKey="email"
-            sortConfig={sortConfig}
-            requestSort={requestSort}
-          >
+          <SortableUserHeader columnKey="email" sortConfig={sortConfig} requestSort={requestSort}>
             Email
           </SortableUserHeader>
           <th
             scope="col"
-            className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500"
+            className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400"
           >
             Divisi
           </th>
-          <SortableUserHeader
-            columnKey="role"
-            sortConfig={sortConfig}
-            requestSort={requestSort}
-          >
+          <SortableUserHeader columnKey="role" sortConfig={sortConfig} requestSort={requestSort}>
             Role
           </SortableUserHeader>
           <SortableUserHeader
@@ -155,7 +132,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({
           </th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
+      <tbody className="bg-white divide-y divide-gray-200 dark:bg-slate-800 dark:divide-slate-700">
         {users.map((user) => {
           // SECURITY CHECK: Admin Logistik cannot see sensitive data of other users
           const isRestrictedView =
@@ -166,10 +143,8 @@ export const UsersTable: React.FC<UsersTableProps> = ({
             <tr
               key={user.id}
               {...longPressHandlers}
-              onClick={() =>
-                isBulkSelectMode ? onSelectOne(user.id) : onDetail(user)
-              }
-              className={`cursor-pointer transition-colors ${selectedUserIds.includes(user.id) ? "bg-blue-50" : "hover:bg-gray-50"}`}
+              onClick={() => (isBulkSelectMode ? onSelectOne(user.id) : onDetail(user))}
+              className={`cursor-pointer transition-colors ${selectedUserIds.includes(user.id) ? "bg-blue-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-slate-700/50"}`}
             >
               {isBulkSelectMode && (
                 <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
@@ -181,11 +156,11 @@ export const UsersTable: React.FC<UsersTableProps> = ({
               )}
               <td className="px-6 py-4 whitespace-nowrap">
                 <div>
-                  <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     {user.name}
                     {hasResetRequest && (
                       <span
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 text-[10px] text-red-600 border border-red-200"
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 text-[10px] text-red-600 border border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30"
                         title="User ini meminta reset password"
                       >
                         <BsExclamationCircleFill /> Reset
@@ -193,16 +168,16 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                     )}
                   </div>
                   {user.id === currentUser.id && (
-                    <span className="text-xs text-primary-600 font-bold">
+                    <span className="text-xs text-primary-600 dark:text-primary-400 font-bold">
                       (Anda)
                     </span>
                   )}
                 </div>
               </td>
-              <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+              <td className="px-6 py-4 text-sm text-gray-700 dark:text-slate-300 whitespace-nowrap">
                 {isRestrictedView ? (
                   <span
-                    className="text-gray-400 italic flex items-center gap-1 cursor-help"
+                    className="text-gray-400 dark:text-slate-500 italic flex items-center gap-1 cursor-help"
                     title="Data disembunyikan untuk privasi"
                   >
                     <BsShieldLock className="w-3 h-3" /> Tersembunyi
@@ -211,12 +186,12 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                   user.email
                 )}
               </td>
-              <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+              <td className="px-6 py-4 text-sm text-gray-700 dark:text-slate-300 whitespace-nowrap">
                 {getDivisionName(user.divisionId)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 {isRestrictedView ? (
-                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-400 border border-gray-200">
+                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-400 border border-gray-200 dark:bg-slate-700 dark:text-slate-500 dark:border-slate-600">
                     Tersembunyi
                   </span>
                 ) : (
@@ -227,35 +202,33 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                   </span>
                 )}
               </td>
-              <td className="px-6 py-4 text-sm font-medium text-center text-gray-800 whitespace-nowrap">
+              <td className="px-6 py-4 text-sm font-medium text-center text-gray-800 dark:text-slate-200 whitespace-nowrap">
                 {user.assetCount}
               </td>
               <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
                 <div className="flex items-center justify-end space-x-2">
-                  {hasPermission(currentUser, "users:edit") &&
-                    !isRestrictedView && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(user);
-                        }}
-                        className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                  {hasPermission(currentUser, "users:delete") &&
-                    !isRestrictedView && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(user);
-                        }}
-                        className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    )}
+                  {hasPermission(currentUser, "users:edit") && !isRestrictedView && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(user);
+                      }}
+                      className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600 dark:text-slate-400 dark:hover:bg-yellow-500/20 dark:hover:text-yellow-400"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                  {hasPermission(currentUser, "users:delete") && !isRestrictedView && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(user);
+                      }}
+                      className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/20 dark:hover:text-red-400"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

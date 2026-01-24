@@ -13,6 +13,7 @@ import { TopLoadingBar } from "../ui/TopLoadingBar";
 import { ContentSkeleton } from "../ui/ContentSkeleton";
 import PreviewModal from "../../features/preview/PreviewModal";
 import { WhatsAppSimulationModal } from "../ui/WhatsAppSimulationModal";
+import { cn } from "../../utils/cn";
 
 // Stores
 import { useUIStore } from "../../stores/useUIStore";
@@ -51,15 +52,30 @@ interface MainLayoutProps {
 const getRoleClass = (role: User["role"]) => {
   switch (role) {
     case "Super Admin":
-      return "bg-purple-100 text-purple-800";
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
     case "Admin Logistik":
-      return "bg-sky-100 text-sky-800";
+      return "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300";
     case "Admin Purchase":
-      return "bg-teal-100 text-teal-800";
+      return "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300";
     case "Leader":
-      return "bg-indigo-100 text-indigo-800";
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300";
     default:
-      return "bg-slate-100 text-slate-800";
+      return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300";
+  }
+};
+
+const getRoleGradient = (role: User["role"]) => {
+  switch (role) {
+    case "Super Admin":
+      return "from-purple-500 to-purple-600";
+    case "Admin Logistik":
+      return "from-sky-500 to-sky-600";
+    case "Admin Purchase":
+      return "from-teal-500 to-teal-600";
+    case "Leader":
+      return "from-indigo-500 to-indigo-600";
+    default:
+      return "from-slate-500 to-slate-600";
   }
 };
 
@@ -82,11 +98,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const isPageLoading = useUIStore((state) => state.isPageLoading);
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const setSidebarOpen = useUIStore((state) => state.toggleSidebar);
+  const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
+  const theme = useUIStore((state) => state.theme);
+
+  const isDark = theme === "dark";
 
   // Local UI State
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Apply theme on mount
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
 
   // Close profile dropdown on click outside
   useEffect(() => {
@@ -114,8 +143,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Calculate sidebar margin - desktop only
+  const sidebarMargin = sidebarCollapsed ? "lg:ml-20" : "lg:ml-72";
+
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans text-slate-800">
+    <div
+      className={cn(
+        "min-h-screen flex font-sans transition-colors duration-300",
+        isDark ? "bg-slate-950 text-slate-200" : "bg-gray-50 text-slate-800"
+      )}
+    >
       {/* Top Progress Bar */}
       <TopLoadingBar isLoading={isPageLoading} />
 
@@ -129,40 +166,77 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-64 transition-all duration-300">
-        {/* Header - Glassmorphism - INCREASED Z-INDEX TO 40 */}
-        <header className="sticky top-0 z-40 flex items-center justify-between w-full h-16 px-6 glass-effect no-print border-b border-slate-200/60 shadow-sm">
+      <div
+        className={cn("flex-1 flex flex-col min-w-0 transition-all duration-300", sidebarMargin)}
+      >
+        {/* Header */}
+        <header
+          className={cn(
+            "sticky top-0 z-40 flex items-center justify-between w-full h-16 px-6 no-print border-b shadow-sm backdrop-blur-md transition-colors duration-300",
+            isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200/60"
+          )}
+        >
           <div className="flex items-center gap-4">
+            {/* Mobile Menu Button */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="text-slate-500 md:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className={cn(
+                "lg:hidden p-2 rounded-lg transition-colors",
+                isDark
+                  ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              )}
             >
               <MenuIcon className="w-6 h-6" />
             </button>
           </div>
 
           <div className="flex items-center space-x-3 sm:space-x-5">
+            {/* Search Button */}
             <button
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-lg hover:text-slate-600 hover:border-slate-300 transition-all shadow-sm group"
+              className={cn(
+                "hidden md:flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-all shadow-sm group",
+                isDark
+                  ? "text-slate-400 bg-slate-800/50 border-slate-700 hover:text-slate-200 hover:border-slate-600"
+                  : "text-slate-400 bg-slate-50 border-slate-200 hover:text-slate-600 hover:border-slate-300"
+              )}
             >
-              <span className="group-hover:text-slate-800">Cari...</span>
-              <kbd className="px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 rounded-md shadow-sm">
+              <span
+                className={cn(isDark ? "group-hover:text-slate-200" : "group-hover:text-slate-800")}
+              >
+                Cari...
+              </span>
+              <kbd
+                className={cn(
+                  "px-1.5 py-0.5 text-[10px] font-bold border rounded-md shadow-sm",
+                  isDark
+                    ? "text-slate-500 bg-slate-900 border-slate-700"
+                    : "text-slate-400 bg-white border-slate-200"
+                )}
+              >
                 ⌘K
               </kbd>
             </button>
 
-            <div className="h-6 w-px bg-slate-200"></div>
+            <div className={cn("h-6 w-px", isDark ? "bg-slate-700" : "bg-slate-200")} />
 
+            {/* Notification Bell */}
             <NotificationBell
               currentUser={currentUser}
               setActivePage={setActivePage}
               onShowPreview={onShowPreview}
             />
 
+            {/* QR Scanner */}
             <button
               onClick={onOpenScanner}
-              className="p-2 text-slate-500 rounded-full hover:bg-slate-100 hover:text-primary-600 transition-colors"
+              className={cn(
+                "p-2 rounded-full transition-colors",
+                isDark
+                  ? "text-slate-400 hover:bg-slate-800 hover:text-primary-400"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-primary-600"
+              )}
               title="Pindai QR Aset"
             >
               <QrCodeIcon className="w-5 h-5" />
@@ -172,53 +246,112 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             <div className="relative pl-2" ref={profileDropdownRef}>
               <button
                 onClick={() => setIsProfileDropdownOpen((prev) => !prev)}
-                className={`flex items-center gap-3 p-1 rounded-full hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200 pr-3 ${isProfileDropdownOpen ? "bg-slate-100" : ""}`}
+                className={cn(
+                  "flex items-center gap-3 p-1 pr-3 rounded-full transition-all border",
+                  isDark
+                    ? "border-transparent hover:bg-slate-800 hover:border-slate-700"
+                    : "border-transparent hover:bg-slate-100 hover:border-slate-200",
+                  isProfileDropdownOpen && (isDark ? "bg-slate-800" : "bg-slate-100")
+                )}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm ${getRoleClass(currentUser.role).split(" ")[0].replace("text-", "bg-").replace("100", "500")}`}
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md bg-gradient-to-br",
+                    getRoleGradient(currentUser.role)
+                  )}
                 >
                   {currentUser.name.charAt(0)}
                 </div>
                 <div className="text-right hidden sm:block">
-                  <span className="block text-sm font-bold text-slate-700 leading-none">
+                  <span
+                    className={cn(
+                      "block text-sm font-bold leading-none",
+                      isDark ? "text-slate-200" : "text-slate-700"
+                    )}
+                  >
                     {currentUser.name.split(" ")[0]}
                   </span>
-                  <span className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">
+                  <span
+                    className={cn(
+                      "block text-[10px] font-medium uppercase tracking-wider mt-0.5",
+                      isDark ? "text-slate-500" : "text-slate-400"
+                    )}
+                  >
                     {currentUser.role}
                   </span>
                 </div>
                 <ChevronDownIcon
-                  className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isProfileDropdownOpen ? "rotate-180" : ""}`}
+                  className={cn(
+                    "w-3 h-3 transition-transform duration-200",
+                    isDark ? "text-slate-500" : "text-slate-400",
+                    isProfileDropdownOpen && "rotate-180"
+                  )}
                 />
               </button>
 
+              {/* Dropdown Menu */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 z-50 w-56 mt-3 origin-top-right bg-white border border-slate-100 rounded-xl shadow-xl animate-zoom-in ring-1 ring-black/5 focus:outline-none overflow-hidden">
+                <div
+                  className={cn(
+                    "absolute right-0 z-50 w-56 mt-3 origin-top-right rounded-xl shadow-xl animate-zoom-in ring-1 ring-black/5 focus:outline-none overflow-hidden border",
+                    isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-100"
+                  )}
+                >
                   <div className="p-1.5">
-                    <div className="px-3 py-3 mb-1 border-b border-slate-50 sm:hidden">
-                      <p className="text-sm font-bold text-slate-800">
+                    {/* Mobile User Info */}
+                    <div
+                      className={cn(
+                        "px-3 py-3 mb-1 border-b sm:hidden",
+                        isDark ? "border-slate-700" : "border-slate-50"
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "text-sm font-bold",
+                          isDark ? "text-slate-200" : "text-slate-800"
+                        )}
+                      >
                         {currentUser.name}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
                         {currentUser.role}
                       </p>
                     </div>
+
+                    {/* Kelola Akun */}
                     <button
                       onClick={() => {
                         setActivePage("pengaturan-akun");
                         setIsProfileDropdownOpen(false);
                       }}
-                      className="flex items-center w-full gap-3 px-3 py-2.5 text-sm text-left text-slate-700 rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-colors font-medium"
+                      className={cn(
+                        "flex items-center w-full gap-3 px-3 py-2.5 text-sm text-left rounded-lg transition-colors font-medium",
+                        isDark
+                          ? "text-slate-300 hover:bg-slate-700 hover:text-primary-400"
+                          : "text-slate-700 hover:bg-slate-50 hover:text-primary-600"
+                      )}
                     >
-                      <UserCogIcon className="w-4 h-4" />{" "}
+                      <UserCogIcon className="w-4 h-4" />
                       <span>Kelola Akun</span>
                     </button>
-                    <div className="my-1 border-t border-slate-50"></div>
+
+                    <div
+                      className={cn(
+                        "my-1 border-t",
+                        isDark ? "border-slate-700" : "border-slate-50"
+                      )}
+                    />
+
+                    {/* Logout */}
                     <button
                       onClick={onLogout}
-                      className="flex items-center w-full gap-3 px-3 py-2.5 text-sm text-left text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                      className={cn(
+                        "flex items-center w-full gap-3 px-3 py-2.5 text-sm text-left rounded-lg transition-colors font-medium",
+                        isDark ? "text-red-400 hover:bg-red-900/30" : "text-red-600 hover:bg-red-50"
+                      )}
                     >
-                      <LogoutIcon className="w-4 h-4" /> <span>Keluar</span>
+                      <LogoutIcon className="w-4 h-4" />
+                      <span>Keluar</span>
                     </button>
                   </div>
                 </div>
@@ -228,7 +361,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </header>
 
         {/* Main Content Scroll Area */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative">
+        <main
+          className={cn(
+            "flex-1 overflow-x-hidden overflow-y-auto relative transition-colors duration-300",
+            isDark ? "bg-slate-950" : "bg-gray-50"
+          )}
+        >
           {isPageLoading ? <ContentSkeleton /> : children}
         </main>
       </div>
@@ -268,3 +406,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     </div>
   );
 };
+
+// Export untuk backwards compatibility
+export { MainLayout as MainLayoutNew };

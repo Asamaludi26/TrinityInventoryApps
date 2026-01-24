@@ -112,7 +112,7 @@ const SortableHeader: React.FC<{
   const isSorted = sortConfig?.key === columnKey;
   const direction = isSorted ? sortConfig.direction : undefined;
   const getSortIcon = () => {
-    if (!isSorted) return <SortIcon className="w-4 h-4 text-gray-400" />;
+    if (!isSorted) return <SortIcon className="w-4 h-4 text-gray-400 dark:text-slate-500" />;
     if (direction === "ascending")
       return <SortAscIcon className="w-4 h-4 text-primary-500" />;
     return <SortDescIcon className="w-4 h-4 text-primary-500" />;
@@ -120,7 +120,7 @@ const SortableHeader: React.FC<{
   return (
     <th
       scope="col"
-      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 ${className}`}
+      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400 ${className}`}
     >
       <button
         onClick={() => requestSort(columnKey)}
@@ -145,20 +145,20 @@ const SelectedAssetsList: React.FC<{
   if (assets.length === 0) return null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden mb-5">
+    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm dark:shadow-lg dark:shadow-black/20 overflow-hidden mb-5">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors border-b border-gray-200"
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-slate-900 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors border-b border-gray-200 dark:border-slate-700"
       >
         <div className="flex items-center gap-2">
           <span className="bg-primary-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
             {assets.length}
           </span>
-          <span className="text-sm font-semibold text-gray-700">
+          <span className="text-sm font-semibold text-gray-700 dark:text-slate-300">
             Item Terpilih
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
           <span>{isExpanded ? "Tutup Daftar" : "Lihat Daftar"}</span>
           <BsChevronDown
             className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
@@ -167,24 +167,24 @@ const SelectedAssetsList: React.FC<{
       </button>
 
       {isExpanded && (
-        <div className="max-h-48 overflow-y-auto custom-scrollbar bg-white p-2">
+        <div className="max-h-48 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800 p-2">
           <ul className="space-y-1">
             {assets.map((asset) => (
               <li
                 key={asset.id}
-                className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 group border border-transparent hover:border-gray-200 transition-all"
+                className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 dark:hover:bg-slate-700 group border border-transparent hover:border-gray-200 dark:hover:border-slate-600 transition-all"
               >
                 <div className="flex flex-col min-w-0 pr-3">
-                  <span className="text-sm font-medium text-gray-800 truncate">
+                  <span className="text-sm font-medium text-gray-800 dark:text-white truncate">
                     {asset.name}
                   </span>
-                  <span className="text-xs text-gray-400 font-mono">
+                  <span className="text-xs text-gray-400 dark:text-slate-500 font-mono">
                     {asset.id}
                   </span>
                 </div>
                 <button
                   onClick={() => onRemove(asset.id)}
-                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  className="p-1 text-gray-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                   title="Hapus dari seleksi"
                 >
                   <BsX className="w-5 h-5" />
@@ -235,8 +235,8 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
   };
 
   return (
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="sticky top-0 z-10 bg-gray-50">
+    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+      <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-slate-900">
         <tr>
           {isBulkSelectMode && (
             <th scope="col" className="px-6 py-3">
@@ -275,14 +275,14 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
           </th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
+      <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
         {assets.length > 0 ? (
           assets.map((asset) => (
             <tr
               key={asset.id}
               {...longPressHandlers}
               onClick={() => handleRowClick(asset)}
-              className={`transition-colors cursor-pointer ${selectedAssetIds.includes(asset.id) ? "bg-blue-50" : asset.isDismantled ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-gray-50"}`}
+              className={`transition-colors cursor-pointer ${selectedAssetIds.includes(asset.id) ? "bg-blue-50 dark:bg-blue-900/30" : asset.isDismantled ? "bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30" : "hover:bg-gray-50 dark:hover:bg-slate-700"}`}
             >
               {isBulkSelectMode && (
                 <td
@@ -297,32 +297,32 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
               )}
               <td className="px-6 py-4 lg:whitespace-nowrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
                     {asset.name}
                   </span>
                   {asset.lastModifiedDate && (
                     <span
                       title={`Diubah: ${new Date(asset.lastModifiedDate).toLocaleString("id-ID")} oleh ${asset.lastModifiedBy}`}
                     >
-                      <PencilIcon className="w-3.5 h-3.5 text-gray-400" />
+                      <PencilIcon className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
                     </span>
                   )}
                   {asset.isDismantled && (
-                    <span className="px-2 py-0.5 text-xs font-semibold text-amber-800 bg-amber-100 rounded-full">
+                    <span className="px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 rounded-full">
                       Dismantled
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 dark:text-slate-400">
                   {asset.id} &bull; {asset.category}
                 </div>
               </td>
               <td className="px-6 py-4 lg:whitespace-nowrap">
                 {asset.currentUser && asset.currentUser.startsWith("TMI-") ? (
                   <div className="flex items-center gap-2">
-                    <CustomerIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <CustomerIcon className="w-5 h-5 text-gray-400 dark:text-slate-500 flex-shrink-0" />
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
                         <ClickableLink
                           onClick={() =>
                             onShowPreview({
@@ -338,10 +338,10 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
                   </div>
                 ) : (
                   <>
-                    <div className="text-sm font-medium text-gray-800">
+                    <div className="text-sm font-medium text-gray-800 dark:text-slate-200">
                       {asset.location || "-"}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-slate-400">
                       {asset.currentUser || "Tidak ada pengguna"}
                     </div>
                   </>
@@ -361,7 +361,7 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
                       e.stopPropagation();
                       onDetailClick(asset);
                     }}
-                    className="flex items-center justify-center w-8 h-8 text-gray-500 transition-colors bg-gray-100 rounded-full hover:bg-info-light hover:text-info-text"
+                    className="flex items-center justify-center w-8 h-8 text-gray-500 dark:text-slate-400 transition-colors bg-gray-100 dark:bg-slate-700 rounded-full hover:bg-info-light dark:hover:bg-blue-900/50 hover:text-info-text dark:hover:text-blue-400"
                     title="Lihat Detail"
                   >
                     <EyeIcon className="w-5 h-5" />
@@ -371,7 +371,7 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
                       e.stopPropagation();
                       onDeleteClick(asset.id);
                     }}
-                    className="flex items-center justify-center w-8 h-8 text-gray-500 transition-colors bg-gray-100 rounded-full hover:bg-danger-light hover:text-danger-text"
+                    className="flex items-center justify-center w-8 h-8 text-gray-500 dark:text-slate-400 transition-colors bg-gray-100 dark:bg-slate-700 rounded-full hover:bg-danger-light dark:hover:bg-red-900/50 hover:text-danger-text dark:hover:text-red-400"
                     title="Hapus"
                   >
                     <TrashIcon className="w-5 h-5" />
@@ -384,14 +384,14 @@ const RegistrationTable: React.FC<RegistrationTableProps> = ({
           <tr>
             <td
               colSpan={isBulkSelectMode ? 5 : 4}
-              className="px-6 py-12 text-center text-gray-500"
+              className="px-6 py-12 text-center text-gray-500 dark:text-slate-400"
             >
               <div className="flex flex-col items-center">
-                <InboxIcon className="w-12 h-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                <InboxIcon className="w-12 h-12 text-gray-400 dark:text-slate-500" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
                   Tidak Ada Data Aset
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
                   Ubah filter atau buat aset baru.
                 </p>
               </div>
@@ -1018,11 +1018,11 @@ const ItemRegistration: React.FC<ItemRegistrationProps> = (props) => {
   return (
     <div className="p-4 sm:p-6 md:p-8">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Daftar Aset</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Daftar Aset</h1>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => exportToCSV(sortedAssets, "daftar_aset.csv")}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
           >
             <ExportIcon className="w-4 h-4" /> Export CSV
           </button>
@@ -1038,16 +1038,16 @@ const ItemRegistration: React.FC<ItemRegistrationProps> = (props) => {
         </div>
       </div>
 
-      <div className="p-4 mb-4 bg-white border border-gray-200/80 rounded-xl shadow-md space-y-4">
+      <div className="p-4 mb-4 bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20 space-y-4">
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-grow">
-            <SearchIcon className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 top-1/2 left-3" />
+            <SearchIcon className="absolute w-5 h-5 text-gray-400 dark:text-slate-500 transform -translate-y-1/2 top-1/2 left-3" />
             <input
               type="text"
               placeholder="Cari aset..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 placeholder-gray-400"
+              className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-primary-500 focus:border-primary-500 placeholder-gray-400 dark:placeholder-slate-500"
             />
           </div>
 
@@ -1059,7 +1059,7 @@ const ItemRegistration: React.FC<ItemRegistrationProps> = (props) => {
                 setIsFilterPanelOpen((p) => !p);
               }}
               className={`inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto 
-                                ${activeFilterCount > 0 ? "bg-gray-50 border-primary-500 text-primary-600" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}
+                                ${activeFilterCount > 0 ? "bg-gray-50 dark:bg-slate-700 border-primary-500 text-primary-600 dark:text-primary-400" : "bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"}
                             `}
             >
               <FilterIcon className="w-4 h-4" /> <span>Filter</span>{" "}
@@ -1075,21 +1075,21 @@ const ItemRegistration: React.FC<ItemRegistrationProps> = (props) => {
                   onClick={() => setIsFilterPanelOpen(false)}
                   className="fixed inset-0 z-20 bg-black/25 sm:hidden"
                 />
-                <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 bg-white shadow-lg sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
-                  <div className="flex items-center justify-between p-4 border-b">
-                    <h3 className="text-lg font-semibold text-gray-800">
+                <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg dark:shadow-xl dark:shadow-black/30 sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
+                  <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                       Filter Aset
                     </h3>
                     <button
                       onClick={() => setIsFilterPanelOpen(false)}
-                      className="p-1 text-gray-400 rounded-full hover:bg-gray-100"
+                      className="p-1 text-gray-400 dark:text-slate-500 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
                     >
                       <CloseIcon className="w-5 h-5" />
                     </button>
                   </div>
                   <div className="p-4 space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2">
                         Kategori
                       </label>
                       <CustomSelect
@@ -1261,7 +1261,7 @@ const ItemRegistration: React.FC<ItemRegistrationProps> = (props) => {
         )}
       </div>
 
-      <div className="overflow-hidden bg-white border border-gray-200/80 rounded-xl shadow-md">
+      <div className="overflow-hidden bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
         <div className="overflow-x-auto custom-scrollbar">
           <RegistrationTable
             assets={paginatedAssets}

@@ -152,13 +152,16 @@ export class RequestsService {
       },
     });
 
-    // Log activity - ActivityLog uses 'details' not 'changes', 'userId'/'userName' not 'performedBy'
+    // Log activity
     await this.prisma.activityLog.create({
       data: {
         entityType: 'Request',
         entityId: request.id,
         action: 'CREATE',
-        details: JSON.stringify({ status: initialStatus, itemCount: itemsWithStatus.length }),
+        details: JSON.stringify({
+          status: initialStatus,
+          itemCount: itemsWithStatus.length,
+        }),
         userId: requesterId,
         userName: requester.name,
       },
@@ -178,11 +181,15 @@ export class RequestsService {
   }) {
     const { skip = 0, take = 50, status, requesterId, division, dateFrom, dateTo } = params || {};
 
-    const where: any = {};
+    /**
+     * PERBAIKAN BARIS 181:
+     * Menggunakan Prisma.RequestWhereInput menggantikan 'any'.
+     */
+    const where: Prisma.RequestWhereInput = {};
 
     if (status) where.status = status;
     if (requesterId) where.requesterId = requesterId;
-    if (division) where.division = { contains: division, mode: 'insensitive' };
+    if (division) where.divisionName = { contains: division, mode: 'insensitive' }; // division -> divisionName sesuai logic string search
 
     if (dateFrom || dateTo) {
       where.requestDate = {};
@@ -287,9 +294,9 @@ export class RequestsService {
         return this.prisma.requestItem.update({
           where: { id: item.id },
           data: {
-            approvalStatus: status, // RequestItem uses 'approvalStatus' not 'status'
+            approvalStatus: status,
             approvedQuantity: adjustment.approvedQuantity,
-            rejectionReason: adjustment.reason, // RequestItem uses 'rejectionReason' not 'reason'
+            rejectionReason: adjustment.reason,
           },
         });
       }),
@@ -306,21 +313,27 @@ export class RequestsService {
     } else if (dto.approvalType === 'logistic') {
       nextStatus = ItemStatus.LOGISTIC_APPROVED;
     } else {
-      nextStatus = ItemStatus.APPROVED; // No PURCHASE_APPROVED in ItemStatus, use APPROVED
+      nextStatus = ItemStatus.APPROVED;
     }
 
-    // Update request - use correct field names
-    const updateData: any = {
+    /**
+     * PERBAIKAN BARIS 313:
+     * Menggunakan 'Prisma.RequestUpdateInput' dan conditional spread
+     * untuk menentukan field update secara type-safe.
+     */
+    const updateData: Prisma.RequestUpdateInput = {
       status: nextStatus,
+      // Gunakan conditional object spread untuk menentukan field mana yang diisi
+      ...(dto.approvalType === 'logistic'
+        ? {
+            logisticApproverName: approverName,
+            logisticApprovalDate: new Date(),
+          }
+        : {
+            finalApproverName: approverName,
+            finalApprovalDate: new Date(),
+          }),
     };
-
-    if (dto.approvalType === 'logistic') {
-      updateData.logisticApproverName = approverName;
-      updateData.logisticApprovalDate = new Date();
-    } else {
-      updateData.finalApproverName = approverName;
-      updateData.finalApprovalDate = new Date();
-    }
 
     const updated = await this.prisma.request.update({
       where: { id },
@@ -328,13 +341,16 @@ export class RequestsService {
       include: { items: true },
     });
 
-    // Log activity - use correct fields
+    // Log activity
     await this.prisma.activityLog.create({
       data: {
         entityType: 'Request',
         entityId: id,
         action: 'APPROVED',
-        details: JSON.stringify({ previousStatus: request.status, newStatus: nextStatus }),
+        details: JSON.stringify({
+          previousStatus: request.status,
+          newStatus: nextStatus,
+        }),
         userId: 0, // TODO: Get user ID from context
         userName: approverName,
       },
@@ -355,7 +371,6 @@ export class RequestsService {
   ) {
     const request = await this.findOne(id);
 
-    // No PURCHASE_APPROVED in ItemStatus, use APPROVED instead
     const validStatuses: ItemStatus[] = [
       ItemStatus.ARRIVED,
       ItemStatus.APPROVED,
@@ -443,7 +458,10 @@ export class RequestsService {
           entityType: 'Request',
           entityId: id,
           action: 'ASSETS_REGISTERED',
-          details: JSON.stringify({ assetsCreated: createdAssets.length, isFullyRegistered }),
+          details: JSON.stringify({
+            assetsCreated: createdAssets.length,
+            isFullyRegistered,
+          }),
           userId: performedById,
           userName: performedBy,
         },

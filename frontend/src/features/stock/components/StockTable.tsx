@@ -46,7 +46,7 @@ const StockSortableHeader: React.FC<{
   return (
     <th
       scope="col"
-      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 ${className}`}
+      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400 ${className}`}
     >
       <button
         onClick={() => requestStockSort(columnKey)}
@@ -100,8 +100,8 @@ export const StockTable: React.FC<StockTableProps> = ({
 
   return (
     <>
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+        <thead className="bg-gray-50 dark:bg-slate-800/80">
           <tr>
             <StockSortableHeader
               columnKey="name"
@@ -112,13 +112,13 @@ export const StockTable: React.FC<StockTableProps> = ({
             </StockSortableHeader>
             <th
               scope="col"
-              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500"
+              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500 dark:text-slate-400"
             >
               Ambang Batas
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500"
+              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500 dark:text-slate-400"
             >
               Di Gudang
             </th>
@@ -132,19 +132,19 @@ export const StockTable: React.FC<StockTableProps> = ({
             </StockSortableHeader>
             <th
               scope="col"
-              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500"
+              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500 dark:text-slate-400"
             >
               Digunakan
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500"
+              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500 dark:text-slate-400"
             >
               Rusak
             </th>
             <th
               scope="col"
-              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500"
+              className="px-6 py-3 text-sm font-semibold tracking-wider text-center text-gray-500 dark:text-slate-400"
             >
               Total Aset
             </th>
@@ -153,7 +153,7 @@ export const StockTable: React.FC<StockTableProps> = ({
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
           {stockItems.length > 0 ? (
             stockItems.map((item) => {
               const key = `${item.name}|${item.brand}`;
@@ -198,15 +198,15 @@ export const StockTable: React.FC<StockTableProps> = ({
                   ? "bg-warning/80"
                   : "bg-success/80";
               const rowClass = isOutOfStock
-                ? "bg-red-50/50"
+                ? "bg-red-50/50 dark:bg-red-900/10"
                 : isLowStock
-                  ? "bg-amber-50/50"
+                  ? "bg-amber-50/50 dark:bg-amber-900/10"
                   : "";
 
               return (
                 <tr
                   key={key}
-                  className={`${rowClass} hover:bg-gray-50 transition-colors`}
+                  className={`${rowClass} hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                             brand: item.brand,
                           })
                         }
-                        className="text-sm font-semibold text-gray-900 !no-underline group-hover:!underline"
+                        className="text-sm font-semibold text-gray-900 dark:text-white !no-underline group-hover:!underline"
                       >
                         {item.name}
                       </ClickableLink>
@@ -225,7 +225,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                       {/* Type Badge */}
                       {isBulk ? (
                         <span
-                          className={`px-2 py-0.5 text-[10px] font-bold rounded-full flex items-center gap-1 uppercase tracking-wide border ${isMeasurement ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-orange-50 text-orange-700 border-orange-200"}`}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded-full flex items-center gap-1 uppercase tracking-wide border ${isMeasurement ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700" : "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700"}`}
                         >
                           {isMeasurement ? (
                             <BsRulers className="w-3 h-3" />
@@ -235,12 +235,12 @@ export const StockTable: React.FC<StockTableProps> = ({
                           {isMeasurement ? "Meteran" : "Bulk"}
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 text-[10px] font-bold text-gray-600 bg-gray-100 rounded-full border border-gray-200 uppercase tracking-wide">
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-gray-600 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600 uppercase tracking-wide">
                           Unit
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                       {item.brand} &bull; {item.category}
                     </div>
                   </td>
@@ -266,7 +266,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                             } else if (e.key === "Escape")
                               setEditingThresholdKey(null);
                           }}
-                          className="w-16 h-8 text-sm font-semibold text-center text-gray-900 bg-white border border-primary-600 rounded-md shadow-sm outline-none ring-2 ring-primary-500"
+                          className="w-16 h-8 text-sm font-semibold text-center text-gray-900 dark:text-white bg-white dark:bg-slate-700 border border-primary-600 dark:border-primary-500 rounded-md shadow-sm outline-none ring-2 ring-primary-500"
                         />
                         <button
                           onClick={() => {
@@ -276,7 +276,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                             );
                             setEditingThresholdKey(null);
                           }}
-                          className="p-1.5 text-success-text bg-success-light rounded-md hover:bg-green-200"
+                          className="p-1.5 text-success-text bg-success-light dark:bg-green-800 rounded-md hover:bg-green-200 dark:hover:bg-green-700"
                         >
                           <CheckIcon className="w-4 h-4" />
                         </button>
@@ -290,11 +290,11 @@ export const StockTable: React.FC<StockTableProps> = ({
                         className="group relative flex flex-col items-center justify-center cursor-pointer"
                       >
                         <div
-                          className={`px-2 py-1 font-semibold rounded-md transition-colors ${isCustomSet ? "text-gray-900 bg-gray-100 group-hover:bg-gray-200" : "text-gray-500 bg-gray-50 group-hover:bg-gray-100 italic"}`}
+                          className={`px-2 py-1 font-semibold rounded-md transition-colors ${isCustomSet ? "text-gray-900 dark:text-white bg-gray-100 dark:bg-slate-600 group-hover:bg-gray-200 dark:group-hover:bg-slate-500" : "text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-700 group-hover:bg-gray-100 dark:group-hover:bg-slate-600 italic"}`}
                         >
                           {activeThreshold}
                         </div>
-                        <span className="text-[9px] text-gray-400 mt-0.5 uppercase font-bold tracking-wide">
+                        <span className="text-[9px] text-gray-400 dark:text-slate-500 mt-0.5 uppercase font-bold tracking-wide">
                           {containerUnit}
                         </span>
                         <PencilIcon className="absolute top-1/2 -translate-y-1/2 right-2 w-3 h-3 text-gray-400 transition-opacity opacity-0 group-hover:opacity-100" />
@@ -311,7 +311,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                           id: `${item.name}|${item.brand}|${AssetStatus.IN_STORAGE}`,
                         })
                       }
-                      className="flex flex-col items-center justify-center gap-1.5 !text-gray-800"
+                      className="flex flex-col items-center justify-center gap-1.5 !text-gray-800 dark:!text-slate-200"
                     >
                       <div
                         className={`flex items-center gap-2 font-bold ${isOutOfStock ? "text-danger-text" : isLowStock ? "text-warning-text" : "text-success-text"}`}
@@ -324,12 +324,12 @@ export const StockTable: React.FC<StockTableProps> = ({
                         <span className="text-base">
                           {formatMetric(contentStockLevel)}
                         </span>
-                        <span className="text-xs font-normal text-gray-500">
+                        <span className="text-xs font-normal text-gray-500 dark:text-slate-400">
                           {displayUnit}
                         </span>
                       </div>
                       <div
-                        className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden"
+                        className="w-20 h-2 bg-gray-200 dark:bg-slate-600 rounded-full overflow-hidden"
                         title={`${storagePercentage.toFixed(0)}% dari total kapasitas`}
                       >
                         <div
@@ -342,7 +342,7 @@ export const StockTable: React.FC<StockTableProps> = ({
 
                       {isMeasurement && (
                         <span
-                          className={`text-[10px] ${isLowStock ? "text-amber-700 font-bold" : "text-gray-400"}`}
+                          className={`text-[10px] ${isLowStock ? "text-amber-700 dark:text-amber-400 font-bold" : "text-gray-400 dark:text-slate-500"}`}
                         >
                           ({item.inStorage} {containerUnit})
                         </span>
@@ -350,21 +350,21 @@ export const StockTable: React.FC<StockTableProps> = ({
                     </ClickableLink>
                   </td>
 
-                  <td className="px-6 py-4 text-sm font-medium text-right text-gray-800 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm font-medium text-right text-gray-800 dark:text-slate-200 whitespace-nowrap">
                     {item.valueInStorage.toLocaleString("id-ID")}
                   </td>
 
                   {/* KOLOM: DIGUNAKAN */}
-                  <td className="px-6 py-4 text-sm font-medium text-center text-gray-800 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm font-medium text-center text-gray-800 dark:text-slate-200 whitespace-nowrap">
                     {isBulk || isMeasurement ? (
                       // BUTTON TRIGGER MODAL
                       <button
                         onClick={() => setUsageModalItem(item)}
                         disabled={item.inUseBalance === 0}
-                        className={`flex flex-col items-center justify-center gap-0.5 w-full rounded-lg py-1 px-2 transition-colors ${item.inUseBalance > 0 ? "hover:bg-blue-50 cursor-pointer group" : "cursor-default opacity-60"}`}
+                        className={`flex flex-col items-center justify-center gap-0.5 w-full rounded-lg py-1 px-2 transition-colors ${item.inUseBalance > 0 ? "hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer group" : "cursor-default opacity-60"}`}
                       >
                         <div
-                          className={`flex items-center gap-2 ${item.inUseBalance > 0 ? "text-blue-700" : "text-gray-400"}`}
+                          className={`flex items-center gap-2 ${item.inUseBalance > 0 ? "text-blue-700 dark:text-blue-400" : "text-gray-400 dark:text-slate-500"}`}
                         >
                           <UsersIcon className="w-4 h-4" />
                           <span className="font-bold text-base">
@@ -374,7 +374,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                             <BsInfoCircle className="w-3 h-3 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
                         </div>
-                        <span className="text-xs font-normal text-gray-500">
+                        <span className="text-xs font-normal text-gray-500 dark:text-slate-400">
                           {displayUnit}
                         </span>
                       </button>
@@ -387,13 +387,13 @@ export const StockTable: React.FC<StockTableProps> = ({
                             id: `${item.name}|${item.brand}|${AssetStatus.IN_USE}`,
                           })
                         }
-                        className="flex flex-col items-center justify-center gap-0.5 !text-gray-800"
+                        className="flex flex-col items-center justify-center gap-0.5 !text-gray-800 dark:!text-slate-200"
                       >
                         <div className="flex items-center gap-2">
-                          <UsersIcon className="w-4 h-4 text-gray-400" />
+                          <UsersIcon className="w-4 h-4 text-gray-400 dark:text-slate-500" />
                           <span>
                             {formatMetric(item.inUse)}
-                            <span className="text-xs font-normal text-gray-500 ml-1">
+                            <span className="text-xs font-normal text-gray-500 dark:text-slate-400 ml-1">
                               {displayUnit}
                             </span>
                           </span>
@@ -411,21 +411,21 @@ export const StockTable: React.FC<StockTableProps> = ({
                           id: `${item.name}|${item.brand}|${AssetStatus.DAMAGED}`,
                         })
                       }
-                      className="flex flex-col items-center justify-center gap-0.5 !text-gray-800"
+                      className="flex flex-col items-center justify-center gap-0.5 !text-gray-800 dark:!text-slate-200"
                     >
                       <div className="flex items-center gap-2">
-                        <WrenchIcon className="w-4 h-4 text-gray-400" />
+                        <WrenchIcon className="w-4 h-4 text-gray-400 dark:text-slate-500" />
                         <span>
                           {formatMetric(
                             isMeasurement ? item.damagedBalance : item.damaged,
                           )}
-                          <span className="text-xs font-normal text-gray-500 ml-1">
+                          <span className="text-xs font-normal text-gray-500 dark:text-slate-400 ml-1">
                             {displayUnit}
                           </span>
                         </span>
                       </div>
                       {isMeasurement && item.damaged > 0 && (
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500">
                           ({item.damaged} {containerUnit})
                         </span>
                       )}
@@ -433,7 +433,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                   </td>
 
                   {/* KOLOM: TOTAL ASET */}
-                  <td className="px-6 py-4 text-sm font-bold text-center text-gray-900 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm font-bold text-center text-gray-900 dark:text-white whitespace-nowrap">
                     <ClickableLink
                       onClick={() =>
                         onShowPreview({
@@ -441,17 +441,17 @@ export const StockTable: React.FC<StockTableProps> = ({
                           id: `${item.name}|${item.brand}|ALL`,
                         })
                       }
-                      className="!text-gray-900"
+                      className="!text-gray-900 dark:!text-white"
                     >
                       <div className="flex flex-col items-center">
                         <span>
                           {formatMetric(contentCapacityLevel)}{" "}
-                          <span className="text-xs font-normal text-gray-500">
+                          <span className="text-xs font-normal text-gray-500 dark:text-slate-400">
                             {displayUnit}
                           </span>
                         </span>
                         {isMeasurement && (
-                          <span className="text-[10px] font-normal text-gray-500">
+                          <span className="text-[10px] font-normal text-gray-500 dark:text-slate-400">
                             (Total {item.total} {containerUnit})
                           </span>
                         )}
@@ -463,7 +463,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                     <div className="flex items-center justify-end space-x-2">
                       <button
                         onClick={() => onOpenHistory(item.name, item.brand)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors bg-gray-100 rounded-md shadow-sm hover:bg-gray-200"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 transition-colors bg-gray-100 dark:bg-slate-700 rounded-md shadow-sm hover:bg-gray-200 dark:hover:bg-slate-600"
                       >
                         <HistoryIcon className="w-4 h-4" />
                         Riwayat
@@ -493,13 +493,13 @@ export const StockTable: React.FC<StockTableProps> = ({
             })
           ) : (
             <tr>
-              <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+              <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-slate-400">
                 <div className="flex flex-col items-center">
-                  <InboxIcon className="w-12 h-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  <InboxIcon className="w-12 h-12 text-gray-400 dark:text-slate-500" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
                     Tidak Ada Data Stok
                   </h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
                     Ubah filter atau catat aset baru untuk memulai.
                   </p>
                 </div>
@@ -519,14 +519,14 @@ export const StockTable: React.FC<StockTableProps> = ({
           hideDefaultCloseButton={false}
         >
           <div className="p-6">
-            <div className="flex items-center justify-between mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <div className="flex items-center justify-between mb-4 bg-gray-50 dark:bg-slate-700 p-3 rounded-lg border border-gray-100 dark:border-slate-600">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">
+                <p className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-bold">
                   Total Digunakan
                 </p>
-                <p className="text-xl font-bold text-primary-600 mt-1">
+                <p className="text-xl font-bold text-primary-600 dark:text-primary-400 mt-1">
                   {formatMetric(usageModalItem.inUseBalance)}
-                  <span className="text-sm font-normal text-gray-600 ml-1">
+                  <span className="text-sm font-normal text-gray-600 dark:text-slate-300 ml-1">
                     {usageModalItem.isMeasurement
                       ? usageModalItem.baseUnit || "Meter"
                       : usageModalItem.unitOfMeasure || "Unit"}
@@ -534,49 +534,49 @@ export const StockTable: React.FC<StockTableProps> = ({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">
+                <p className="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider font-bold">
                   Brand
                 </p>
-                <p className="font-semibold text-gray-800">
+                <p className="font-semibold text-gray-800 dark:text-white">
                   {usageModalItem.brand}
                 </p>
               </div>
             </div>
 
-            <div className="overflow-hidden border rounded-lg">
-              <table className="min-w-full text-sm divide-y divide-gray-200">
-                <thead className="bg-gray-100">
+            <div className="overflow-hidden border dark:border-slate-700 rounded-lg">
+              <table className="min-w-full text-sm divide-y divide-gray-200 dark:divide-slate-700">
+                <thead className="bg-gray-100 dark:bg-slate-700">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-slate-300">
                       No. Dokumen
                     </th>
-                    <th className="px-4 py-3 text-center font-semibold text-gray-600">
+                    <th className="px-4 py-3 text-center font-semibold text-gray-600 dark:text-slate-300">
                       Tipe
                     </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600">
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-slate-300">
                       Jumlah
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-100 dark:divide-slate-700">
                   {usageModalItem.usageDetails &&
                   usageModalItem.usageDetails.length > 0 ? (
                     usageModalItem.usageDetails.map((usage, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-gray-800 font-mono text-xs flex items-center gap-2">
-                          <BsFileEarmarkText className="text-gray-400" />
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-700">
+                        <td className="px-4 py-3 text-gray-800 dark:text-slate-200 font-mono text-xs flex items-center gap-2">
+                          <BsFileEarmarkText className="text-gray-400 dark:text-slate-500" />
                           {usage.docNumber}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${usage.type === "install" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${usage.type === "install" ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" : "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300"}`}
                           >
                             {usage.type === "install"
                               ? "Instalasi"
                               : "Maintenance"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                        <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
                           {usage.qty}
                         </td>
                       </tr>
@@ -585,7 +585,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                     <tr>
                       <td
                         colSpan={3}
-                        className="px-4 py-8 text-center text-gray-500 italic"
+                        className="px-4 py-8 text-center text-gray-500 dark:text-slate-400 italic"
                       >
                         Belum ada riwayat penggunaan tercatat.
                       </td>

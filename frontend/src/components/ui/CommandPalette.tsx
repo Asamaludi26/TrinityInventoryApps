@@ -56,8 +56,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Hybrid Data Source: Use Store if available, fallback to Props
   const assets = storeAssets.length > 0 ? storeAssets : propAssets || [];
   const users = storeUsers.length > 0 ? storeUsers : propUsers || [];
-  const customers =
-    storeCustomers.length > 0 ? storeCustomers : propCustomers || [];
+  const customers = storeCustomers.length > 0 ? storeCustomers : propCustomers || [];
 
   // Initial fetch if stores are empty when opened
   useEffect(() => {
@@ -118,8 +117,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       if (
         asset.name.toLowerCase().includes(lowerQuery) ||
         asset.id.toLowerCase().includes(lowerQuery) ||
-        (asset.serialNumber &&
-          asset.serialNumber.toLowerCase().includes(lowerQuery))
+        (asset.serialNumber && asset.serialNumber.toLowerCase().includes(lowerQuery))
       ) {
         results.push({
           id: `asset-${asset.id}`,
@@ -186,9 +184,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       setSelectedIndex((prev) => (prev + 1) % filteredResults.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex(
-        (prev) => (prev - 1 + filteredResults.length) % filteredResults.length,
-      );
+      setSelectedIndex((prev) => (prev - 1 + filteredResults.length) % filteredResults.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (filteredResults[selectedIndex]) {
@@ -206,17 +202,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     <div className="fixed inset-0 z-[100] overflow-y-auto p-4 sm:p-6 md:p-20">
       {/* Backdrop with Blur */}
       <div
-        className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
-      <div className="mx-auto max-w-2xl transform divide-y divide-gray-100 overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black ring-opacity-5 transition-all">
+      <div className="mx-auto max-w-2xl transform divide-y divide-gray-100 dark:divide-slate-700 overflow-hidden rounded-xl bg-white dark:bg-slate-800 shadow-2xl dark:shadow-black/50 ring-1 ring-black ring-opacity-5 dark:ring-slate-700 transition-all">
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute top-3.5 left-4 h-5 w-5 text-gray-400" />
+          <SearchIcon className="pointer-events-none absolute top-3.5 left-4 h-5 w-5 text-gray-400 dark:text-slate-400" />
           <input
             ref={inputRef}
             type="text"
-            className="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-gray-900 placeholder:text-gray-500 focus:ring-0 sm:text-sm"
+            className="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-slate-400 focus:ring-0 sm:text-sm"
             placeholder="Cari aset, pelanggan, pengguna, atau menu... (Ctrl+K)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -225,10 +221,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {(query === "" || filteredResults.length > 0) && (
-          <ul
-            ref={listRef}
-            className="max-h-96 scroll-py-3 overflow-y-auto p-3 custom-scrollbar"
-          >
+          <ul ref={listRef} className="max-h-96 scroll-py-3 overflow-y-auto p-3 custom-scrollbar">
             {filteredResults.map((result, index) => (
               <li
                 key={result.id}
@@ -238,21 +231,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 }}
                 onMouseEnter={() => setSelectedIndex(index)}
                 className={`group flex cursor-default select-none rounded-xl p-3 ${
-                  index === selectedIndex ? "bg-gray-100" : ""
+                  index === selectedIndex ? "bg-gray-100 dark:bg-slate-700" : ""
                 }`}
               >
                 <div
                   className={`flex h-10 w-10 flex-none items-center justify-center rounded-lg ${
                     index === selectedIndex
-                      ? "bg-white shadow-sm ring-1 ring-gray-900/5"
-                      : "bg-gray-50"
+                      ? "bg-white dark:bg-slate-600 shadow-sm ring-1 ring-gray-900/5 dark:ring-slate-500"
+                      : "bg-gray-50 dark:bg-slate-700"
                   }`}
                 >
                   <result.icon
                     className={`h-6 w-6 ${
                       index === selectedIndex
-                        ? "text-primary-600"
-                        : "text-gray-400"
+                        ? "text-primary-600 dark:text-primary-400"
+                        : "text-gray-400 dark:text-slate-400"
                     }`}
                   />
                 </div>
@@ -260,8 +253,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <p
                     className={`text-sm font-medium ${
                       index === selectedIndex
-                        ? "text-gray-900"
-                        : "text-gray-700"
+                        ? "text-gray-900 dark:text-white"
+                        : "text-gray-700 dark:text-slate-300"
                     }`}
                   >
                     {result.title}
@@ -269,8 +262,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <p
                     className={`text-sm ${
                       index === selectedIndex
-                        ? "text-gray-700"
-                        : "text-gray-500"
+                        ? "text-gray-700 dark:text-slate-300"
+                        : "text-gray-500 dark:text-slate-400"
                     }`}
                   >
                     {result.subtitle}
@@ -278,7 +271,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 </div>
                 {index === selectedIndex && (
                   <div className="flex-none self-center">
-                    <ArrowRightIcon className="h-5 w-5 text-gray-400" />
+                    <ArrowRightIcon className="h-5 w-5 text-gray-400 dark:text-slate-400" />
                   </div>
                 )}
               </li>
@@ -288,30 +281,29 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         {query !== "" && filteredResults.length === 0 && (
           <div className="py-14 px-6 text-center text-sm sm:px-14">
-            <InboxIcon className="mx-auto h-6 w-6 text-gray-400" />
-            <p className="mt-4 font-semibold text-gray-900">
+            <InboxIcon className="mx-auto h-6 w-6 text-gray-400 dark:text-slate-500" />
+            <p className="mt-4 font-semibold text-gray-900 dark:text-white">
               Tidak ditemukan hasil
             </p>
-            <p className="mt-2 text-gray-500">
-              Kami tidak dapat menemukan apa pun dengan istilah itu. Coba cari
-              yang lain.
+            <p className="mt-2 text-gray-500 dark:text-slate-400">
+              Kami tidak dapat menemukan apa pun dengan istilah itu. Coba cari yang lain.
             </p>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center bg-gray-50 py-2.5 px-4 text-xs text-gray-500">
-          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white font-semibold text-gray-900 sm:mx-2 border-gray-200">
+        <div className="flex flex-wrap items-center bg-gray-50 dark:bg-slate-900/50 py-2.5 px-4 text-xs text-gray-500 dark:text-slate-400">
+          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white dark:bg-slate-700 font-semibold text-gray-900 dark:text-slate-200 sm:mx-2 border-gray-200 dark:border-slate-600">
             ↑
           </kbd>
-          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white font-semibold text-gray-900 sm:mx-2 border-gray-200">
+          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white dark:bg-slate-700 font-semibold text-gray-900 dark:text-slate-200 sm:mx-2 border-gray-200 dark:border-slate-600">
             ↓
           </kbd>
           untuk navigasi
-          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white font-semibold text-gray-900 sm:mx-2 border-gray-200">
+          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white dark:bg-slate-700 font-semibold text-gray-900 dark:text-slate-200 sm:mx-2 border-gray-200 dark:border-slate-600">
             ↵
           </kbd>
           untuk memilih
-          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white font-semibold text-gray-900 sm:mx-2 border-gray-200">
+          <kbd className="mx-1 flex h-5 w-5 items-center justify-center rounded border bg-white dark:bg-slate-700 font-semibold text-gray-900 dark:text-slate-200 sm:mx-2 border-gray-200 dark:border-slate-600">
             esc
           </kbd>
           untuk menutup

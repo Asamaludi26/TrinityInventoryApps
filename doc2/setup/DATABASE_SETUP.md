@@ -406,74 +406,91 @@ CREATE INDEX "customers_name_address_idx" ON "customers"("name", "address");
 
 ### E1. Seed Script
 
-```typescript
-// prisma/seed.ts
-import { PrismaClient } from "../generated/prisma";
-import bcrypt from "bcrypt";
+// 1. Load Environment Variables (WAJIB agar DATABASE_URL terbaca)
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+// 2. Import dari library standar, BUKAN dari generated folder
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
+
+// 3. Import Driver Adapter (Sama seperti di prisma.service.ts)
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+
+// 4. Inisialisasi Prisma dengan Adapter
+const connectionString = process.env.DATABASE_URL;
+
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Start seeding...");
+console.log('🌱 Start seeding...');
 
-  // Create divisions
-  const divisionLogistik = await prisma.division.upsert({
-    where: { name: "Logistik" },
-    update: {},
-    create: { name: "Logistik" },
-  });
+// Create divisions
+const divisionLogistik = await prisma.division.upsert({
+where: { name: 'Logistik' },
+update: {},
+create: { name: 'Logistik' },
+});
 
-  const divisionPurchase = await prisma.division.upsert({
-    where: { name: "Purchase" },
-    update: {},
-    create: { name: "Purchase" },
-  });
+const divisionPurchase = await prisma.division.upsert({
+where: { name: 'Purchase' },
+update: {},
+create: { name: 'Purchase' },
+});
 
-  // Create admin user
-  const hashedPassword = await bcrypt.hash("admin123", 12);
+// Create admin user
+// (Menggunakan 10 rounds sudah cukup aman dan lebih cepat daripada 12 untuk dev)
+const hashedPassword = await bcrypt.hash('admin123', 10);
 
-  await prisma.user.upsert({
-    where: { email: "admin@trinity.com" },
-    update: {},
-    create: {
-      name: "Super Admin",
-      email: "admin@trinity.com",
-      password: hashedPassword,
-      role: "SUPER_ADMIN",
-      divisionId: divisionLogistik.id,
-      isActive: true,
-      permissions: ["*"], // All permissions
-    },
-  });
+const admin = await prisma.user.upsert({
+where: { email: 'admin@trinity.com' }, // Pastikan ini sesuai dengan logic login Anda
+update: {
+password: hashedPassword, // Paksa update password
+isActive: true, // Sekalian pastikan aktif
+},
+create: {
+name: 'Super Admin',
+email: 'admin@trinity.com',
+password: hashedPassword,
+role: 'SUPER_ADMIN', // PERHATIKAN: Pastikan value ini ada di ENUM Role Anda di schema.prisma
+divisionId: divisionLogistik.id,
+isActive: true,
+// permissions: ['*'], // Hapus baris ini jika kolom permissions tidak ada di schema User
+},
+});
 
-  // Create asset categories
-  const categories = [
-    { name: "Network Equipment", isCustomerInstallable: true },
-    { name: "Computer Hardware", isCustomerInstallable: false },
-    { name: "Office Equipment", isCustomerInstallable: false },
-    { name: "Cable & Accessories", isCustomerInstallable: true },
-  ];
+console.log('👤 Admin created:', admin.email);
 
-  for (const cat of categories) {
-    await prisma.assetCategory.upsert({
-      where: { name: cat.name },
-      update: {},
-      create: cat,
-    });
-  }
+// Create asset categories
+const categories = [
+{ name: 'Network Equipment', isCustomerInstallable: true },
+{ name: 'Computer Hardware', isCustomerInstallable: false },
+{ name: 'Office Equipment', isCustomerInstallable: false },
+{ name: 'Cable & Accessories', isCustomerInstallable: true },
+];
 
-  console.log("Seeding completed.");
+for (const cat of categories) {
+await prisma.assetCategory.upsert({
+where: { name: cat.name },
+update: {},
+create: cat,
+});
+}
+
+console.log('✅ Seeding completed.');
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
-```
+.catch(e => {
+console.error('❌ Seeding failed:', e);
+process.exit(1);
+})
+.finally(async () => {
+// Tutup koneksi dengan benar
+await prisma.$disconnect();
+});
 
 ### E2. Run Seed
 
@@ -525,29 +542,52 @@ npx prisma studio
 
 ### G1. Database Backup
 
-```bash
-# Using pg_dump via Docker
-docker compose exec db pg_dump -U trinity_admin trinity_assetflow > backup_$(date +%Y%m%d_%H%M%S).sql
+#### G1.1 Using pg_dump
 
-# With compression
-docker compose exec db pg_dump -U trinity_admin trinity_assetflow | gzip > backup_$(date +%Y%m%d).sql.gz
+    ```bash
+    # Using pg_dump via Docker
+    docker compose exec db pg_dump -U trinity_admin trinity_inventory_db > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# Native pg_dump
-pg_dump -h localhost -U trinity_admin -d trinity_assetflow -F c -f backup.dump
-```
+    # With compression
+    docker compose exec db pg_dump -U trinity_admin trinity_inventory_db | gzip > backup_$(date +%Y%m%d).sql.gz
+
+    # Native pg_dump
+    pg_dump -h localhost -U trinity_admin -d trinity_inventory_db -F c -f backup.dump
+    ```
+
+#### G1.2 Using Windows Script
+
+    Directly run the PowerShell script provided in `scripts/backup-db.ps1`:
+
+    # Run the backup script
+
+    .\scripts\backup-db.ps1
 
 ### G2. Database Restore
 
-```bash
-# From SQL file
-docker compose exec -T db psql -U trinity_admin trinity_assetflow < backup_20260122.sql
+#### G2.1 Using psql and pg_restore
 
-# From compressed file
-gunzip -c backup_20260122.sql.gz | docker compose exec -T db psql -U trinity_admin trinity_assetflow
+    ```bash
+    # From SQL file
+    docker compose exec -T db psql -U trinity_admin trinity_inventory_db < backup_20260122.sql
 
-# From custom format dump
-pg_restore -h localhost -U trinity_admin -d trinity_assetflow -c backup.dump
-```
+    # From compressed file
+    gunzip -c backup_20260122.sql.gz | docker compose exec -T db psql -U trinity_admin trinity_inventory_db
+
+    # From custom format dump
+    pg_restore -h localhost -U trinity_admin -d trinity_inventory_db -c backup.dump
+    ```
+
+#### G2.2 Using Windows Script
+
+    Directly run the PowerShell script provided in `scripts/restore-db.ps1`:
+
+    # Run the restore script
+    .\scripts\restore-db.ps1 -BackupFilePath "..\backups\backupfile.sql"
+
+    #Example:
+    .\scripts\restore-db.ps1 -BackupFilePath "..\backups\backup_20260122.sql"
+    ```
 
 ### G3. Automated Backup Script
 
@@ -563,7 +603,7 @@ BACKUP_FILE="$BACKUP_DIR/trinity_$TIMESTAMP.sql.gz"
 mkdir -p $BACKUP_DIR
 
 # Create backup
-docker compose exec -T db pg_dump -U trinity_admin trinity_assetflow | gzip > $BACKUP_FILE
+docker compose exec -T db pg_dump -U trinity_admin trinity_inventory_db | gzip > $BACKUP_FILE
 
 # Keep only last 7 days
 find $BACKUP_DIR -name "trinity_*.sql.gz" -mtime +7 -delete
@@ -674,7 +714,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 ```bash
 # Never commit .env to git
 # Use strong passwords
-DATABASE_URL="postgresql://trinity_admin:YOUR_STRONG_PASSWORD@localhost:5432/trinity_assetflow"
+DATABASE_URL="postgresql://trinity_admin:YOUR_STRONG_PASSWORD@localhost:5432/trinity_inventory_db"
 
 # Password requirements:
 # - Minimum 16 characters
@@ -686,13 +726,13 @@ DATABASE_URL="postgresql://trinity_admin:YOUR_STRONG_PASSWORD@localhost:5432/tri
 ```sql
 -- Create read-only user for reporting
 CREATE USER trinity_readonly WITH PASSWORD 'readonly_password';
-GRANT CONNECT ON DATABASE trinity_assetflow TO trinity_readonly;
+GRANT CONNECT ON DATABASE trinity_inventory_db TO trinity_readonly;
 GRANT USAGE ON SCHEMA public TO trinity_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO trinity_readonly;
 
 -- Create application user with limited privileges
 CREATE USER trinity_app WITH PASSWORD 'app_password';
-GRANT CONNECT ON DATABASE trinity_assetflow TO trinity_app;
+GRANT CONNECT ON DATABASE trinity_inventory_db TO trinity_app;
 GRANT USAGE ON SCHEMA public TO trinity_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO trinity_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO trinity_app;
@@ -734,7 +774,7 @@ DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require"
 docker compose logs db
 
 # Connect to database directly
-docker compose exec db psql -U trinity_admin -d trinity_assetflow
+docker compose exec db psql -U trinity_admin -d trinity_inventory_db
 
 # Check migration status
 npx prisma migrate status
@@ -779,7 +819,7 @@ FROM pg_catalog.pg_statio_user_tables
 ORDER BY pg_total_relation_size(relid) DESC;
 
 -- Check active connections
-SELECT * FROM pg_stat_activity WHERE datname = 'trinity_assetflow';
+SELECT * FROM pg_stat_activity WHERE datname = 'trinity_inventory_db';
 ```
 
 ---

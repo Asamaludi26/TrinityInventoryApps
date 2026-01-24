@@ -96,7 +96,7 @@ const ActionItemCard: React.FC<{
   return (
     <div
       onClick={onClick}
-      className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-primary-600/30 transition-all duration-200 cursor-pointer group relative overflow-hidden"
+      className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm hover:shadow-md dark:shadow-lg dark:shadow-black/20 hover:border-primary-600/30 dark:hover:border-primary-500/30 transition-all duration-200 cursor-pointer group relative overflow-hidden"
     >
       <div className="flex items-start gap-4 relative z-10">
         <div
@@ -127,21 +127,21 @@ const ActionItemCard: React.FC<{
             ) : (
               <div />
             )}
-            <time className="flex-shrink-0 ml-4 text-xs font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+            <time className="flex-shrink-0 ml-4 text-xs font-medium text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-700 px-2 py-0.5 rounded-full">
               {formatRelativeTime(item.timestamp)}
             </time>
           </div>
 
           <p
-            className="text-sm font-bold text-gray-800 truncate group-hover:text-primary-600 transition-colors"
+            className="text-sm font-bold text-gray-800 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors"
             title={item.title}
           >
             {item.title}
           </p>
 
-          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 flex items-center gap-1">
             <span>Oleh:</span>
-            <span className="font-medium text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">
+            <span className="font-medium text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
               {item.requester}
             </span>
             {item.division && <span>({item.division})</span>}
@@ -234,11 +234,11 @@ export const ActionableItemsList: React.FC<
   ].filter((tab) => tab.count > 0);
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] overflow-hidden flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-white">
+    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] dark:shadow-lg dark:shadow-black/20 overflow-hidden flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50 dark:border-slate-700 bg-white dark:bg-slate-800">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Inbox Tugas</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Inbox Tugas</h2>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
             Hal-hal yang perlu perhatian Anda
           </p>
         </div>
@@ -248,7 +248,7 @@ export const ActionableItemsList: React.FC<
       </div>
 
       {tabs.length > 1 && (
-        <div className="px-6 border-b border-gray-50 bg-white">
+        <div className="px-6 border-b border-gray-50 dark:border-slate-700 bg-white dark:bg-slate-800">
           <nav
             className="-mb-px flex space-x-6 custom-scrollbar overflow-x-auto"
             aria-label="Tabs"
@@ -260,13 +260,13 @@ export const ActionableItemsList: React.FC<
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
                                     ${
                                       activeTab === tab.id
-                                        ? "border-primary-600 text-primary-600"
-                                        : "border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-200"
+                                        ? "border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400"
+                                        : "border-transparent text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:border-gray-200 dark:hover:border-slate-600"
                                     }`}
               >
                 {tab.label}
                 {activeTab !== tab.id && (
-                  <span className="ml-2 bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                  <span className="ml-2 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 px-1.5 py-0.5 rounded text-[10px] font-bold">
                     {tab.count}
                   </span>
                 )}
@@ -276,7 +276,7 @@ export const ActionableItemsList: React.FC<
         </div>
       )}
 
-      <div className="p-6 bg-gray-50/30 flex-1">
+      <div className="p-6 bg-gray-50/30 dark:bg-slate-900/30 flex-1">
         {filteredItems.length > 0 ? (
           <>
             <div className="space-y-3">
@@ -295,12 +295,12 @@ export const ActionableItemsList: React.FC<
                   className="absolute inset-0 flex items-center"
                   aria-hidden="true"
                 >
-                  <div className="w-full border-t border-gray-200"></div>
+                  <div className="w-full border-t border-gray-200 dark:border-slate-700"></div>
                 </div>
                 <div className="relative flex justify-center">
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-gray-500 bg-white border border-gray-200 rounded-full hover:text-primary-600 hover:border-primary-600/50 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-600/50 dark:hover:border-primary-500/50 transition-all shadow-sm"
                   >
                     <span>
                       {isExpanded
@@ -317,11 +317,11 @@ export const ActionableItemsList: React.FC<
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full py-12 text-center">
-            <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
-              <InboxIcon className="w-8 h-8 text-green-500" />
+            <div className="w-16 h-16 bg-green-50 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+              <InboxIcon className="w-8 h-8 text-green-500 dark:text-green-400" />
             </div>
-            <h3 className="text-lg font-bold text-gray-800">Semua Beres!</h3>
-            <p className="mt-1 text-sm text-gray-500 max-w-[200px]">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Semua Beres!</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-slate-400 max-w-[200px]">
               Tidak ada tugas yang tertunda. Nikmati waktu Anda.
             </p>
           </div>

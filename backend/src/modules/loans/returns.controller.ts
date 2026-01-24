@@ -17,7 +17,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UserRole, User } from '@prisma/client';
+// PERBAIKAN: Tambahkan import 'Prisma'
+import { UserRole, User, Prisma } from '@prisma/client';
 
 @Controller('returns')
 @UseGuards(JwtAuthGuard)
@@ -42,7 +43,12 @@ export class ReturnsController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK)
-  update(@Param('id') id: string, @Body() data: any, @CurrentUser('name') userName: string) {
+  update(
+    @Param('id') id: string,
+    // PERBAIKAN BARIS 45: Ganti 'any' dengan tipe Prisma Input
+    @Body() data: Prisma.AssetReturnUpdateInput,
+    @CurrentUser('name') userName: string,
+  ) {
     return this.returnsService.update(id, data, userName);
   }
 
@@ -60,7 +66,12 @@ export class ReturnsController {
   @HttpCode(HttpStatus.OK)
   verify(
     @Param('id') id: string,
-    @Body() dto: { acceptedAssetIds?: string[]; verifiedBy?: string; notes?: string },
+    @Body()
+    dto: {
+      acceptedAssetIds?: string[];
+      verifiedBy?: string;
+      notes?: string;
+    },
     @CurrentUser('name') userName: string,
   ) {
     return this.returnsService.verifyReturn(id, dto, userName);

@@ -41,7 +41,12 @@ export class CategoriesController {
   @Put()
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK)
-  updateBulkCategories(@Body() categories: Array<{ id: number; [key: string]: any }>) {
+  /**
+   * PERBAIKAN BARIS 44:
+   * Mengganti '[key: string]: any' menjadi '[key: string]: unknown'.
+   * Ini cocok dengan signature yang sudah kita perbaiki di Service.
+   */
+  updateBulkCategories(@Body() categories: Array<{ id: number; [key: string]: unknown }>) {
     return this.categoriesService.updateBulk(categories);
   }
 

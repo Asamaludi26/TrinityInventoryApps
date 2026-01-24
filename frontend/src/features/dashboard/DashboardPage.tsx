@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Page,
-  PreviewData,
-  User,
-  AssetStatus,
-  LoanRequestStatus,
-} from "../../types";
+import { Page, PreviewData, User, AssetStatus, LoanRequestStatus } from "../../types";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ActionableItemsList } from "./components/ActionableItemsList";
 import { AssetMatrix } from "./components/AssetMatrix";
@@ -74,23 +68,21 @@ const UrgencyCard: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden bg-white p-5 rounded-xl shadow-sm border-l-4 ${color.replace("bg-", "border-")} border-y border-r border-gray-100 group hover:-translate-y-1 transition-all duration-200 ${onClick ? "cursor-pointer" : ""}`}
+      className={`relative overflow-hidden bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm dark:shadow-lg dark:shadow-black/20 border-l-4 ${color.replace("bg-", "border-")} border-y border-r border-gray-100 dark:border-slate-700 group hover:-translate-y-1 transition-all duration-200 ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="flex justify-between items-start z-10 relative">
         <div>
-          <p className="text-xs font-bold text-gray-500 tracking-wider uppercase">
+          <p className="text-xs font-bold text-gray-500 dark:text-slate-400 tracking-wider uppercase">
             {label}
           </p>
-          <h3
-            className={`text-2xl font-extrabold mt-1 ${color.replace("bg-", "text-")}`}
-          >
+          <h3 className={`text-2xl font-extrabold mt-1 ${color.replace("bg-", "text-")}`}>
             {value}
           </h3>
           {subtext && (
-            <p className="text-xs text-gray-400 mt-1 font-medium">{subtext}</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 font-medium">{subtext}</p>
           )}
         </div>
-        <div className={`p-2 rounded-lg ${color} bg-opacity-10 text-current`}>
+        <div className={`p-2 rounded-lg ${color} bg-opacity-10 dark:bg-opacity-20 text-current`}>
           <Icon className={`w-5 h-5 ${color.replace("bg-", "text-")}`} />
         </div>
       </div>
@@ -107,17 +99,17 @@ const MacroStat: React.FC<{
   tooltip?: string;
 }> = ({ label, value, icon: Icon, subValue, tooltip }) => (
   <div
-    className="flex items-center p-4 bg-white border border-gray-100 rounded-xl shadow-sm"
+    className="flex items-center p-4 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm dark:shadow-lg dark:shadow-black/20"
     title={tooltip}
   >
-    <div className="flex-shrink-0 p-3 bg-blue-50 text-primary-600 rounded-xl">
+    <div className="flex-shrink-0 p-3 bg-blue-50 dark:bg-blue-900/30 text-primary-600 dark:text-primary-400 rounded-xl">
       <Icon className="w-6 h-6" />
     </div>
     <div className="ml-4 min-w-0">
-      <p className="text-sm font-medium text-gray-500 truncate">{label}</p>
-      <p className="text-xl font-bold text-gray-900 truncate">{value}</p>
+      <p className="text-sm font-medium text-gray-500 dark:text-slate-400 truncate">{label}</p>
+      <p className="text-xl font-bold text-gray-900 dark:text-white truncate">{value}</p>
       {subValue && (
-        <p className="text-xs text-gray-400 mt-0.5 truncate">{subValue}</p>
+        <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 truncate">{subValue}</p>
       )}
     </div>
   </div>
@@ -131,20 +123,18 @@ const FeatureStat: React.FC<{
 }> = ({ title, items, onClick }) => (
   <div
     onClick={onClick}
-    className={`bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-center ${onClick ? "cursor-pointer hover:border-primary-600/30 transition-colors" : ""}`}
+    className={`bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-lg dark:shadow-black/20 flex flex-col justify-center ${onClick ? "cursor-pointer hover:border-primary-600/30 dark:hover:border-primary-400/30 transition-colors" : ""}`}
   >
-    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+    <h4 className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-3">
       {title}
     </h4>
     <div className="space-y-3">
       {items.map((item, idx) => (
         <div key={idx} className="flex justify-between items-center">
-          <span className="text-sm font-medium text-gray-600 truncate mr-2">
+          <span className="text-sm font-medium text-gray-600 dark:text-slate-300 truncate mr-2">
             {item.label}
           </span>
-          <span
-            className={`text-sm font-bold px-2 py-0.5 rounded ${item.color}`}
-          >
+          <span className={`text-sm font-bold px-2 py-0.5 rounded ${item.color}`}>
             {item.value}
           </span>
         </div>
@@ -153,9 +143,7 @@ const FeatureStat: React.FC<{
   </div>
 );
 
-export default function DashboardPage(
-  props: DashboardProps,
-): React.ReactElement {
+export default function DashboardPage(props: DashboardProps): React.ReactElement {
   const { currentUser, setActivePage, onShowPreview } = props;
 
   // --- USE CUSTOM HOOK (Centralized Logic) ---
@@ -224,13 +212,13 @@ export default function DashboardPage(
     // Simple View for Staff (Logic moved to hook is overkill for this part but keeps it consistent)
     const myAssets = assets.filter((a) => a.currentUser === currentUser.name);
     return (
-      <div className="p-6 md:p-8 space-y-8 bg-gray-50/50 min-h-screen">
+      <div className="p-6 md:p-8 space-y-8 bg-gray-50/50 dark:bg-slate-950 min-h-screen">
         <header className="flex flex-col md:flex-row justify-between items-end gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
               Halo, {currentUser.name}!
             </h1>
-            <p className="text-gray-500 mt-2 text-lg">
+            <p className="text-gray-500 dark:text-slate-400 mt-2 text-lg">
               Panel aset pribadi Anda.
             </p>
           </div>
@@ -245,19 +233,17 @@ export default function DashboardPage(
           </div>
           <div
             onClick={() => setActivePage("request")}
-            className="bg-white p-8 rounded-3xl border cursor-pointer hover:shadow-lg transition-all"
+            className="bg-white dark:bg-slate-800 p-8 rounded-3xl border dark:border-slate-700 cursor-pointer hover:shadow-lg transition-all"
           >
-            <h3 className="text-5xl font-bold text-gray-800">
+            <h3 className="text-5xl font-bold text-gray-800 dark:text-white">
               {macroMetrics.totalAssets > 0 ? "Aktif" : "0"}
             </h3>
-            <p className="text-gray-500 mt-2">Status Request</p>
+            <p className="text-gray-500 dark:text-slate-400 mt-2">Status Request</p>
           </div>
         </div>
         {/* Staff Actionable Items */}
         <div className="max-w-2xl">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">
-            Tugas Pending
-          </h3>
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Tugas Pending</h3>
           <ActionableItemsList
             currentUser={currentUser}
             setActivePage={setActivePage}
@@ -270,19 +256,19 @@ export default function DashboardPage(
 
   // --- ADMIN / SUPER ADMIN DASHBOARD ---
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-8 bg-gray-50/30 min-h-screen font-sans">
+    <div className="p-4 sm:p-6 md:p-8 space-y-8 bg-gray-50/30 dark:bg-slate-950 min-h-screen font-sans">
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between md:items-end gap-2 md:gap-4 pb-2">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
             Pusat Analitik Terpadu
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
             Tinjauan menyeluruh inventori aset dan operasional.
           </p>
         </div>
         <div className="md:text-right">
-          <p className="text-sm font-bold text-gray-800">
+          <p className="text-sm font-bold text-gray-800 dark:text-slate-200">
             {new Date().toLocaleDateString("id-ID", {
               weekday: "long",
               day: "numeric",
@@ -294,11 +280,7 @@ export default function DashboardPage(
       </div>
 
       {/* STOCK ALERT WIDGET */}
-      <StockAlertWidget
-        assets={assets}
-        setActivePage={setActivePage}
-        thresholds={thresholds}
-      />
+      <StockAlertWidget assets={assets} setActivePage={setActivePage} thresholds={thresholds} />
 
       {/* LAYER 1: EXECUTIVE SUMMARY (MACRO) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -346,9 +328,7 @@ export default function DashboardPage(
           icon={CheckIcon}
           color="bg-amber-500"
           subtext="Menghambat Proses"
-          onClick={() =>
-            setActivePage("request", { status: "awaiting-approval" })
-          }
+          onClick={() => setActivePage("request", { status: "awaiting-approval" })}
         />
         <UrgencyCard
           label="Peminjaman Terlambat"
@@ -356,9 +336,7 @@ export default function DashboardPage(
           icon={BsClockHistory}
           color="bg-rose-500"
           subtext="Risiko Kehilangan"
-          onClick={() =>
-            setActivePage("request-pinjam", { status: "Terlambat" })
-          }
+          onClick={() => setActivePage("request-pinjam", { status: "Terlambat" })}
         />
         <UrgencyCard
           label="Laporan Kerusakan Baru"
@@ -432,12 +410,12 @@ export default function DashboardPage(
       {/* LAYER 4: ANALYTICS, TRENDS & PERFORMANCE (Refactored Layout) */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-auto">
         {/* Spending Trend - Takes 2 cols on XL */}
-        <div className="xl:col-span-2 bg-white p-6 border border-gray-100 rounded-2xl shadow-sm flex flex-col min-h-[300px]">
+        <div className="xl:col-span-2 bg-white dark:bg-slate-800 p-6 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20 flex flex-col min-h-[300px]">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-800">
+            <h3 className="text-base font-bold text-gray-800 dark:text-white">
               Tren Pembelian Aset (6 Bulan)
             </h3>
-            <BsGraphUp className="w-4 h-4 text-gray-400" />
+            <BsGraphUp className="w-4 h-4 text-gray-400 dark:text-slate-500" />
           </div>
           <div className="flex-1 min-h-0">
             <SpendingTrendChart data={analyticsData.spendingTrend} />
@@ -445,9 +423,9 @@ export default function DashboardPage(
         </div>
 
         {/* Technician Leaderboard - Takes 1 col */}
-        <div className="xl:col-span-1 bg-white p-6 border border-gray-100 rounded-2xl shadow-sm flex flex-col min-h-[300px]">
+        <div className="xl:col-span-1 bg-white dark:bg-slate-800 p-6 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20 flex flex-col min-h-[300px]">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-800">
+            <h3 className="text-base font-bold text-gray-800 dark:text-white">
               Top Teknisi (Install/Repair)
             </h3>
             <BsTrophy className="w-4 h-4 text-yellow-500" />
@@ -461,12 +439,10 @@ export default function DashboardPage(
       {/* LAYER 5: ASSET COMPOSITION & MATRIX */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-auto">
         {/* Donut Chart */}
-        <div className="xl:col-span-1 bg-white p-6 border border-gray-100 rounded-2xl shadow-sm flex flex-col">
+        <div className="xl:col-span-1 bg-white dark:bg-slate-800 p-6 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20 flex flex-col">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-bold text-gray-800">
-              Komposisi Status
-            </h3>
-            <ExclamationTriangleIcon className="w-4 h-4 text-gray-400" />
+            <h3 className="text-base font-bold text-gray-800 dark:text-white">Komposisi Status</h3>
+            <ExclamationTriangleIcon className="w-4 h-4 text-gray-400 dark:text-slate-500" />
           </div>
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <AssetStatusDonutChart assets={assets} />
@@ -475,7 +451,7 @@ export default function DashboardPage(
 
         {/* Matrix & Warranty */}
         <div className="xl:col-span-2 flex flex-col gap-6">
-          <div className="bg-white p-6 border border-gray-100 rounded-2xl shadow-sm flex flex-col h-full">
+          <div className="bg-white dark:bg-slate-800 p-6 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20 flex flex-col h-full">
             <WarrantyAlertWidget assets={assets} />
             <div className="flex-1 mt-4">
               <AssetMatrix
@@ -496,12 +472,12 @@ export default function DashboardPage(
       {/* LAYER 6: SUMMARY & INBOX */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Category Summary */}
-        <div className="xl:col-span-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
+        <div className="xl:col-span-4 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20">
           <CategorySummaryWidget assets={assets} categories={assetCategories} />
         </div>
 
         <div className="xl:col-span-2 flex flex-col gap-6 h-full">
-          <div className="flex-1 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+          <div className="flex-1 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20 overflow-hidden flex flex-col">
             <ActionableItemsList
               currentUser={currentUser}
               setActivePage={setActivePage}
@@ -512,14 +488,12 @@ export default function DashboardPage(
 
         {/* Action Hub / Activity Feed */}
         <div className="xl:col-span-2 flex flex-col gap-6 h-full">
-          <div className="h-auto bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-gray-50 flex justify-between items-center bg-white">
-              <h3 className="font-bold text-gray-800 text-sm">
-                Jejak Audit Terkini
-              </h3>
+          <div className="h-auto bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm dark:shadow-lg dark:shadow-black/20 overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-gray-50 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
+              <h3 className="font-bold text-gray-800 dark:text-white text-sm">Jejak Audit Terkini</h3>
               <button
                 onClick={() => setIsActivityModalOpen(true)}
-                className="text-xs text-primary-600 font-semibold hover:underline"
+                className="text-xs text-primary-600 dark:text-primary-400 font-semibold hover:underline"
               >
                 Lihat Semua
               </button>
@@ -532,20 +506,20 @@ export default function DashboardPage(
                     <div
                       key={act.id}
                       onClick={() => onShowPreview(act.previewData)}
-                      className="flex gap-4 items-center p-3 hover:bg-gray-50 cursor-pointer group transition-all rounded-xl"
+                      className="flex gap-4 items-center p-3 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer group transition-all rounded-xl"
                     >
-                      <div className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center flex-shrink-0 text-gray-400 border border-gray-100 group-hover:text-primary-600 group-hover:border-blue-100 group-hover:bg-blue-50">
+                      <div className="w-9 h-9 rounded-full bg-gray-50 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 text-gray-400 dark:text-slate-400 border border-gray-100 dark:border-slate-600 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:border-blue-100 dark:group-hover:border-blue-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30">
                         <Icon className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-700 leading-tight group-hover:text-primary-600 transition-colors line-clamp-1">
+                        <p className="text-sm font-medium text-gray-700 dark:text-slate-200 leading-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-1">
                           {act.action}
                         </p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
+                          <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full border border-gray-200 dark:border-slate-600">
                             {act.user}
                           </span>
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-gray-400 dark:text-slate-500">
                             {new Date(act.timestamp).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -579,17 +553,15 @@ export default function DashboardPage(
                   onShowPreview(act.previewData);
                   setIsActivityModalOpen(false);
                 }}
-                className="flex gap-4 items-center p-4 hover:bg-gray-50 rounded-xl cursor-pointer border border-gray-100 hover:border-gray-300 transition-all"
+                className="flex gap-4 items-center p-4 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer border border-gray-100 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 transition-all"
               >
-                <div className="w-10 h-10 rounded-full bg-blue-50 text-primary-600 flex items-center justify-center border border-blue-100">
+                <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center border border-blue-100 dark:border-blue-800">
                   <Icon className="w-5 h-5" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {act.action}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{act.action}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                     {act.user} • {new Date(act.timestamp).toLocaleString()}
                   </p>
                 </div>
@@ -597,10 +569,10 @@ export default function DashboardPage(
             );
           })}
         </div>
-        <div className="p-4 border-t flex justify-end bg-gray-50 rounded-b-xl">
+        <div className="p-4 border-t dark:border-slate-700 flex justify-end bg-gray-50 dark:bg-slate-800 rounded-b-xl">
           <button
             onClick={() => setIsActivityModalOpen(false)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 shadow-sm"
           >
             Tutup
           </button>

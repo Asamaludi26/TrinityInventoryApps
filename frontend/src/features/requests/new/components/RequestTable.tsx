@@ -31,13 +31,13 @@ const SortableHeaderComp: React.FC<{
   return (
     <th
       scope="col"
-      className={`px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer group select-none transition-colors hover:text-slate-800 ${className}`}
+      className={`px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer group select-none transition-colors hover:text-slate-800 dark:hover:text-slate-200 ${className}`}
       onClick={() => requestSort(columnKey)}
     >
       <div className="flex items-center gap-2">
         <span>{children}</span>
         <span
-          className={`transition-opacity duration-200 ${isSorted ? "opacity-100 text-primary-600" : "opacity-0 group-hover:opacity-50"}`}
+          className={`transition-opacity duration-200 ${isSorted ? "opacity-100 text-primary-600 dark:text-primary-400" : "opacity-0 group-hover:opacity-50"}`}
         >
           {direction === "ascending" ? (
             <SortAscIcon className="w-3.5 h-3.5" />
@@ -46,7 +46,7 @@ const SortableHeaderComp: React.FC<{
           )}
         </span>
         {!isSorted && (
-          <SortIcon className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <SortIcon className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
       </div>
     </th>
@@ -91,8 +91,8 @@ export const RequestTable: React.FC<RequestTableProps> = ({
   const longPressHandlers = useLongPress(onEnterBulkMode, 500);
 
   return (
-    <table className="min-w-full divide-y divide-slate-100">
-      <thead className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-slate-200 shadow-sm">
+    <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700">
+      <thead className="sticky top-0 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 shadow-sm">
         <tr>
           {isBulkSelectMode && (
             <th scope="col" className="px-6 py-4 w-12">
@@ -124,7 +124,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
           </SortableHeaderComp>
           <th
             scope="col"
-            className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500"
+            className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
           >
             Detail Barang
           </th>
@@ -137,13 +137,13 @@ export const RequestTable: React.FC<RequestTableProps> = ({
           </SortableHeaderComp>
           <th
             scope="col"
-            className="px-6 py-4 w-24 text-right text-xs font-bold uppercase tracking-wider text-slate-500"
+            className="px-6 py-4 w-24 text-right text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
           >
             Aksi
           </th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-slate-50">
+      <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-50 dark:divide-slate-700/50">
         {requests.length > 0 ? (
           requests.map((req) => {
             // Notification Logic
@@ -185,17 +185,17 @@ export const RequestTable: React.FC<RequestTableProps> = ({
               "transition-all duration-200 cursor-pointer group relative border-l-4";
 
             // Dynamic Classes based on state (Accent Border Left)
-            let bgClass = "hover:bg-slate-50 bg-white border-l-transparent";
-            if (isSelected) bgClass = "bg-blue-50/60 border-l-primary-600";
+            let bgClass = "hover:bg-slate-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800 border-l-transparent";
+            if (isSelected) bgClass = "bg-blue-50/60 dark:bg-blue-900/30 border-l-primary-600";
             else if (isHighlighted)
-              bgClass = "bg-amber-50 border-l-amber-400 animate-pulse-slow";
-            else if (showHighlight) bgClass = "bg-blue-50/30 border-l-blue-400";
+              bgClass = "bg-amber-50 dark:bg-amber-900/20 border-l-amber-400 animate-pulse-slow";
+            else if (showHighlight) bgClass = "bg-blue-50/30 dark:bg-blue-900/20 border-l-blue-400";
             else if (req.order.type === "Urgent")
               bgClass =
-                "hover:bg-rose-50/30 border-l-transparent hover:border-l-rose-400";
+                "hover:bg-rose-50/30 dark:hover:bg-rose-900/20 border-l-transparent hover:border-l-rose-400";
             else
               bgClass =
-                "hover:bg-slate-50 border-l-transparent hover:border-l-slate-300";
+                "hover:bg-slate-50 dark:hover:bg-slate-700 border-l-transparent hover:border-l-slate-300 dark:hover:border-l-slate-500";
 
             return (
               <tr
@@ -223,7 +223,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                 <td className="px-6 py-5 align-top">
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-800 group-hover:text-primary-600 transition-colors font-mono tracking-tight">
+                      <span className="text-sm font-bold text-slate-800 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors font-mono tracking-tight">
                         {req.id}
                       </span>
                       {showHighlight && (
@@ -231,8 +231,8 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                      <BsCalendarEvent className="w-3 h-3 text-slate-400" />
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      <BsCalendarEvent className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                       <span>
                         {new Date(req.requestDate).toLocaleDateString("id-ID", {
                           day: "numeric",
@@ -272,10 +272,10 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                 {/* Column 2: Requester (Text Only) */}
                 <td className="px-6 py-5 align-middle">
                   <div className="flex flex-col">
-                    <div className="text-sm font-bold text-slate-800">
+                    <div className="text-sm font-bold text-slate-800 dark:text-white">
                       {req.requester}
                     </div>
-                    <div className="text-xs font-medium text-slate-500">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
                       {req.division}
                     </div>
                   </div>
@@ -285,7 +285,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                 <td className="px-6 py-5 align-middle">
                   <div className="flex items-start gap-3">
                     {/* Count Badge */}
-                    <div className="flex-shrink-0 bg-slate-100 text-slate-600 font-bold px-2.5 py-1.5 rounded-lg text-xs border border-slate-200 shadow-sm flex flex-col items-center min-w-[3rem]">
+                    <div className="flex-shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-2.5 py-1.5 rounded-lg text-xs border border-slate-200 dark:border-slate-600 shadow-sm flex flex-col items-center min-w-[3rem]">
                       <span className="text-lg leading-none tracking-tight">
                         {req.items.length}
                       </span>
@@ -297,17 +297,17 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                     {/* Item Details */}
                     <div className="flex flex-col justify-center min-h-[3rem]">
                       <div
-                        className="text-sm font-semibold text-slate-800 line-clamp-1"
+                        className="text-sm font-semibold text-slate-800 dark:text-white line-clamp-1"
                         title={req.items[0]?.itemName}
                       >
                         {req.items[0]?.itemName}
                       </div>
                       {req.items.length > 1 ? (
-                        <span className="text-xs text-slate-500 font-medium">
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                           + {req.items.length - 1} item lainnya
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
                           {req.items[0]?.itemTypeBrand || "Generic"}
                         </span>
                       )}
@@ -320,7 +320,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                   <StatusBadge status={req.status} />
                   {req.status === ItemStatus.LOGISTIC_APPROVED &&
                     req.logisticApprover && (
-                      <p className="text-[10px] text-slate-400 mt-1.5 ml-1 flex items-center gap-1 font-medium">
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 ml-1 flex items-center gap-1 font-medium">
                         <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
                         by {req.logisticApprover.split(" ")[0]}
                       </p>
@@ -341,7 +341,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                             onFollowUpClick(req);
                           }}
                           disabled={isFollowUpDisabled}
-                          className={`p-2 rounded-full transition-colors ${isFollowUpDisabled ? "text-slate-300 cursor-not-allowed" : "text-slate-400 hover:text-amber-500 hover:bg-amber-50"}`}
+                          className={`p-2 rounded-full transition-colors ${isFollowUpDisabled ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30"}`}
                           title={followUpTooltip}
                         >
                           <BellIcon className="w-4 h-4" />
@@ -358,7 +358,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                           e.stopPropagation();
                           onOpenStaging(req);
                         }}
-                        className="p-2 text-emerald-600 bg-emerald-50 rounded-full hover:bg-emerald-100 transition-colors shadow-sm"
+                        className="p-2 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-800/40 transition-colors shadow-sm"
                         title="Catat aset ke inventori"
                       >
                         <RegisterIcon className="w-4 h-4" />
@@ -370,7 +370,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                           e.stopPropagation();
                           onDetailClick(req);
                         }}
-                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-blue-50 rounded-full transition-colors"
+                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
                         title="Lihat Detail"
                       >
                         <EyeIcon className="w-4 h-4" />
@@ -385,7 +385,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                           e.stopPropagation();
                           onDeleteClick(req.id);
                         }}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                        className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
                         title="Hapus Permintaan"
                       >
                         <TrashIcon className="w-4 h-4" />
@@ -393,7 +393,7 @@ export const RequestTable: React.FC<RequestTableProps> = ({
                     )}
                   </div>
                   {/* Mobile View Placeholder */}
-                  <div className="sm:hidden group-hover:hidden flex justify-end text-slate-300">
+                  <div className="sm:hidden group-hover:hidden flex justify-end text-slate-300 dark:text-slate-600">
                     <BsThreeDotsVertical className="w-5 h-5" />
                   </div>
                 </td>
@@ -407,13 +407,13 @@ export const RequestTable: React.FC<RequestTableProps> = ({
               className="px-6 py-16 text-center"
             >
               <div className="flex flex-col items-center justify-center">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
-                  <InboxIcon className="w-10 h-10 text-slate-300" />
+                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4 border border-slate-100 dark:border-slate-600">
+                  <InboxIcon className="w-10 h-10 text-slate-300 dark:text-slate-500" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-700">
+                <h3 className="text-lg font-bold text-slate-700 dark:text-white">
                   Tidak Ada Permintaan
                 </h3>
-                <p className="text-sm text-slate-500 mt-1 max-w-xs mx-auto">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
                   Belum ada data permintaan yang sesuai dengan filter Anda.
                   Silakan buat permintaan baru atau ubah filter pencarian.
                 </p>

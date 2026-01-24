@@ -44,22 +44,22 @@ export const spacing = {
  * Card/Container base styles
  */
 export const cardStyles = {
-  base: "bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700",
+  base: "bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-slate-800 dark:border-slate-700/60",
   interactive:
-    "hover:shadow-md hover:border-gray-300 transition-all duration-200",
-  elevated: "shadow-card bg-white rounded-lg dark:bg-gray-800",
-  outlined: "border-2 border-gray-200 rounded-lg dark:border-gray-700",
+    "hover:shadow-md hover:border-gray-300 transition-all duration-200 dark:hover:border-slate-600 dark:hover:shadow-lg dark:hover:shadow-black/20",
+  elevated: "shadow-card bg-white rounded-lg dark:bg-slate-800 dark:shadow-xl dark:shadow-black/25",
+  outlined: "border-2 border-gray-200 rounded-lg dark:border-slate-700",
 };
 
 /**
  * Input base styles
  */
 export const inputStyles = {
-  base: "w-full px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 transition-colors duration-200",
+  base: "w-full px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 transition-colors duration-200 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400",
   focus:
-    "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent",
+    "focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:focus:ring-primary-400",
   disabled:
-    "disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed disabled:border-gray-200",
+    "disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed disabled:border-gray-200 dark:disabled:bg-slate-900 dark:disabled:text-slate-500 dark:disabled:border-slate-700",
   error: "border-danger-500 focus:ring-danger-500",
   success: "border-success-500 focus:ring-success-500",
 };
@@ -68,43 +68,35 @@ export const inputStyles = {
  * Badge styles
  */
 export const badgeStyles = {
-  primary:
-    "bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200",
-  success:
-    "bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-200",
-  warning:
-    "bg-warning-100 text-warning-800 dark:bg-warning-900 dark:text-warning-200",
-  danger:
-    "bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-200",
-  info: "bg-info-100 text-info-800 dark:bg-info-900 dark:text-info-200",
-  neutral: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+  primary: "bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-300",
+  success: "bg-success-100 text-success-800 dark:bg-green-900/40 dark:text-green-300",
+  warning: "bg-warning-100 text-warning-800 dark:bg-amber-900/40 dark:text-amber-300",
+  danger: "bg-danger-100 text-danger-800 dark:bg-red-900/40 dark:text-red-300",
+  info: "bg-info-100 text-info-800 dark:bg-blue-900/40 dark:text-blue-300",
+  neutral: "bg-gray-100 text-gray-800 dark:bg-slate-700/60 dark:text-slate-300",
 };
 
 /**
  * Status color mappings
  */
 export const statusColorMap = {
-  success: "text-success-600 bg-success-50",
-  warning: "text-warning-600 bg-warning-50",
-  danger: "text-danger-600 bg-danger-50",
-  info: "text-info-600 bg-info-50",
-  neutral: "text-gray-600 bg-gray-50",
+  success: "text-success-600 bg-success-50 dark:text-green-400 dark:bg-green-900/30",
+  warning: "text-warning-600 bg-warning-50 dark:text-amber-400 dark:bg-amber-900/30",
+  danger: "text-danger-600 bg-danger-50 dark:text-red-400 dark:bg-red-900/30",
+  info: "text-info-600 bg-info-50 dark:text-blue-400 dark:bg-blue-900/30",
+  neutral: "text-gray-600 bg-gray-50 dark:text-slate-400 dark:bg-slate-800/60",
 };
 
 /**
  * Create responsive grid classes
  */
-export function gridColumns(cols: {
-  mobile?: number;
-  tablet?: number;
-  desktop?: number;
-}) {
+export function gridColumns(cols: { mobile?: number; tablet?: number; desktop?: number }) {
   const { mobile = 1, tablet = 2, desktop = 3 } = cols;
   return cn(
     `grid grid-cols-${mobile}`,
     `md:grid-cols-${tablet}`,
     `lg:grid-cols-${desktop}`,
-    "gap-4",
+    "gap-4"
   );
 }
 
@@ -167,9 +159,7 @@ export const wcagColor = {
 /**
  * Helper to create text with proper contrast
  */
-export function createContrastText(
-  bgColor: "light" | "dark" | "primary" = "light",
-) {
+export function createContrastText(bgColor: "light" | "dark" | "primary" = "light") {
   const maps = {
     light: wcagColor.darkText,
     dark: wcagColor.lightText,

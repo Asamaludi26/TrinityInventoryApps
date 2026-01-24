@@ -630,17 +630,17 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({
           {/* List View Content */}
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-gray-900">
+              <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">
                 Daftar Permintaan
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
                 Kelola dan pantau seluruh alur pengadaan aset.
               </p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setIsExportModalOpen(true)}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 border rounded-xl bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 shadow-sm transition-all"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 border dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-sm font-semibold text-gray-600 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-600 shadow-sm transition-all"
               >
                 <ExportIcon className="w-4 h-4" /> Ekspor
               </button>
@@ -654,19 +654,19 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({
           </div>
 
           {hasExistingDraft && (
-            <div className="mb-6 p-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg shadow-blue-200/50 animate-fade-in-up">
-              <div className="bg-white p-4 rounded-[0.9rem] flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="mb-6 p-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 animate-fade-in-up">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-[0.9rem] flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-50 text-primary-600 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-primary-600 dark:text-primary-400 rounded-xl flex items-center justify-center">
                     <BsJournalBookmark className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-900 text-sm">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">
                       Anda memiliki draf pengajuan
                     </h4>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Terakhir disimpan:{" "}
-                      <span className="font-bold text-primary-600">
+                      <span className="font-bold text-primary-600 dark:text-primary-400">
                         {hasExistingDraft}
                       </span>
                     </p>
@@ -728,7 +728,7 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="overflow-x-auto custom-scrollbar">
               <RequestTable
                 requests={paginatedRequests}

@@ -100,7 +100,11 @@ export class ReturnsService {
   }
 
   async findAll(loanRequestId?: string) {
-    const where: any = {};
+    /**
+     * PERBAIKAN BARIS 103:
+     * Menggunakan Prisma.AssetReturnWhereInput menggantikan 'any'.
+     */
+    const where: Prisma.AssetReturnWhereInput = {};
     if (loanRequestId) where.loanRequestId = loanRequestId;
 
     return this.prisma.assetReturn.findMany({
@@ -166,7 +170,6 @@ export class ReturnsService {
       });
 
       // Update loan request - add returned assets
-      // LoanRequest uses 'returnedAssetIds' as Json field
       const loan = await tx.loanRequest.findUnique({
         where: { id: returnDoc.loanRequestId },
         include: { assetAssignments: true },
@@ -194,10 +197,20 @@ export class ReturnsService {
   /**
    * Update return document (partial update)
    */
-  async update(id: string, data: any, updatedBy: string) {
+  async update(
+    id: string,
+    /**
+     * PERBAIKAN BARIS 197:
+     * Menggunakan tipe 'Prisma.AssetReturnUpdateInput' menggantikan 'any'
+     * agar validasi field yang diupdate lebih aman.
+     */
+    data: Prisma.AssetReturnUpdateInput,
+    updatedBy: string,
+  ) {
     const returnDoc = await this.findOne(id);
 
-    // Only allow updates to PENDING_APPROVAL returns (AssetReturnStatus has no PENDING)
+    // Only allow updates to PENDING_APPROVAL returns
+    // Pengecekan data.status aman dilakukan meski typenya Input
     if (returnDoc.status !== AssetReturnStatus.PENDING_APPROVAL && !data.status) {
       throw new BadRequestException('Return yang sudah diproses tidak dapat diupdate');
     }
@@ -211,7 +224,7 @@ export class ReturnsService {
       include: { loanRequest: true },
     });
 
-    // Log activity - ActivityLog uses 'details' not 'changes', 'userName' not 'performedBy'
+    // Log activity
     await this.prisma.activityLog.create({
       data: {
         entityType: 'AssetReturn',
@@ -244,8 +257,12 @@ export class ReturnsService {
     const acceptedAssetIds = dto.acceptedAssetIds || [];
     const verifiedByName = dto.verifiedBy || userName;
 
-    // Get all item asset IDs from return document
-    const returnItems = (returnDoc.items as any[]) || [];
+    /**
+     * PERBAIKAN BARIS 248:
+     * Menghapus casting 'as any[]'. Tipe returnDoc.items otomatis
+     * dikenali sebagai array AssetReturnItem karena findOne menggunakan include.
+     */
+    const returnItems = returnDoc.items || [];
     const allAssetIds = returnItems.map(item => item.assetId);
     const rejectedAssetIds = allAssetIds.filter(id => !acceptedAssetIds.includes(id));
 
@@ -279,8 +296,7 @@ export class ReturnsService {
           ? AssetReturnStatus.COMPLETED
           : AssetReturnStatus.APPROVED;
 
-      // Update return document - verifiedBy is a relation, use verifiedById/Name instead
-      // Note: AssetReturn doesn't have a notes field
+      // Update return document
       const updated = await tx.assetReturn.update({
         where: { id },
         data: {
@@ -315,7 +331,7 @@ export class ReturnsService {
         });
       }
 
-      // Log activity - use correct fields
+      // Log activity
       await tx.activityLog.create({
         data: {
           entityType: 'AssetReturn',

@@ -124,7 +124,8 @@ export class DocumentNumberService {
 
     const prefix = this.buildPrefix(config, now);
     const lastNumber = await this.findLastNumber(config, prefix);
-    const sequence = this.extractSequence(lastNumber, config) + 1;
+    // PERBAIKAN LINE 120: Menghapus argumen 'config' yang tidak digunakan
+    const sequence = this.extractSequence(lastNumber) + 1;
 
     return `${prefix}${sequence.toString().padStart(config.sequenceLength, '0')}`;
   }
@@ -143,7 +144,8 @@ export class DocumentNumberService {
 
     const prefix = this.buildPrefix(config, now);
     const lastNumber = await this.findLastNumberInTx(config, prefix, tx);
-    const sequence = this.extractSequence(lastNumber, config) + 1;
+    // PERBAIKAN LINE 137: Menghapus argumen 'config' yang tidak digunakan
+    const sequence = this.extractSequence(lastNumber) + 1;
 
     return `${prefix}${sequence.toString().padStart(config.sequenceLength, '0')}`;
   }
@@ -206,7 +208,8 @@ export class DocumentNumberService {
   /**
    * Extract sequence number from a document number
    */
-  private extractSequence(docNumber: string | null, config: DocNumberConfig): number {
+  // PERBAIKAN LINE 209: Menghapus parameter 'config'
+  private extractSequence(docNumber: string | null): number {
     if (!docNumber) return 0;
 
     const parts = docNumber.split('-');

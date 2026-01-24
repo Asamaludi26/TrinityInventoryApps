@@ -11,12 +11,8 @@ import { useLongPress } from "../../../hooks/useLongPress";
 
 interface DivisionsTableProps {
   divisions: (Division & { memberCount: number; totalAssets: number })[];
-  sortConfig: SortConfig<
-    Division & { memberCount: number; totalAssets: number }
-  > | null;
-  requestSort: (
-    key: keyof (Division & { memberCount: number; totalAssets: number }),
-  ) => void;
+  sortConfig: SortConfig<Division & { memberCount: number; totalAssets: number }> | null;
+  requestSort: (key: keyof (Division & { memberCount: number; totalAssets: number })) => void;
   isBulkSelectMode: boolean;
   selectedDivisionIds: number[];
   onSelectOne: (id: number) => void;
@@ -37,24 +33,19 @@ const SortableDivisionHeader: React.FC<any> = ({
   const isSorted = sortConfig?.key === columnKey;
   const direction = isSorted ? sortConfig.direction : undefined;
   const getSortIcon = () => {
-    if (!isSorted) return <SortIcon className="w-4 h-4 text-gray-400" />;
+    if (!isSorted) return <SortIcon className="w-4 h-4 text-gray-400 dark:text-slate-500" />;
     if (direction === "ascending")
-      return <SortAscIcon className="w-4 h-4 text-primary-500" />;
-    return <SortDescIcon className="w-4 h-4 text-primary-500" />;
+      return <SortAscIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />;
+    return <SortDescIcon className="w-4 h-4 text-primary-500 dark:text-primary-400" />;
   };
   return (
     <th
       scope="col"
-      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 ${className}`}
+      className={`px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400 ${className}`}
     >
-      <button
-        onClick={() => requestSort(columnKey)}
-        className="flex items-center space-x-1 group"
-      >
+      <button onClick={() => requestSort(columnKey)} className="flex items-center space-x-1 group">
         <span>{children}</span>
-        <span className="opacity-50 group-hover:opacity-100">
-          {getSortIcon()}
-        </span>
+        <span className="opacity-50 group-hover:opacity-100">{getSortIcon()}</span>
       </button>
     </th>
   );
@@ -76,21 +67,16 @@ export const DivisionsTable: React.FC<DivisionsTableProps> = ({
   const longPressHandlers = useLongPress(onEnterBulkMode, 500);
 
   return (
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
+    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+      <thead className="bg-gray-50 dark:bg-slate-900/50">
         <tr>
           {isBulkSelectMode && (
             <th className="px-6 py-3">
               <Checkbox
                 checked={
-                  selectedDivisionIds.length > 0 &&
-                  selectedDivisionIds.length === divisions.length
+                  selectedDivisionIds.length > 0 && selectedDivisionIds.length === divisions.length
                 }
-                onChange={(e) =>
-                  onSelectAll(
-                    e.target.checked ? divisions.map((d) => d.id) : [],
-                  )
-                }
+                onChange={(e) => onSelectAll(e.target.checked ? divisions.map((d) => d.id) : [])}
               />
             </th>
           )}
@@ -120,15 +106,13 @@ export const DivisionsTable: React.FC<DivisionsTableProps> = ({
           </th>
         </tr>
       </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
+      <tbody className="bg-white divide-y divide-gray-200 dark:bg-slate-800 dark:divide-slate-700">
         {divisions.map((division) => (
           <tr
             key={division.id}
             {...longPressHandlers}
-            onClick={() =>
-              isBulkSelectMode ? onSelectOne(division.id) : onDetail(division)
-            }
-            className={`cursor-pointer transition-colors ${selectedDivisionIds.includes(division.id) ? "bg-blue-50" : "hover:bg-gray-50"}`}
+            onClick={() => (isBulkSelectMode ? onSelectOne(division.id) : onDetail(division))}
+            className={`cursor-pointer transition-colors ${selectedDivisionIds.includes(division.id) ? "bg-blue-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-slate-700/50"}`}
           >
             {isBulkSelectMode && (
               <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
@@ -138,13 +122,13 @@ export const DivisionsTable: React.FC<DivisionsTableProps> = ({
                 />
               </td>
             )}
-            <td className="px-6 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">
+            <td className="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
               {division.name}
             </td>
-            <td className="px-6 py-4 text-sm text-center text-gray-700 whitespace-nowrap">
+            <td className="px-6 py-4 text-sm text-center text-gray-700 dark:text-slate-300 whitespace-nowrap">
               {division.memberCount}
             </td>
-            <td className="px-6 py-4 text-sm text-center text-gray-700 whitespace-nowrap">
+            <td className="px-6 py-4 text-sm text-center text-gray-700 dark:text-slate-300 whitespace-nowrap">
               {division.totalAssets}
             </td>
             <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
@@ -154,7 +138,7 @@ export const DivisionsTable: React.FC<DivisionsTableProps> = ({
                     e.stopPropagation();
                     onEdit(division);
                   }}
-                  className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
+                  className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600 dark:text-slate-400 dark:hover:bg-yellow-500/20 dark:hover:text-yellow-400"
                 >
                   <PencilIcon className="w-4 h-4" />
                 </button>
@@ -163,7 +147,7 @@ export const DivisionsTable: React.FC<DivisionsTableProps> = ({
                     e.stopPropagation();
                     onDelete(division);
                   }}
-                  className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600"
+                  className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/20 dark:hover:text-red-400"
                 >
                   <TrashIcon className="w-4 h-4" />
                 </button>

@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AssetStatus, AssetCondition, ItemStatus, LoanRequestStatus } from '@prisma/client';
+import {
+  AssetStatus,
+  AssetCondition,
+  ItemStatus,
+  LoanRequestStatus,
+  Prisma, // Import namespace Prisma untuk akses tipe WhereInput
+} from '@prisma/client';
 
 export interface AssetReportFilters {
   status?: AssetStatus;
@@ -30,7 +36,10 @@ export class ReportsService {
    * Get asset inventory report
    */
   async getAssetInventoryReport(filters?: AssetReportFilters) {
-    const where: any = {};
+    /**
+     * PERBAIKAN: Menggunakan Prisma.AssetWhereInput
+     */
+    const where: Prisma.AssetWhereInput = {};
 
     if (filters?.status) where.status = filters.status;
     if (filters?.condition) where.condition = filters.condition;
@@ -54,10 +63,22 @@ export class ReportsService {
       orderBy: { name: 'asc' },
     });
 
-    // Group by category for summary
-    const summary: Record<string, any> = {};
+    /**
+     * PERBAIKAN: Mendefinisikan struktur objek summary secara eksplisit
+     * menggantikan 'Record<string, any>'
+     */
+    const summary: Record<
+      string,
+      {
+        total: number;
+        byStatus: Record<string, number>;
+        byCondition: Record<string, number>;
+      }
+    > = {};
+
     assets.forEach(asset => {
       const categoryName = asset.category?.name || asset.type?.category?.name || 'Uncategorized';
+
       if (!summary[categoryName]) {
         summary[categoryName] = {
           total: 0,
@@ -94,7 +115,6 @@ export class ReportsService {
 
   /**
    * Get asset movement report
-   * Note: StockMovement schema uses: assetName, brand, type, quantity, balanceAfter, actorName, date
    */
   async getAssetMovementReport(startDate: Date, endDate: Date) {
     const movements = await this.prisma.stockMovement.findMany({
@@ -138,7 +158,10 @@ export class ReportsService {
    * Get request summary report
    */
   async getRequestReport(filters?: RequestReportFilters) {
-    const where: any = {};
+    /**
+     * PERBAIKAN: Menggunakan Prisma.RequestWhereInput
+     */
+    const where: Prisma.RequestWhereInput = {};
 
     if (filters?.status) where.status = filters.status;
     if (filters?.requestedBy) {
@@ -175,7 +198,7 @@ export class ReportsService {
       requests: requests.map(r => ({
         id: r.id,
         docNumber: r.docNumber,
-        division: r.divisionName, // Request uses divisionName, not division
+        division: r.divisionName,
         orderType: r.orderType,
         status: r.status,
         requester: r.requester?.name,
@@ -193,10 +216,13 @@ export class ReportsService {
 
   /**
    * Get loan status report
-   * Note: LoanRequest uses id as document number, notes for purpose, and return dates are on LoanItem
    */
   async getLoanReport(startDate?: Date, endDate?: Date) {
-    const where: any = {};
+    /**
+     * PERBAIKAN: Menggunakan Prisma.LoanRequestWhereInput
+     */
+    const where: Prisma.LoanRequestWhereInput = {};
+
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
@@ -207,7 +233,7 @@ export class ReportsService {
       where,
       include: {
         requester: { select: { id: true, name: true, email: true } },
-        items: true, // Include items to get return dates
+        items: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -245,11 +271,11 @@ export class ReportsService {
         );
 
         return {
-          id: l.id, // LoanRequest uses id as doc number
+          id: l.id,
           docNumber: l.id,
           requester: l.requester?.name,
           status: l.status,
-          purpose: l.notes, // LoanRequest uses notes for purpose
+          purpose: l.notes,
           requestDate: l.requestDate,
           expectedReturn: earliestReturn,
           isOverdue: l.status === LoanRequestStatus.ON_LOAN && hasOverdueItems,
@@ -264,12 +290,13 @@ export class ReportsService {
 
   /**
    * Get customer report
-   * Note: Customer has servicePackage not serviceType/serviceSpeed
-   * Assets are related to customers through InstalledMaterial, not directly
    */
   async getCustomerReport(customerId?: string) {
-    // Customer model has no deletedAt
-    const where: any = {};
+    /**
+     * PERBAIKAN: Menggunakan Prisma.CustomerWhereInput
+     */
+    const where: Prisma.CustomerWhereInput = {};
+
     if (customerId) {
       where.id = customerId;
     }
@@ -319,11 +346,13 @@ export class ReportsService {
 
   /**
    * Get maintenance history report
-   * Note: Maintenance has workTypes (string[]), actionsTaken, technicianName
-   * No laborCost or partsCost fields
    */
   async getMaintenanceReport(startDate?: Date, endDate?: Date) {
-    const where: any = {};
+    /**
+     * PERBAIKAN: Menggunakan Prisma.MaintenanceWhereInput
+     */
+    const where: Prisma.MaintenanceWhereInput = {};
+
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;

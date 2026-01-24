@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserRole } from '@prisma/client';
+import { UserRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -10,10 +10,14 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Strip unknown fields from user DTO to prevent Prisma validation errors.
+   * Helper untuk membersihkan field undefined.
+   * PERBAIKAN: Mengganti 'Record<string, any>' menjadi 'Partial<CreateUserDto>'
+   * agar type-safe dan tidak memicu linter warning.
    */
   private sanitizeUserData(dto: Partial<CreateUserDto | UpdateUserDto>): Partial<CreateUserDto> {
-    const { email, password, name, role, divisionId, permissions } = dto as any;
+    const { email, password, name, role, divisionId, permissions } = dto || {};
+
+    // Inisialisasi dengan tipe Partial DTO, bukan any
     const sanitized: Partial<CreateUserDto> = {};
 
     if (email !== undefined) sanitized.email = email;
@@ -27,7 +31,7 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto) {
-    // Check if email already exists
+    // 1. Validasi Email Unik
     const existingUser = await this.prisma.user.findUnique({
       where: { email: createUserDto.email },
     });
@@ -35,7 +39,7 @@ export class UsersService {
       throw new BadRequestException('Email sudah terdaftar');
     }
 
-    // Validate division exists if provided
+    // 2. Validasi Division (Jika ada)
     if (createUserDto.divisionId) {
       const division = await this.prisma.division.findUnique({
         where: { id: createUserDto.divisionId },
@@ -47,16 +51,24 @@ export class UsersService {
       }
     }
 
-    // Always hash the password - never accept pre-hashed passwords
+    // 3. Hash Password & Sanitize
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const sanitized = this.sanitizeUserData(createUserDto);
 
+    // Menggunakan Prisma.UserUncheckedCreateInput untuk support foreign key langsung
+    const createData: Prisma.UserUncheckedCreateInput = {
+      // Kita gunakan nullish coalescing (??) atau assertion aman jika diperlukan,
+      // tapi karena validasi di atas sudah ada, ini aman.
+      name: sanitized.name as string,
+      email: sanitized.email as string,
+      password: hashedPassword,
+      role: (createUserDto.role as UserRole) || UserRole.STAFF,
+      divisionId: sanitized.divisionId,
+      permissions: sanitized.permissions,
+    };
+
     return this.prisma.user.create({
-      data: {
-        ...sanitized,
-        password: hashedPassword,
-        role: createUserDto.role || UserRole.STAFF,
-      } as any,
+      data: createData,
       include: {
         division: true,
       },
@@ -72,8 +84,8 @@ export class UsersService {
   }) {
     const { skip = 0, take = 50, role, divisionId, search } = params || {};
 
-    const where: any = {
-      deletedAt: null,
+    const where: Prisma.UserWhereInput = {
+      isActive: true,
     };
 
     if (role) {
@@ -104,10 +116,12 @@ export class UsersService {
       this.prisma.user.count({ where }),
     ]);
 
-    // Remove password from response
-    const sanitizedUsers = users.map(
-      ({ password: _password, ...user }: { password: string; [key: string]: unknown }) => user,
-    );
+    // PERBAIKAN: Rename 'password' menjadi '_password' atau '_'
+    // agar linter mengabaikannya (unused variable check)
+    const sanitizedUsers = users.map(user => {
+      const { password: _password, ...rest } = user;
+      return rest;
+    });
 
     return {
       data: sanitizedUsers,
@@ -144,15 +158,19 @@ export class UsersService {
   async update(id: number, updateUserDto: UpdateUserDto) {
     await this.findOne(id); // Ensure exists
 
-    // Hash password if provided
     const sanitized = this.sanitizeUserData(updateUserDto);
+
     if (sanitized.password) {
       sanitized.password = await bcrypt.hash(sanitized.password, 10);
     }
 
+    const updateData: Prisma.UserUncheckedUpdateInput = {
+      ...sanitized,
+    };
+
     const updated = await this.prisma.user.update({
       where: { id },
-      data: sanitized,
+      data: updateData,
       include: {
         division: true,
       },
@@ -163,9 +181,8 @@ export class UsersService {
   }
 
   async remove(id: number) {
-    await this.findOne(id); // Ensure exists
+    await this.findOne(id);
 
-    // Soft delete via isActive flag
     return this.prisma.user.update({
       where: { id },
       data: { isActive: false },

@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -32,12 +33,20 @@ export class UsersController {
 
   @Get()
   findAll(
-    @Query('skip') skip?: number,
-    @Query('take') take?: number,
+    // JIKA KOSONG: Paksa jadi 0. JIKA ADA: Ubah String ke Int
+    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
+
+    // JIKA KOSONG: Paksa jadi 10. JIKA ADA: Ubah String ke Int
+    @Query('take', new DefaultValuePipe(10), ParseIntPipe) take: number,
+
+    // Optional params biarkan apa adanya
     @Query('role') role?: UserRole,
-    @Query('divisionId') divisionId?: number,
+    @Query('divisionId', new ParseIntPipe({ optional: true })) divisionId?: number,
     @Query('search') search?: string,
   ) {
+    // Console log ini akan muncul di terminal backend saat Anda refresh frontend
+    // console.log('✅ GET /users Request:', { skip, take, role, divisionId, search });
+
     return this.usersService.findAll({ skip, take, role, divisionId, search });
   }
 

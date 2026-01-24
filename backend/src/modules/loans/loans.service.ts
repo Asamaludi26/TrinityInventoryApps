@@ -39,7 +39,12 @@ export class LoansService {
     // Get requester info
     const requester = await this.prisma.user.findUnique({
       where: { id: requesterId },
-      select: { id: true, name: true, divisionId: true, division: { select: { name: true } } },
+      select: {
+        id: true,
+        name: true,
+        divisionId: true,
+        division: { select: { name: true } },
+      },
     });
 
     if (!requester) {
@@ -84,7 +89,12 @@ export class LoansService {
   }) {
     const { skip = 0, take = 50, status, requesterId } = params || {};
 
-    const where: any = {};
+    /**
+     * PERBAIKAN BARIS 87:
+     * Menggunakan Prisma.LoanRequestWhereInput menggantikan 'any'.
+     */
+    const where: Prisma.LoanRequestWhereInput = {};
+
     if (status) where.status = status;
     if (requesterId) where.requesterId = requesterId;
 
@@ -155,7 +165,9 @@ export class LoansService {
       const unavailableAssets = assets.filter(a => a.status !== AssetStatus.IN_STORAGE);
       if (unavailableAssets.length > 0) {
         throw new BadRequestException(
-          `Asset tidak tersedia (status bukan IN_STORAGE): ${unavailableAssets.map(a => a.id).join(', ')}`,
+          `Asset tidak tersedia (status bukan IN_STORAGE): ${unavailableAssets
+            .map(a => a.id)
+            .join(', ')}`,
         );
       }
 
@@ -194,7 +206,10 @@ export class LoansService {
           entityId: id,
           action: 'APPROVED',
           details: JSON.stringify({
-            status: { old: LoanRequestStatus.PENDING, new: LoanRequestStatus.ON_LOAN },
+            status: {
+              old: LoanRequestStatus.PENDING,
+              new: LoanRequestStatus.ON_LOAN,
+            },
             assignedAssets: allAssetIds,
           }),
           userId: approverId,
@@ -231,7 +246,10 @@ export class LoansService {
         entityId: id,
         action: 'REJECTED',
         details: JSON.stringify({
-          status: { old: LoanRequestStatus.PENDING, new: LoanRequestStatus.REJECTED },
+          status: {
+            old: LoanRequestStatus.PENDING,
+            new: LoanRequestStatus.REJECTED,
+          },
           reason,
         }),
         userId: rejectorId,
@@ -314,7 +332,14 @@ export class LoansService {
 
     // Create return document - using correct AssetReturn schema
     const { AssetReturnStatus } = await import('@prisma/client');
-    const assetReturn = await this.prisma.assetReturn.create({
+
+    /**
+     * PERBAIKAN BARIS 317:
+     * Menambahkan underscore (_) pada variable assetReturn
+     * karena hasil return hanya digunakan untuk efek samping (create),
+     * tidak dibaca nilainya.
+     */
+    const _assetReturn = await this.prisma.assetReturn.create({
       data: {
         docNumber,
         loanRequestId: id,

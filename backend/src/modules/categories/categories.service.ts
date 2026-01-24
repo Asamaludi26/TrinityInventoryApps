@@ -3,6 +3,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateTypeDto } from './dto/create-type.dto';
 import { CreateModelDto } from './dto/create-model.dto';
+// PERBAIKAN: Import Prisma untuk akses tipe WhereInput dan UpdateInput
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CategoriesService {
@@ -13,7 +15,9 @@ export class CategoriesService {
    * Frontend may send nested objects (types) or extra fields that Prisma doesn't accept.
    */
   private sanitizeCategoryData(dto: Partial<CreateCategoryDto>): Partial<CreateCategoryDto> {
-    const { name, isCustomerInstallable, associatedDivisions } = dto as any;
+    // PERBAIKAN: Menghapus 'as any'. Kita ambil prop dari dto secara langsung.
+    // Jika properti opsional, tipe akan string | undefined, yang ditangani oleh if check.
+    const { name, isCustomerInstallable, associatedDivisions } = dto;
     const sanitized: Partial<CreateCategoryDto> = {};
 
     if (name !== undefined) sanitized.name = name;
@@ -28,7 +32,8 @@ export class CategoriesService {
    * Strip unknown fields from type DTO
    */
   private sanitizeTypeData(dto: Partial<CreateTypeDto>): Partial<CreateTypeDto> {
-    const { categoryId, name, classification, trackingMethod, unitOfMeasure } = dto as any;
+    // PERBAIKAN: Menghapus 'as any'
+    const { categoryId, name, classification, trackingMethod, unitOfMeasure } = dto;
     const sanitized: Partial<CreateTypeDto> = {};
 
     if (categoryId !== undefined) sanitized.categoryId = categoryId;
@@ -44,8 +49,9 @@ export class CategoriesService {
    * Strip unknown fields from model DTO
    */
   private sanitizeModelData(dto: Partial<CreateModelDto>): Partial<CreateModelDto> {
+    // PERBAIKAN: Menghapus 'as any'
     const { typeId, name, brand, bulkType, unitOfMeasure, baseUnitOfMeasure, quantityPerUnit } =
-      dto as any;
+      dto;
     const sanitized: Partial<CreateModelDto> = {};
 
     if (typeId !== undefined) sanitized.typeId = typeId;
@@ -68,7 +74,11 @@ export class CategoriesService {
         ...rest,
         // Handle relation to Division - use connect with array of ids
         ...(associatedDivisions && associatedDivisions.length > 0
-          ? { associatedDivisions: { connect: associatedDivisions.map(id => ({ id })) } }
+          ? {
+              associatedDivisions: {
+                connect: associatedDivisions.map(id => ({ id })),
+              },
+            }
           : {}),
       },
       include: {
@@ -117,7 +127,11 @@ export class CategoriesService {
         ...rest,
         // Handle relation - set replaces existing connections
         ...(associatedDivisions !== undefined
-          ? { associatedDivisions: { set: associatedDivisions.map(divId => ({ id: divId })) } }
+          ? {
+              associatedDivisions: {
+                set: associatedDivisions.map(divId => ({ id: divId })),
+              },
+            }
           : {}),
       },
       include: {
@@ -143,7 +157,8 @@ export class CategoriesService {
   }
 
   async findAllTypes(categoryId?: number) {
-    const where: any = {};
+    // PERBAIKAN BARIS 146: Menggunakan Prisma.AssetTypeWhereInput
+    const where: Prisma.AssetTypeWhereInput = {};
     if (categoryId) where.categoryId = categoryId;
 
     return this.prisma.assetType.findMany({
@@ -192,7 +207,8 @@ export class CategoriesService {
   }
 
   async findAllModels(typeId?: number) {
-    const where: any = {};
+    // PERBAIKAN BARIS 195: Menggunakan Prisma.StandardItemWhereInput
+    const where: Prisma.StandardItemWhereInput = {};
     if (typeId) where.typeId = typeId;
 
     return this.prisma.standardItem.findMany({
@@ -236,7 +252,10 @@ export class CategoriesService {
    * Update multiple categories in a single transaction.
    * Used for reordering or bulk updates from frontend.
    */
-  async updateBulk(categories: Array<{ id: number; [key: string]: any }>) {
+  async updateBulk(
+    // PERBAIKAN BARIS 239: Menggunakan 'unknown' alih-alih 'any'
+    categories: Array<{ id: number } & Record<string, unknown>>,
+  ) {
     // Validate that all items have ID
     const validCategories = categories.filter(cat => cat.id && typeof cat.id === 'number');
 
@@ -249,15 +268,20 @@ export class CategoriesService {
       validCategories.map(category => {
         const { id, associatedDivisions, ...rest } = category;
 
+        // Type assertion yang aman karena kita tahu struktur rest akan masuk ke Prisma
+        const updateData = rest as Prisma.AssetCategoryUpdateInput;
+
         return this.prisma.assetCategory.update({
           where: { id },
           data: {
-            ...rest,
+            ...updateData,
             // Handle relation - set replaces existing connections
-            ...(associatedDivisions !== undefined
+            ...(associatedDivisions !== undefined && Array.isArray(associatedDivisions)
               ? {
                   associatedDivisions: {
-                    set: associatedDivisions.map((divId: number) => ({ id: divId })),
+                    set: associatedDivisions.map((divId: number) => ({
+                      id: divId,
+                    })),
                   },
                 }
               : {}),

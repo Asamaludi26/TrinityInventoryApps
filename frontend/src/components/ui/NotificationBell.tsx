@@ -34,9 +34,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const notifications = useNotificationStore((state) => state.notifications);
   const markAsRead = useNotificationStore((state) => state.markAsRead);
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
-  const setHighlightOnReturn = useUIStore(
-    (state) => state.setHighlightOnReturn,
-  );
+  const setHighlightOnReturn = useUIStore((state) => state.setHighlightOnReturn);
 
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -44,10 +42,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -60,16 +55,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       notifications
         .filter((n) => n.recipientId === currentUser.id)
         .sort(
-          (a, b) =>
-            new Date(b.timestamp || "").getTime() -
-            new Date(a.timestamp || "").getTime(),
+          (a, b) => new Date(b.timestamp || "").getTime() - new Date(a.timestamp || "").getTime()
         ),
-    [notifications, currentUser.id],
+    [notifications, currentUser.id]
   );
 
   const unreadCount = useMemo(
     () => myNotifications.filter((n) => !n.isRead).length,
-    [myNotifications],
+    [myNotifications]
   );
 
   const handleNotificationClick = (notification: Notification) => {
@@ -106,11 +99,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     } else if (
       notification.type &&
       (notification.type.startsWith("ASSET_") ||
-        [
-          "REPAIR_STARTED",
-          "REPAIR_COMPLETED",
-          "REPAIR_PROGRESS_UPDATE",
-        ].includes(notification.type))
+        ["REPAIR_STARTED", "REPAIR_COMPLETED", "REPAIR_PROGRESS_UPDATE"].includes(
+          notification.type
+        ))
     ) {
       if (notification.referenceId) {
         onShowPreview({ type: "asset", id: notification.referenceId });
@@ -201,12 +192,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
     const fullMessage = (
       <>
-        <strong className="font-semibold text-gray-900">
+        <strong className="font-semibold text-gray-900 dark:text-white">
           {notification.actorName}
         </strong>{" "}
         {message}{" "}
         {notification.referenceId && !message.includes("aset baru") && (
-          <strong className="font-semibold text-gray-900">
+          <strong className="font-semibold text-gray-900 dark:text-white">
             #{notification.referenceId}
           </strong>
         )}
@@ -234,7 +225,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-primary-600"
+        className="relative p-2 text-gray-500 dark:text-slate-400 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-primary-600 dark:hover:text-primary-400"
         title={`${unreadCount} notifikasi belum dibaca`}
       >
         <BellIcon className="w-6 h-6" />
@@ -248,15 +239,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         )}
       </button>
       {isOpen && (
-        <div className="absolute right-0 z-30 w-96 mt-2 origin-top-right bg-white border border-gray-200 rounded-xl shadow-lg animate-zoom-in">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h3 className="text-base font-semibold text-gray-800">
-              Notifikasi
-            </h3>
+        <div className="absolute right-0 z-30 w-96 mt-2 origin-top-right bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg dark:shadow-2xl dark:shadow-black/40 animate-zoom-in">
+          <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+            <h3 className="text-base font-semibold text-gray-800 dark:text-white">Notifikasi</h3>
             {unreadCount > 0 && (
               <button
                 onClick={() => markAllAsRead(currentUser.id)}
-                className="text-xs font-semibold text-primary-600 hover:underline"
+                className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
               >
                 Tandai semua terbaca
               </button>
@@ -270,27 +259,27 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   <div
                     key={notif.id}
                     onClick={() => handleNotificationClick(notif)}
-                    className={`relative flex items-start gap-4 p-4 border-b cursor-pointer last:border-b-0 transition-colors ${
+                    className={`relative flex items-start gap-4 p-4 border-b dark:border-slate-700 cursor-pointer last:border-b-0 transition-colors ${
                       !notif.isRead
-                        ? "bg-blue-50/50 hover:bg-blue-50"
-                        : "hover:bg-gray-50"
+                        ? "bg-blue-50/50 dark:bg-primary-900/20 hover:bg-blue-50 dark:hover:bg-primary-900/30"
+                        : "hover:bg-gray-50 dark:hover:bg-slate-700"
                     }`}
                   >
                     {!notif.isRead && (
-                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary-600 rounded-full"></span>
+                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full"></span>
                     )}
                     <Avatar
                       name={notif.actorName || "System"}
                       className="w-9 h-9 text-xs flex-shrink-0"
                     />
                     <div className="flex-1">
-                      <p className="text-sm text-gray-600">{fullMessage}</p>
-                      <time className="block mt-1 text-xs font-medium text-gray-400">
+                      <p className="text-sm text-gray-600 dark:text-slate-300">{fullMessage}</p>
+                      <time className="block mt-1 text-xs font-medium text-gray-400 dark:text-slate-500">
                         {formatRelativeTime(notif.timestamp)}
                       </time>
                     </div>
                     <Icon
-                      className={`w-5 h-5 text-gray-400 flex-shrink-0 mt-1 ${
+                      className={`w-5 h-5 text-gray-400 dark:text-slate-500 flex-shrink-0 mt-1 ${
                         notif.type === "REPAIR_STARTED" ? "animate-spin" : ""
                       }`}
                     />
@@ -298,14 +287,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 );
               })
             ) : (
-              <div className="p-8 text-sm text-center text-gray-500">
-                <InboxIcon className="w-12 h-12 mx-auto text-gray-300" />
-                <p className="mt-3 font-semibold text-gray-700">
+              <div className="p-8 text-sm text-center text-gray-500 dark:text-slate-400">
+                <InboxIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-slate-600" />
+                <p className="mt-3 font-semibold text-gray-700 dark:text-white">
                   Tidak ada notifikasi
                 </p>
-                <p className="mt-1">
-                  Semua notifikasi Anda akan muncul di sini.
-                </p>
+                <p className="mt-1">Semua notifikasi Anda akan muncul di sini.</p>
               </div>
             )}
           </div>

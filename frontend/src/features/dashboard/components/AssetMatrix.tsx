@@ -56,24 +56,24 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
 
   // 2. Helper to determine cell intensity (Modern Heatmap logic)
   const getIntensityClass = (val: number, max: number) => {
-    if (val === 0) return "bg-gray-50/50 text-gray-300";
+    if (val === 0) return "bg-gray-50/50 dark:bg-slate-700/50 text-gray-300 dark:text-slate-600";
     const percentage = (val / max) * 100;
 
     if (mode === "count") {
       if (percentage > 75)
-        return "bg-primary-600 text-white font-bold shadow-md shadow-blue-200";
+        return "bg-primary-600 text-white font-bold shadow-md shadow-blue-200 dark:shadow-blue-900/50";
       if (percentage > 50)
-        return "bg-blue-400 text-white font-medium shadow-sm";
-      if (percentage > 25) return "bg-blue-200 text-blue-800 font-medium";
-      return "bg-blue-50 text-blue-600";
+        return "bg-blue-400 dark:bg-blue-500 text-white font-medium shadow-sm";
+      if (percentage > 25) return "bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 font-medium";
+      return "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300";
     } else {
       // Value mode uses Green/Emerald theme
       if (percentage > 75)
-        return "bg-emerald-600 text-white font-bold shadow-md shadow-emerald-200";
+        return "bg-emerald-600 text-white font-bold shadow-md shadow-emerald-200 dark:shadow-emerald-900/50";
       if (percentage > 50)
-        return "bg-emerald-400 text-white font-medium shadow-sm";
-      if (percentage > 25) return "bg-emerald-200 text-emerald-800 font-medium";
-      return "bg-emerald-50 text-emerald-600";
+        return "bg-emerald-400 dark:bg-emerald-500 text-white font-medium shadow-sm";
+      if (percentage > 25) return "bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 font-medium";
+      return "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300";
     }
   };
 
@@ -87,12 +87,12 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] overflow-hidden flex flex-col h-full">
+    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] dark:shadow-lg dark:shadow-black/20 overflow-hidden flex flex-col h-full">
       {/* Header Control */}
-      <div className="px-6 py-5 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white">
+      <div className="px-6 py-5 border-b border-gray-50 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800">
         <div>
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-            <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center">
               <div className="grid grid-cols-2 gap-0.5 w-4 h-4">
                 <div className="bg-current rounded-[1px] opacity-40"></div>
                 <div className="bg-current rounded-[1px]"></div>
@@ -102,19 +102,19 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
             </div>
             Matriks Distribusi Aset
           </h3>
-          <p className="text-sm text-gray-500 mt-1 ml-11">
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 ml-11">
             Peta persebaran aset berdasarkan kategori & status
           </p>
         </div>
 
         {/* Modern Segmented Control */}
-        <div className="flex bg-gray-100 p-1 rounded-xl">
+        <div className="flex bg-gray-100 dark:bg-slate-900 p-1 rounded-xl">
           <button
             onClick={() => setMode("count")}
             className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
               mode === "count"
-                ? "bg-white text-primary-600 shadow-sm ring-1 ring-black/5"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
             }`}
           >
             <ArchiveBoxIcon className="w-3.5 h-3.5" />
@@ -124,8 +124,8 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
             onClick={() => setMode("value")}
             className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
               mode === "value"
-                ? "bg-white text-emerald-600 shadow-sm ring-1 ring-black/5"
-                : "text-gray-500 hover:text-gray-700"
+                ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+                : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
             }`}
           >
             <DollarIcon className="w-3.5 h-3.5" />
@@ -141,7 +141,7 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
           {/* Force width for scroll on small screens */}
           {/* Column Headers (Status) */}
           <div className="grid grid-cols-[220px_repeat(auto-fit,minmax(100px,1fr))] gap-3 mb-3">
-            <div className="font-semibold text-gray-400 text-[10px] uppercase tracking-widest self-end pb-2 pl-2">
+            <div className="font-semibold text-gray-400 dark:text-slate-500 text-[10px] uppercase tracking-widest self-end pb-2 pl-2">
               Kategori
             </div>
             {statuses.map((status) => (
@@ -149,19 +149,19 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
                 <span
                   className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${
                     status === AssetStatus.IN_STORAGE
-                      ? "bg-gray-100 text-gray-600"
+                      ? "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300"
                       : status === AssetStatus.IN_USE
-                        ? "bg-blue-50 text-blue-600"
+                        ? "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"
                         : status === AssetStatus.DAMAGED
-                          ? "bg-red-50 text-red-600"
-                          : "bg-gray-50 text-gray-500"
+                          ? "bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+                          : "bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-slate-400"
                   }`}
                 >
                   {status.replace(" ", " ")}
                 </span>
               </div>
             ))}
-            <div className="text-center pb-2 font-bold text-gray-800 text-[10px] uppercase tracking-widest">
+            <div className="text-center pb-2 font-bold text-gray-800 dark:text-white text-[10px] uppercase tracking-widest">
               Total
             </div>
           </div>
@@ -182,9 +182,9 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
                   className="grid grid-cols-[220px_repeat(auto-fit,minmax(100px,1fr))] gap-3 items-center group"
                 >
                   {/* Row Label */}
-                  <div className="text-sm font-semibold text-gray-600 truncate pr-4 py-2 flex items-center justify-between group-hover:text-primary-600 transition-colors pl-2 rounded-lg group-hover:bg-gray-50">
+                  <div className="text-sm font-semibold text-gray-600 dark:text-slate-300 truncate pr-4 py-2 flex items-center justify-between group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors pl-2 rounded-lg group-hover:bg-gray-50 dark:group-hover:bg-slate-700">
                     {cat.name}
-                    <ChevronRightIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 text-gray-400 transform translate-x-2 group-hover:translate-x-0 transition-all" />
+                    <ChevronRightIcon className="w-3 h-3 opacity-0 group-hover:opacity-100 text-gray-400 dark:text-slate-500 transform translate-x-2 group-hover:translate-x-0 transition-all" />
                   </div>
 
                   {/* Cells */}
@@ -212,7 +212,7 @@ export const AssetMatrix: React.FC<AssetMatrixProps> = ({
                   })}
 
                   {/* Row Total Cell */}
-                  <div className="h-10 flex items-center justify-center font-bold text-sm text-gray-800 bg-gray-50 rounded-lg">
+                  <div className="h-10 flex items-center justify-center font-bold text-sm text-gray-800 dark:text-white bg-gray-50 dark:bg-slate-700 rounded-lg">
                     {formatValue(rowTotal)}
                   </div>
                 </div>

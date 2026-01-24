@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ChevronDownIcon } from "../icons/ChevronDownIcon";
 import { CheckIcon } from "../icons/CheckIcon";
 import { InboxIcon } from "../icons/InboxIcon";
@@ -71,19 +65,14 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       return options.filter((opt) => !opt.disabled);
     }
     return options.filter(
-      (option) =>
-        !option.disabled &&
-        option.label.toLowerCase().includes(searchQuery.toLowerCase()),
+      (option) => !option.disabled && option.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [options, isSearchable, searchQuery]);
 
   // Click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(event.target as Node)
-      ) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -105,9 +94,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   // Scroll highlighted option into view
   useEffect(() => {
     if (highlightedIndex >= 0 && listRef.current) {
-      const highlightedEl = listRef.current.children[
-        highlightedIndex
-      ] as HTMLElement;
+      const highlightedEl = listRef.current.children[highlightedIndex] as HTMLElement;
       if (highlightedEl) {
         highlightedEl.scrollIntoView({ block: "nearest" });
       }
@@ -119,7 +106,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       onChange(optionValue);
       setIsOpen(false);
     },
-    [onChange],
+    [onChange]
   );
 
   // Keyboard navigation handler
@@ -133,10 +120,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           event.preventDefault();
           if (!isOpen) {
             setIsOpen(true);
-          } else if (
-            highlightedIndex >= 0 &&
-            filteredOptions[highlightedIndex]
-          ) {
+          } else if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
             handleSelect(filteredOptions[highlightedIndex].value);
           }
           break;
@@ -149,9 +133,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           if (!isOpen) {
             setIsOpen(true);
           } else {
-            setHighlightedIndex((prev) =>
-              prev < filteredOptions.length - 1 ? prev + 1 : prev,
-            );
+            setHighlightedIndex((prev) => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
           }
           break;
         case "ArrowUp":
@@ -179,7 +161,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
           break;
       }
     },
-    [disabled, isOpen, highlightedIndex, filteredOptions, handleSelect],
+    [disabled, isOpen, highlightedIndex, filteredOptions, handleSelect]
   );
 
   const directionClasses =
@@ -193,32 +175,30 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        className={`flex items-center justify-between w-full px-3 py-2 text-left bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-500 sm:text-sm ${disabled ? "bg-gray-200/60 text-gray-500 cursor-not-allowed" : "text-gray-900 cursor-pointer"}`}
+        className={`flex items-center justify-between w-full px-3 py-2 text-left bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary-500 sm:text-sm dark:bg-slate-800 dark:border-slate-600 dark:focus:ring-primary-400 dark:focus:ring-offset-slate-900 ${disabled ? "bg-gray-200/60 text-gray-500 cursor-not-allowed dark:bg-slate-700 dark:text-slate-500" : "text-gray-900 cursor-pointer dark:text-white"}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel || placeholder}
         aria-activedescendant={
-          highlightedIndex >= 0
-            ? `option-${filteredOptions[highlightedIndex]?.value}`
-            : undefined
+          highlightedIndex >= 0 ? `option-${filteredOptions[highlightedIndex]?.value}` : undefined
         }
       >
         <div className="flex items-center gap-2 truncate">
           {selectedOption?.indicator}
           <span
-            className={`truncate ${selectedOption ? "font-medium text-gray-900" : "text-gray-500"}`}
+            className={`truncate ${selectedOption ? "font-medium text-gray-900 dark:text-white" : "text-gray-500 dark:text-slate-400"}`}
             title={selectedOption ? selectedOption.label : placeholder}
           >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
         <ChevronDownIcon
-          className={`w-5 h-5 text-gray-400 transform transition-transform duration-200 flex-shrink-0 ${isOpen ? "rotate-180" : "rotate-0"}`}
+          className={`w-5 h-5 text-gray-400 dark:text-slate-500 transform transition-transform duration-200 flex-shrink-0 ${isOpen ? "rotate-180" : "rotate-0"}`}
         />
       </button>
 
       <div
-        className={`absolute z-20 w-full overflow-hidden bg-white border border-gray-200 rounded-md shadow-lg flex flex-col
+        className={`absolute z-20 w-full overflow-hidden bg-white border border-gray-200 rounded-md shadow-lg flex flex-col dark:bg-slate-800 dark:border-slate-700
                     ${directionClasses}
                     ${isOpen ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
         style={{
@@ -228,9 +208,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
         aria-label={ariaLabel || "Options"}
       >
         {isSearchable && (
-          <div className="p-2 border-b border-gray-200">
+          <div className="p-2 border-b border-gray-200 dark:border-slate-700">
             <div className="relative">
-              <SearchIcon className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 top-1/2 left-3" />
+              <SearchIcon className="absolute w-4 h-4 text-gray-400 dark:text-slate-500 transform -translate-y-1/2 top-1/2 left-3" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -242,7 +222,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 }}
                 onKeyDown={handleKeyDown}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full h-9 py-2 pl-9 pr-4 text-sm bg-gray-100 text-gray-600 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                className="w-full h-9 py-2 pl-9 pr-4 text-sm bg-gray-100 text-gray-600 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-600 dark:focus:ring-primary-400 dark:focus:border-primary-400 dark:placeholder-slate-400"
                 aria-label="Search options"
               />
             </div>
@@ -282,9 +262,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
             <div className="p-4 text-center text-sm text-gray-500">
               <InboxIcon className="w-8 h-8 mx-auto text-gray-400" />
               <p className="mt-2">
-                {searchQuery
-                  ? `Tidak ada hasil untuk "${searchQuery}".`
-                  : emptyStateMessage}
+                {searchQuery ? `Tidak ada hasil untuk "${searchQuery}".` : emptyStateMessage}
               </p>
               {onEmptyStateClick && emptyStateButtonLabel && !searchQuery && (
                 <button
@@ -306,7 +284,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
         {/* Sticky Action Button in Dropdown Footer */}
         {actionLabel && onActionClick && (
-          <div className="p-2 border-t border-gray-100 bg-gray-50">
+          <div className="p-2 border-t border-gray-100 bg-gray-50 dark:border-slate-700 dark:bg-slate-900/50">
             <button
               type="button"
               onClick={(e) => {
@@ -314,7 +292,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                 setIsOpen(false);
                 onActionClick();
               }}
-              className="flex items-center justify-center w-full gap-2 px-3 py-2 text-xs font-semibold text-primary-600 bg-white border border-gray-200 rounded-md hover:bg-primary-50 hover:border-primary-200 transition-colors shadow-sm"
+              className="flex items-center justify-center w-full gap-2 px-3 py-2 text-xs font-semibold text-primary-600 bg-white border border-gray-200 rounded-md hover:bg-primary-50 hover:border-primary-200 transition-colors shadow-sm dark:text-primary-400 dark:bg-slate-800 dark:border-slate-600 dark:hover:bg-primary-500/10 dark:hover:border-primary-500/30"
             >
               <PlusIcon className="w-3.5 h-3.5" />
               {actionLabel}

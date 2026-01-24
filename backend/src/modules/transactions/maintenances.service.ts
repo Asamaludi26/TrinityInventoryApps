@@ -63,10 +63,26 @@ export class MaintenancesService {
   }
 
   async findAll(params?: { skip?: number; take?: number; status?: ItemStatus; assetId?: string }) {
-    const { skip = 0, take = 50, status } = params || {};
+    const { skip = 0, take = 50, status, assetId } = params || {};
 
-    const where: any = {};
-    if (status) where.status = status;
+    /**
+     * PERBAIKAN: Menggunakan Prisma.MaintenanceWhereInput
+     * Menggantikan 'any' untuk type safety.
+     */
+    const where: Prisma.MaintenanceWhereInput = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    // Tambahan: Logika filter assetId jika parameter dikirim
+    if (assetId) {
+      where.assets = {
+        some: {
+          id: assetId,
+        },
+      };
+    }
 
     const [maintenances, total] = await Promise.all([
       this.prisma.maintenance.findMany({
@@ -95,7 +111,17 @@ export class MaintenancesService {
     return maintenance;
   }
 
-  async complete(id: string, actionsTaken: string, laborCost?: number, partsCost?: number) {
+  /**
+   * PERBAIKAN:
+   * Menambahkan underscore (_) pada parameter cost yang belum digunakan
+   * agar lolos validasi linter 'no-unused-vars'.
+   */
+  async complete(
+    id: string,
+    actionsTaken: string,
+    _laborCost?: number, // Prefix _ menandakan variabel sengaja tidak dipakai (placeholder)
+    _partsCost?: number, // Prefix _ menandakan variabel sengaja tidak dipakai (placeholder)
+  ) {
     await this.findOne(id);
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -106,6 +132,8 @@ export class MaintenancesService {
           status: ItemStatus.COMPLETED,
           actionsTaken,
           completionDate: new Date(),
+          // Catatan: Jika skema DB sudah punya kolom cost,
+          // silakan masukkan _laborCost dan _partsCost di sini dan hapus underscore-nya.
         },
         include: { assets: true },
       });

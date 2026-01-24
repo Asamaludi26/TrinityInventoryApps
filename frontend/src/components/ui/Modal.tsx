@@ -64,8 +64,7 @@ const Modal: React.FC<ModalProps> = ({
       const isAlreadyHidden = originalBodyOverflow === "hidden";
 
       if (!isAlreadyHidden) {
-        const scrollbarWidth =
-          window.innerWidth - document.documentElement.clientWidth;
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
         document.body.style.overflow = "hidden";
         if (scrollbarWidth > 0) {
           document.body.style.paddingRight = `${scrollbarWidth}px`;
@@ -106,7 +105,7 @@ const Modal: React.FC<ModalProps> = ({
     >
       {/* Backdrop with Blur Effect */}
       <div
-        className={`fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity duration-300 ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+        className={`fixed inset-0 bg-gray-900/60 dark:bg-black/70 backdrop-blur-sm transition-opacity duration-300 ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
         aria-hidden="true"
       ></div>
@@ -117,23 +116,23 @@ const Modal: React.FC<ModalProps> = ({
         <div
           ref={modalRef}
           className={`
-                relative w-full transform rounded-2xl bg-white text-left shadow-2xl ring-1 ring-black/5 transition-all duration-300 ease-out flex flex-col max-h-[90vh] pointer-events-auto
+                relative w-full transform rounded-2xl bg-white dark:bg-slate-800 text-left shadow-2xl dark:shadow-black/40 ring-1 ring-black/5 dark:ring-slate-700 transition-all duration-300 ease-out flex flex-col max-h-[90vh] pointer-events-auto
                 ${sizeClasses[size]}
                 ${isAnimating ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-4 scale-95"}
               `}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header - Clean & Elegant */}
-          <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-700">
             <h3
-              className="text-lg font-bold leading-6 text-gray-900 tracking-tight"
+              className="text-lg font-bold leading-6 text-gray-900 dark:text-white tracking-tight"
               id="modal-title"
             >
               {title}
             </h3>
             <button
               type="button"
-              className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              className="rounded-full p-2 text-gray-400 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-600 dark:hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/50"
               onClick={onClose}
               aria-label="Tutup modal"
             >
@@ -143,19 +142,17 @@ const Modal: React.FC<ModalProps> = ({
 
           {/* Content Area - Spacious */}
           <div className="flex-auto overflow-y-auto custom-scrollbar">
-            <div className={`${!disableContentPadding ? "p-6" : ""}`}>
-              {children}
-            </div>
+            <div className={`${!disableContentPadding ? "p-6" : ""}`}>{children}</div>
           </div>
 
           {/* Footer - Distinct Area */}
           {(footerContent || !hideDefaultCloseButton) && (
-            <div className="flex-shrink-0 flex flex-col-reverse sm:flex-row items-center justify-end px-6 py-4 gap-3 bg-gray-50 border-t border-gray-100 rounded-b-2xl">
+            <div className="flex-shrink-0 flex flex-col-reverse sm:flex-row items-center justify-end px-6 py-4 gap-3 bg-gray-50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-slate-700 rounded-b-2xl">
               {!hideDefaultCloseButton && (
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full sm:w-auto inline-flex justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all active:scale-95"
+                  className="w-full sm:w-auto inline-flex justify-center rounded-xl bg-white dark:bg-slate-700 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-slate-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-all active:scale-95"
                 >
                   {closeButtonText}
                 </button>

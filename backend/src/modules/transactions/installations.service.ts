@@ -43,7 +43,15 @@ export class InstallationsService {
           status: ItemStatus.COMPLETED,
           notes: dto.notes || '',
           assetsInstalled: {
-            connect: dto.assetsInstalled.map((a: any) => ({ id: a.assetId })),
+            /**
+             * PERBAIKAN LINE 46:
+             * Menghapus ': any'. Kita definisikan tipe inline jika DTO belum ketat,
+             * atau biarkan TypeScript menginferensikan dari CreateInstallationDto.
+             * Di sini saya beri type hint eksplisit agar aman.
+             */
+            connect: dto.assetsInstalled.map((a: { assetId: string }) => ({
+              id: a.assetId,
+            })),
           },
           materialsUsed: dto.materialsUsed?.length
             ? {
@@ -59,14 +67,21 @@ export class InstallationsService {
         include: { assetsInstalled: true, materialsUsed: true },
       });
 
+      /**
+       * PERBAIKAN LINE 63:
+       * Menghapus ': any' dan menggunakan type hint yang sama.
+       */
+      const assetIds = dto.assetsInstalled.map((a: { assetId: string }) => a.assetId);
+
       // Update installed asset statuses
-      const assetIds = dto.assetsInstalled.map((a: any) => a.assetId);
-      await tx.asset.updateMany({
-        where: { id: { in: assetIds } },
-        data: {
-          status: AssetStatus.IN_USE,
-        },
-      });
+      if (assetIds.length > 0) {
+        await tx.asset.updateMany({
+          where: { id: { in: assetIds } },
+          data: {
+            status: AssetStatus.IN_USE,
+          },
+        });
+      }
 
       return installation;
     });
@@ -75,8 +90,16 @@ export class InstallationsService {
   async findAll(params?: { skip?: number; take?: number; customerId?: string }) {
     const { skip = 0, take = 50, customerId } = params || {};
 
-    const where: any = {};
-    if (customerId) where.customerId = customerId;
+    /**
+     * PERBAIKAN LINE 78:
+     * Menggunakan 'Prisma.InstallationWhereInput' alih-alih 'any'.
+     * Ini menjamin type safety untuk query filter.
+     */
+    const where: Prisma.InstallationWhereInput = {};
+
+    if (customerId) {
+      where.customerId = customerId;
+    }
 
     const [installations, total] = await Promise.all([
       this.prisma.installation.findMany({

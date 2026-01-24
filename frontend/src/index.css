@@ -57,8 +57,7 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  --shadow-card:
-    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
 
   /* Transitions */
   --transition-fast: 150ms;
@@ -73,12 +72,22 @@
   --z-toast: 1200;
 }
 
-/* Dark Mode Variables */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-gray-50: #1f2937;
-    --color-gray-100: #374151;
-  }
+/* Dark Mode Variables (Class-based) */
+.dark {
+  --color-gray-50: #0f172a;
+  --color-gray-100: #1e293b;
+  --color-gray-200: #334155;
+  --color-gray-300: #475569;
+  --color-gray-500: #94a3b8;
+  --color-gray-700: #cbd5e1;
+  --color-gray-900: #f1f5f9;
+
+  --shadow-card: 0 2px 8px 0 rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
 }
 
 /* ===================================================================
@@ -127,6 +136,19 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-gray-500);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 /* ===================================================================
@@ -218,6 +240,11 @@ body {
   background-size: 200% 100%;
 }
 
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
+  background-size: 200% 100%;
+}
+
 .animate-fade-in {
   animation: fade-in var(--transition-normal) ease-out;
 }
@@ -251,11 +278,7 @@ body {
 
   /* Gradient text */
   .text-gradient {
-    background: linear-gradient(
-      135deg,
-      var(--color-primary-600),
-      var(--color-info)
-    );
+    background: linear-gradient(135deg, var(--color-primary-600), var(--color-info));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -273,10 +296,21 @@ body {
     animation: shimmer 1.5s infinite;
   }
 
+  .dark .skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
   /* Glass effect */
   .glass {
     backdrop-filter: blur(10px);
     background: rgba(255, 255, 255, 0.8);
+  }
+
+  .dark .glass {
+    backdrop-filter: blur(10px);
+    background: rgba(15, 23, 42, 0.8);
   }
 
   /* Focus ring utilities */
@@ -302,7 +336,10 @@ body {
            bg-white text-gray-900 placeholder-gray-400
            focus:ring-2 focus:ring-primary-500 focus:border-transparent 
            disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
-           transition-colors duration-200;
+           transition-colors duration-200
+           dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 
+           dark:placeholder-slate-400 dark:focus:ring-primary-400
+           dark:disabled:bg-slate-900 dark:disabled:text-slate-500;
   }
 
   /* Button variants */
@@ -313,7 +350,9 @@ body {
            hover:bg-primary-700 active:bg-primary-800
            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 
            disabled:opacity-60 disabled:cursor-not-allowed
-           transition-all duration-200;
+           transition-all duration-200
+           dark:bg-primary-500 dark:hover:bg-primary-600 dark:active:bg-primary-700
+           dark:focus:ring-offset-slate-900;
   }
 
   .btn-secondary {
@@ -323,7 +362,10 @@ body {
            hover:bg-gray-50 active:bg-gray-100
            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
            disabled:opacity-60 disabled:cursor-not-allowed
-           transition-all duration-200;
+           transition-all duration-200
+           dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200
+           dark:hover:bg-slate-600 dark:active:bg-slate-500
+           dark:focus:ring-slate-400 dark:focus:ring-offset-slate-900;
   }
 
   .btn-destructive {
@@ -333,7 +375,9 @@ body {
            hover:bg-danger-700 active:bg-danger-800
            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger-500 
            disabled:opacity-60 disabled:cursor-not-allowed
-           transition-all duration-200;
+           transition-all duration-200
+           dark:bg-red-600 dark:hover:bg-red-700 dark:active:bg-red-800
+           dark:focus:ring-offset-slate-900;
   }
 
   .btn-ghost {
@@ -343,23 +387,26 @@ body {
            hover:bg-gray-100 active:bg-gray-200
            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500
            disabled:opacity-60 disabled:cursor-not-allowed
-           transition-all duration-200;
+           transition-all duration-200
+           dark:text-slate-300 dark:hover:bg-slate-700 dark:active:bg-slate-600
+           dark:focus:ring-slate-400 dark:focus:ring-offset-slate-900;
   }
 
   /* Card styles */
   .card {
     @apply bg-white rounded-xl shadow-card border border-gray-100
-           dark:bg-gray-800 dark:border-gray-700;
+           dark:bg-slate-800 dark:border-slate-700/50;
   }
 
   .card-elevated {
     @apply bg-white rounded-xl shadow-lg border-0
-           dark:bg-gray-800;
+           dark:bg-slate-800 dark:shadow-2xl dark:shadow-black/20;
   }
 
   .card-interactive {
     @apply card hover:shadow-md hover:border-gray-200 
-           transition-all duration-200 cursor-pointer;
+           transition-all duration-200 cursor-pointer
+           dark:hover:border-slate-600 dark:hover:shadow-xl dark:hover:shadow-black/30;
   }
 
   /* Badge base */
@@ -371,7 +418,7 @@ body {
   /* Label styles */
   .label {
     @apply block text-sm font-medium text-gray-700 mb-1.5
-           dark:text-gray-300;
+           dark:text-slate-200;
   }
 
   /* Link styles */
@@ -379,12 +426,33 @@ body {
     @apply text-primary-600 hover:text-primary-700 
            underline underline-offset-2
            transition-colors duration-150
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 rounded;
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 rounded
+           dark:text-primary-400 dark:hover:text-primary-300;
   }
 
   /* Divider */
   .divider {
-    @apply border-t border-gray-200 dark:border-gray-700;
+    @apply border-t border-gray-200 dark:border-slate-700;
+  }
+
+  /* Table styles for dark mode */
+  .table-container {
+    @apply bg-white border border-gray-200 rounded-xl overflow-hidden
+           dark:bg-slate-800 dark:border-slate-700;
+  }
+
+  .table-header {
+    @apply bg-gray-50 text-gray-600 text-xs uppercase font-semibold
+           dark:bg-slate-900 dark:text-slate-400;
+  }
+
+  .table-row {
+    @apply border-b border-gray-100 hover:bg-gray-50 transition-colors
+           dark:border-slate-700 dark:hover:bg-slate-700/50;
+  }
+
+  .table-cell {
+    @apply text-gray-900 dark:text-slate-200;
   }
 
   /* Container max-width */
@@ -435,4 +503,152 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+/* ===================================================================
+   9. DARK MODE ENHANCEMENT UTILITIES
+   =================================================================== */
+@layer utilities {
+  /* Dark mode text utilities */
+  .dark-text-primary {
+    @apply text-gray-900 dark:text-slate-50;
+  }
+
+  .dark-text-secondary {
+    @apply text-gray-600 dark:text-slate-300;
+  }
+
+  .dark-text-muted {
+    @apply text-gray-500 dark:text-slate-400;
+  }
+
+  /* Dark mode background utilities */
+  .dark-bg-page {
+    @apply bg-gray-50 dark:bg-slate-950;
+  }
+
+  .dark-bg-card {
+    @apply bg-white dark:bg-slate-800;
+  }
+
+  .dark-bg-elevated {
+    @apply bg-white dark:bg-slate-800/90;
+  }
+
+  .dark-bg-muted {
+    @apply bg-gray-100 dark:bg-slate-800/50;
+  }
+
+  /* Dark mode border utilities */
+  .dark-border {
+    @apply border-gray-200 dark:border-slate-700;
+  }
+
+  .dark-border-light {
+    @apply border-gray-100 dark:border-slate-800;
+  }
+
+  /* Status badge colors with better dark mode contrast */
+  .badge-success {
+    @apply bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300;
+  }
+
+  .badge-warning {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300;
+  }
+
+  .badge-neutral {
+    @apply bg-gray-100 text-gray-700 dark:bg-slate-700/60 dark:text-slate-300;
+  }
+
+  .badge-primary {
+    @apply bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300;
+  }
+}
+
+/* ===================================================================
+   10. FORM CONTROLS DARK MODE
+   =================================================================== */
+/* Select dropdown styling */
+select {
+  @apply bg-white dark:bg-slate-800;
+}
+
+select option {
+  @apply bg-white text-gray-900 dark:bg-slate-800 dark:text-slate-100;
+}
+
+/* Checkbox and Radio dark mode */
+input[type="checkbox"],
+input[type="radio"] {
+  @apply dark:bg-slate-700 dark:border-slate-500 dark:checked:bg-primary-500;
+}
+
+/* Date input dark mode */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  @apply dark:bg-slate-800 dark:text-slate-100 dark:[color-scheme:dark];
+}
+
+/* File input dark mode */
+input[type="file"]::file-selector-button {
+  @apply bg-gray-100 text-gray-700 border-gray-300 
+         dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600;
+}
+
+/* ===================================================================
+   11. MODAL & OVERLAY DARK MODE
+   =================================================================== */
+.modal-overlay {
+  @apply bg-black/50 dark:bg-black/70;
+}
+
+.modal-content {
+  @apply bg-white border-gray-200 
+         dark:bg-slate-800 dark:border-slate-700;
+}
+
+/* ===================================================================
+   12. TOOLTIP DARK MODE
+   =================================================================== */
+.tooltip {
+  @apply bg-gray-900 text-white text-xs px-2 py-1 rounded-lg shadow-lg
+         dark:bg-slate-700 dark:text-slate-100;
+}
+
+/* ===================================================================
+   13. DROPDOWN MENU DARK MODE
+   =================================================================== */
+.dropdown-menu {
+  @apply bg-white border border-gray-200 shadow-xl rounded-xl
+         dark:bg-slate-800 dark:border-slate-700 dark:shadow-2xl dark:shadow-black/30;
+}
+
+.dropdown-item {
+  @apply text-gray-700 hover:bg-gray-50 hover:text-gray-900
+         dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white;
+}
+
+.dropdown-item-active {
+  @apply bg-primary-50 text-primary-700
+         dark:bg-primary-900/30 dark:text-primary-300;
+}
+
+/* ===================================================================
+   14. EMPTY STATE & PLACEHOLDER DARK MODE
+   =================================================================== */
+.empty-state {
+  @apply text-gray-500 dark:text-slate-400;
+}
+
+.empty-state-icon {
+  @apply text-gray-300 dark:text-slate-600;
 }

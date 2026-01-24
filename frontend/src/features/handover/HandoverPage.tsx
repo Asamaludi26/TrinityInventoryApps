@@ -399,13 +399,13 @@ const ItemHandoverPage: React.FC<ItemHandoverPageProps> = (props) => {
   const renderList = () => (
     <div className="p-4 sm:p-6 md:p-8">
       <div className="flex flex-col items-start justify-between gap-4 mb-6 md:flex-row md:items-center">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Daftar Handover Aset
         </h1>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setIsExportModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-slate-200 bg-white dark:bg-slate-700 border dark:border-slate-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-600"
           >
             <ExportIcon className="w-4 h-4" /> Export CSV
           </button>
@@ -426,13 +426,13 @@ const ItemHandoverPage: React.FC<ItemHandoverPageProps> = (props) => {
       />
 
       {isBulkSelectMode && (
-        <div className="p-4 mb-4 bg-blue-50 border-l-4 border-primary-500 rounded-r-lg">
+        <div className="p-4 mb-4 bg-blue-50 dark:bg-blue-900/30 border-l-4 border-primary-500 rounded-r-lg">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium text-primary-600">
+              <span className="text-sm font-medium text-primary-600 dark:text-primary-400">
                 {selectedHandoverIds.length} item terpilih
               </span>
-              <div className="h-5 border-l border-gray-300"></div>
+              <div className="h-5 border-l border-gray-300 dark:border-slate-600"></div>
               <button
                 onClick={() => setBulkDeleteConfirmation(true)}
                 className="px-3 py-1.5 text-sm font-semibold text-danger-text bg-danger-light rounded-md hover:bg-red-200"
@@ -453,7 +453,7 @@ const ItemHandoverPage: React.FC<ItemHandoverPageProps> = (props) => {
         </div>
       )}
 
-      <div className="overflow-hidden bg-white border border-gray-200/80 rounded-xl shadow-md">
+      <div className="overflow-hidden bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
         <div className="overflow-x-auto custom-scrollbar">
           <HandoverTable
             handovers={sortedHandovers}

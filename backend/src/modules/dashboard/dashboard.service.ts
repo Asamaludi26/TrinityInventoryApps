@@ -50,6 +50,20 @@ export interface StockSummary {
   inCustody: number;
 }
 
+// Interface baru untuk fix line 212
+interface MonthlyTrend {
+  month: string;
+  requests: number;
+  handovers: number;
+  installations: number;
+}
+
+// Interface baru untuk fix line 321 (Struktur output Prisma GroupBy)
+interface GroupByResult {
+  _count: { id: number } | null;
+  [key: string]: unknown; // Menggunakan unknown lebih aman daripada any
+}
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
@@ -209,7 +223,11 @@ export class DashboardService {
    * Get monthly trends for the last 6 months
    */
   async getMonthlyTrends() {
-    const months: any[] = [];
+    /**
+     * PERBAIKAN BARIS 212:
+     * Mengganti 'any[]' dengan 'MonthlyTrend[]'
+     */
+    const months: MonthlyTrend[] = [];
     const now = new Date();
 
     for (let i = 5; i >= 0; i--) {
@@ -317,11 +335,15 @@ export class DashboardService {
 
   /**
    * Helper to aggregate groupBy results
+   * PERBAIKAN BARIS 321:
+   * Mengganti 'results: any[]' dengan tipe spesifik 'GroupByResult[]'
    */
-  private aggregateGroupBy(results: any[], key: string): Record<string, number> {
+  private aggregateGroupBy(results: GroupByResult[], key: string): Record<string, number> {
     const counts: Record<string, number> = {};
     results.forEach(r => {
-      const keyValue = r[key] || 'unknown';
+      // Menggunakan type assertion (string) karena kita yakin key tersebut
+      // akan menghasilkan string (misal: status enum)
+      const keyValue = (r[key] as string) || 'unknown';
       counts[keyValue] = r._count?.id || 0;
     });
     return counts;

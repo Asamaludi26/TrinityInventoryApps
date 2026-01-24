@@ -9,6 +9,24 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+#### Frontend - Sidebar Redesign (2026-01-24)
+
+- **Collapsible Sidebar**: Toggle sidebar antara mode expanded (w-72) dan collapsed (w-20) di semua layar desktop
+- **Light/Dark Mode**: Toggle theme dengan switch, tersimpan persisten di localStorage
+- **Modern Design**: Design profesional dengan spacing, ukuran elemen, dan animasi yang tepat
+- **User Profile Footer**: Avatar, nama, role, dan tombol logout di bagian bawah sidebar
+- **Flyout Menu**: Submenu muncul sebagai flyout saat sidebar dalam mode collapsed
+- **Active Indicator**: Garis vertikal di sisi kiri menandakan menu aktif
+
+### Changed
+
+- `Sidebar.tsx`: Refactor lengkap dengan theme context, collapsible state, dan design baru
+- `MainLayout.tsx`: Dynamic margin berdasarkan sidebar collapsed state, support dark mode
+- `useUIStore.ts`: Tambah `sidebarCollapsed`, `theme`, dan action terkait
+- `tailwind.config.js`: Tambah `darkMode: 'class'` untuk class-based dark mode
+
 ### Planned
 
 - Implementasi backend NestJS dengan PostgreSQL

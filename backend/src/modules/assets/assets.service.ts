@@ -5,21 +5,28 @@ import { UpdateAssetDto } from './dto/update-asset.dto';
 import { ConsumeStockDto } from './dto/consume-stock.dto';
 import { AssetStatus, MovementType, Prisma } from '@prisma/client';
 
+// Helper type untuk menangani field tambahan yang mungkin di-inject dari Controller
+type ExtendedAssetDto = CreateAssetDto & {
+  recordedById?: number;
+  performedBy?: string;
+  notes?: string;
+};
+
 @Injectable()
 export class AssetsService {
   constructor(private prisma: PrismaService) {}
 
   /**
    * Strip unknown fields from asset DTO to prevent Prisma validation errors.
-   * Frontend may send nested objects (model) or extra fields that Prisma doesn't accept.
    */
   private sanitizeAssetData(
     dto: Partial<CreateAssetDto | UpdateAssetDto>,
-  ): Partial<CreateAssetDto> {
+  ): Prisma.AssetUncheckedCreateInput {
     const allowedFields = [
       'name',
       'brand',
-      'modelId',
+      'typeId',
+      'categoryId',
       'serialNumber',
       'macAddress',
       'status',
@@ -38,6 +45,7 @@ export class AssetsService {
       'woRoIntNumber',
       'customerId',
       'currentUserId',
+      'recordedById',
     ];
 
     const sanitized: Record<string, unknown> = {};
@@ -49,7 +57,7 @@ export class AssetsService {
       }
     }
 
-    return sanitized as Partial<CreateAssetDto>;
+    return sanitized as Prisma.AssetUncheckedCreateInput;
   }
 
   /**
@@ -66,8 +74,8 @@ export class AssetsService {
 
     let sequence = 1;
     if (lastAsset) {
-      const lastSequence = parseInt(lastAsset.id.split('-').pop() || '0');
-      sequence = lastSequence + 1;
+      const lastSeq = parseInt(lastAsset.id.split('-').pop() || '0');
+      sequence = lastSeq + 1;
     }
 
     return `${prefix}${sequence.toString().padStart(4, '0')}`;
@@ -77,16 +85,20 @@ export class AssetsService {
     const id = createAssetDto.id || (await this.generateAssetId());
     const sanitized = this.sanitizeAssetData(createAssetDto);
 
+    const createData: Prisma.AssetUncheckedCreateInput = {
+      ...sanitized,
+      id,
+      categoryId: sanitized.categoryId || 1,
+      recordedById: sanitized.recordedById || 0,
+    };
+
     const asset = await this.prisma.asset.create({
-      data: {
-        ...sanitized,
-        id,
-      } as any,
+      data: createData,
       include: { type: true, category: true },
     });
 
-    // Log stock movement
-    // Note: StockMovement uses: assetName, brand, type, quantity, balanceAfter, actorId, actorName
+    const dtoWithMeta = createAssetDto as ExtendedAssetDto;
+
     await this.prisma.stockMovement.create({
       data: {
         assetName: asset.name,
@@ -94,7 +106,7 @@ export class AssetsService {
         type: MovementType.IN_PURCHASE,
         quantity: createAssetDto.quantity || 1,
         balanceAfter: createAssetDto.quantity || 1,
-        actorId: (createAssetDto as any).recordedById || 0,
+        actorId: dtoWithMeta.recordedById || 0,
         actorName: 'SYSTEM',
         notes: 'Asset registered',
         relatedAssetId: asset.id,
@@ -106,12 +118,29 @@ export class AssetsService {
 
   async createBulk(dto: CreateBulkAssetsDto) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const assets: any[] = [];
+      const assets: Prisma.AssetCreateManyInput[] = [];
 
-      // Validate all types exist (schema uses AssetType, not AssetModel)
+      // Validate all types exist
       const typeIds = [
-        ...new Set(dto.items.map(i => (i as any).typeId).filter(Boolean)),
-      ] as number[];
+        ...new Set(
+          dto.items
+            .map(i => {
+              /**
+               * PERBAIKAN UTAMA DI SINI:
+               * Kita tambahkan 'typeId?: number' ke dalam intersection type.
+               * Ini memberi tahu TypeScript: "Objek ini punya modelId (opsional) DAN typeId (opsional)"
+               * terlepas dari apakah CreateAssetDto aslinya memilikinya atau tidak.
+               */
+              const item = i as CreateAssetDto & {
+                modelId?: number;
+                typeId?: number;
+              };
+              return item.typeId || item.modelId;
+            })
+            .filter((id): id is number => !!id),
+        ),
+      ];
+
       if (typeIds.length > 0) {
         const existingTypes = await tx.assetType.findMany({
           where: { id: { in: typeIds } },
@@ -138,20 +167,24 @@ export class AssetsService {
         }
       }
 
+      const dtoWithMeta = dto as unknown as ExtendedAssetDto;
+
       for (const item of dto.items) {
         const id = await this.generateAssetId();
         const sanitized = this.sanitizeAssetData(item);
         assets.push({
           ...sanitized,
           id,
+          categoryId: sanitized.categoryId || 1,
+          recordedById: dtoWithMeta.recordedById || 0,
         });
       }
 
       await tx.asset.createMany({
-        data: assets as any,
+        data: assets,
       });
 
-      // Log movements using correct StockMovement schema
+      // Log movements
       await tx.stockMovement.createMany({
         data: assets.map(asset => ({
           assetName: asset.name || 'Unknown',
@@ -159,9 +192,9 @@ export class AssetsService {
           type: MovementType.IN_PURCHASE,
           quantity: asset.quantity || 1,
           balanceAfter: asset.quantity || 1,
-          actorId: (dto as any).recordedById || 0,
-          actorName: (dto as any).performedBy || 'SYSTEM',
-          notes: (dto as any).notes || 'Bulk asset registration',
+          actorId: dtoWithMeta.recordedById || 0,
+          actorName: dtoWithMeta.performedBy || 'SYSTEM',
+          notes: dtoWithMeta.notes || 'Bulk asset registration',
           relatedAssetId: asset.id,
         })),
       });
@@ -181,7 +214,7 @@ export class AssetsService {
   }) {
     const { skip = 0, take = 50, status, name, brand, location, search } = params || {};
 
-    const where: any = {};
+    const where: Prisma.AssetWhereInput = {};
 
     if (status) where.status = status;
     if (name) where.name = { contains: name, mode: 'insensitive' };
@@ -239,7 +272,7 @@ export class AssetsService {
 
     return this.prisma.asset.update({
       where: { id },
-      data: sanitized,
+      data: sanitized as Prisma.AssetUpdateInput,
       include: { type: true, category: true },
     });
   }
@@ -253,14 +286,15 @@ export class AssetsService {
       data: { status },
     });
 
-    // Log activity
     await this.prisma.activityLog.create({
       data: {
         entityType: 'Asset',
         entityId: id,
         action: 'STATUS_CHANGE',
-        details: JSON.stringify({ status: { old: previousStatus, new: status } }),
-        userId: 0, // TODO: Get from context
+        details: JSON.stringify({
+          status: { old: previousStatus, new: status },
+        }),
+        userId: 0,
         userName: performedBy,
         assetId: id,
       },
@@ -271,17 +305,12 @@ export class AssetsService {
 
   async remove(id: string) {
     await this.findOne(id);
-
-    // Note: Asset model doesn't have deletedAt. Mark as DECOMMISSIONED instead.
     return this.prisma.asset.update({
       where: { id },
       data: { status: AssetStatus.DECOMMISSIONED },
     });
   }
 
-  /**
-   * Check stock availability for a specific item
-   */
   async checkAvailability(name: string, brand: string, quantity: number) {
     const assets = await this.prisma.asset.findMany({
       where: {
@@ -291,19 +320,15 @@ export class AssetsService {
       },
     });
 
-    // Calculate total available
     let totalAvailable = 0;
     const availableAssets: string[] = [];
 
     for (const asset of assets) {
       if (asset.currentBalance !== null) {
-        // Measurement item - convert Decimal to number
         totalAvailable += asset.currentBalance.toNumber();
       } else if (asset.quantity !== null) {
-        // Count item - quantity is Int, no conversion needed
         totalAvailable += asset.quantity;
       } else {
-        // Individual item
         totalAvailable += 1;
       }
       availableAssets.push(asset.id);
@@ -319,22 +344,18 @@ export class AssetsService {
     };
   }
 
-  /**
-   * Consume stock (for installation/maintenance) - atomic operation
-   */
   async consumeStock(dto: ConsumeStockDto) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const results = [];
 
       for (const item of dto.items) {
-        // Lock rows for update to prevent race conditions
         const assets = await tx.asset.findMany({
           where: {
             name: { equals: item.itemName, mode: 'insensitive' },
             brand: { equals: item.brand, mode: 'insensitive' },
             status: AssetStatus.IN_STORAGE,
           },
-          orderBy: { currentBalance: 'desc' }, // Use largest stock first
+          orderBy: { currentBalance: 'desc' },
         });
 
         let remaining = item.quantity;
@@ -355,15 +376,14 @@ export class AssetsService {
               },
             });
 
-            // Use correct StockMovement schema fields
             await tx.stockMovement.create({
               data: {
                 assetName: asset.name,
                 brand: asset.brand,
-                type: MovementType.OUT_USAGE_CUSTODY, // No CONSUMED in MovementType
+                type: MovementType.OUT_USAGE_CUSTODY,
                 quantity: consume,
                 balanceAfter: newBalance,
-                actorId: 0, // TODO: Pass actor from context
+                actorId: 0,
                 actorName: dto.context.technician || 'SYSTEM',
                 notes: `${dto.context.referenceType}: ${dto.context.referenceId}`,
                 relatedAssetId: asset.id,
@@ -386,9 +406,6 @@ export class AssetsService {
     });
   }
 
-  /**
-   * Get stock movements with optional filters
-   */
   async getStockMovements(params?: {
     assetName?: string;
     brand?: string;
@@ -398,21 +415,18 @@ export class AssetsService {
   }) {
     const { assetName, brand, type: movementType, startDate, endDate } = params || {};
 
-    const where: any = {};
+    const where: Prisma.StockMovementWhereInput = {};
 
-    // StockMovement uses 'type' field (MovementType enum)
     if (movementType) {
-      where.type = movementType;
+      where.type = movementType as MovementType;
     }
 
-    // StockMovement uses 'date' field, not 'createdAt'
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
       if (endDate) where.date.lte = new Date(endDate);
     }
 
-    // StockMovement has assetName and brand fields directly
     if (assetName) {
       where.assetName = { contains: assetName, mode: 'insensitive' };
     }
@@ -423,7 +437,7 @@ export class AssetsService {
     const movements = await this.prisma.stockMovement.findMany({
       where,
       orderBy: { date: 'desc' },
-      take: 100, // Limit results
+      take: 100,
       include: {
         relatedAsset: {
           select: { id: true, name: true, brand: true },
@@ -437,11 +451,7 @@ export class AssetsService {
     }));
   }
 
-  /**
-   * Get stock summary grouped by name and brand
-   */
   async getStockSummary() {
-    // Asset has no deletedAt field
     const assets = await this.prisma.asset.findMany({
       where: {
         status: AssetStatus.IN_STORAGE,
@@ -471,7 +481,6 @@ export class AssetsService {
       if (asset.currentBalance !== null) {
         summary[key].total += asset.currentBalance.toNumber();
       } else if (asset.quantity !== null) {
-        // quantity is Int, no conversion needed
         summary[key].total += asset.quantity;
       } else {
         summary[key].total += 1;

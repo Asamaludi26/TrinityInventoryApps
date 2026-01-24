@@ -227,7 +227,7 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
 
   return (
     <div className="p-4 sm:p-6 md:p-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
         Manajemen Perbaikan Aset
       </h1>
 
@@ -267,16 +267,16 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
         />
       </div>
 
-      <div className="p-4 mb-4 bg-white border border-gray-200/80 rounded-xl shadow-md">
+      <div className="p-4 mb-4 bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-grow">
-            <SearchIcon className="absolute w-5 h-5 text-gray-400 transform -translate-y-1/2 top-1/2 left-3" />
+            <SearchIcon className="absolute w-5 h-5 text-gray-400 dark:text-slate-500 transform -translate-y-1/2 top-1/2 left-3" />
             <input
               type="text"
               placeholder="Cari aset, pelapor, teknisi, vendor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+              className="w-full h-10 py-2 pl-10 pr-4 text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-primary-500 focus:border-primary-500 placeholder-gray-400 dark:placeholder-slate-500"
             />
           </div>
 
@@ -288,7 +288,7 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                 setIsFilterPanelOpen((p) => !p);
               }}
               className={`inline-flex items-center justify-center gap-2 w-full h-10 px-4 text-sm font-semibold transition-all duration-200 border rounded-lg shadow-sm sm:w-auto 
-                                ${activeFilterCount > 0 ? "bg-gray-50 border-primary-500 text-primary-600" : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"}
+                                ${activeFilterCount > 0 ? "bg-gray-50 dark:bg-slate-700 border-primary-500 text-primary-600 dark:text-primary-400" : "bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"}
                             `}
             >
               <FilterIcon className="w-4 h-4" /> <span>Filter</span>{" "}
@@ -304,21 +304,21 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                   onClick={() => setIsFilterPanelOpen(false)}
                   className="fixed inset-0 z-20 bg-black/25 sm:hidden"
                 />
-                <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 bg-white shadow-lg sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
-                  <div className="flex items-center justify-between p-4 border-b">
-                    <h3 className="text-lg font-semibold text-gray-800">
+                <div className="fixed top-32 inset-x-4 z-30 origin-top rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg dark:shadow-xl dark:shadow-black/30 sm:absolute sm:top-full sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-72">
+                  <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                       Filter Perbaikan
                     </h3>
                     <button
                       onClick={() => setIsFilterPanelOpen(false)}
-                      className="p-1 text-gray-400 rounded-full hover:bg-gray-100"
+                      className="p-1 text-gray-400 dark:text-slate-500 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
                     >
                       <CloseIcon className="w-5 h-5" />
                     </button>
                   </div>
                   <div className="p-4 space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2">
                         Status
                       </label>
                       <CustomSelect
@@ -333,10 +333,10 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                       />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 border-t">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-900 border-t dark:border-slate-700">
                     <button
                       onClick={handleResetFilters}
-                      className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50"
+                      className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700"
                     >
                       Reset
                     </button>
@@ -355,9 +355,9 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
 
         {/* Active Filter Chips */}
         {activeFilterCount > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 animate-fade-in-up mt-3">
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-slate-700 animate-fade-in-up mt-3">
             {filters.status && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded-full">
+              <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-full">
                 Status: <span className="font-bold">{filters.status}</span>
                 <button
                   onClick={() => handleRemoveFilter("status")}
@@ -377,10 +377,10 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
         )}
       </div>
 
-      <div className="overflow-hidden bg-white border border-gray-200/80 rounded-xl shadow-md">
+      <div className="overflow-hidden bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-slate-700 rounded-xl shadow-md dark:shadow-lg dark:shadow-black/20">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+            <thead className="bg-gray-50 dark:bg-slate-900">
               <tr>
                 <SortableHeader
                   columnKey="name"
@@ -405,7 +405,7 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                 </SortableHeader>
                 <th
                   scope="col"
-                  className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500"
+                  className="px-6 py-3 text-sm font-semibold tracking-wider text-left text-gray-500 dark:text-slate-400"
                 >
                   Penanggung Jawab
                 </th>
@@ -421,12 +421,12 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
               {paginatedAssets.length > 0 ? (
                 paginatedAssets.map((asset) => (
                   <tr
                     key={asset.id}
-                    className="hover:bg-gray-50 transition-colors"
+                    className="hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <ClickableLink
@@ -434,11 +434,11 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                           onShowPreview({ type: "asset", id: asset.id })
                         }
                       >
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
                           {asset.name}
                         </p>
                       </ClickableLink>
-                      <p className="text-xs text-gray-500 font-mono">
+                      <p className="text-xs text-gray-500 dark:text-slate-400 font-mono">
                         {asset.id}
                       </p>
                     </td>
@@ -450,10 +450,10 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-gray-800">
+                      <p className="text-sm font-medium text-gray-800 dark:text-slate-200">
                         {asset.reporter || "N/A"}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-slate-400">
                         {asset.reportDate
                           ? new Date(asset.reportDate).toLocaleDateString(
                               "id-ID",
@@ -461,10 +461,10 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                           : "N/A"}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-800 whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm text-gray-800 dark:text-slate-300 whitespace-nowrap">
                       {asset.technician || asset.vendor || "-"}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-800 whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm text-gray-800 dark:text-slate-300 whitespace-nowrap">
                       {asset.estimatedDate || "-"}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
@@ -513,8 +513,8 @@ const RepairManagementPage: React.FC<RepairManagementPageProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-500">
-                    <InboxIcon className="w-12 h-12 mx-auto text-gray-300" />
+                  <td colSpan={6} className="py-12 text-center text-gray-500 dark:text-slate-400">
+                    <InboxIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-slate-600" />
                     <p className="mt-2 font-semibold">
                       Tidak ada aset yang perlu diperbaiki sesuai filter.
                     </p>
