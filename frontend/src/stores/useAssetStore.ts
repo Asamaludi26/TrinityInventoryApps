@@ -8,14 +8,20 @@ import {
   AssetStatus,
   ActivityLogEntry,
   ItemStatus,
+  AssetType,
 } from "../types";
-import { assetsApi, stockApi, categoriesApi, unifiedApi } from "../services/api";
+import {
+  assetsApi,
+  stockApi,
+  categoriesApi, // Pastikan ini diimport dari master-data.api.ts atau file yang sesuai
+  unifiedApi,
+} from "../services/api";
 import { useNotificationStore } from "./useNotificationStore";
 import { useMasterDataStore } from "./useMasterDataStore";
 import { useAuthStore } from "./useAuthStore";
 import { useRequestStore } from "./useRequestStore";
 
-// --- INTERFACE DEFINITION ---
+// --- INTERFACE DEFINITION (PERBAIKAN UTAMA DI SINI) ---
 interface AssetState {
   assets: Asset[];
   categories: AssetCategory[];
@@ -25,7 +31,7 @@ interface AssetState {
 
   // Asset Actions
   fetchAssets: () => Promise<void>;
-  fetchCategories: () => Promise<void>; // Added explicit category fetch
+  fetchCategories: () => Promise<void>;
   addAsset: (
     asset: Asset | (Asset & { initialBalance?: number; currentBalance?: number })
   ) => Promise<void>;
@@ -33,11 +39,16 @@ interface AssetState {
   updateAssetBatch: (ids: string[], data: Partial<Asset>, referenceId?: string) => Promise<void>;
   deleteAsset: (id: string) => Promise<void>;
 
-  // Category Actions (NEW RESTFUL METHODS)
+  // Category Actions
   createCategory: (data: Omit<AssetCategory, "id" | "types">) => Promise<AssetCategory>;
   updateCategoryDetails: (id: number, data: Partial<AssetCategory>) => Promise<void>;
   deleteCategory: (id: number) => Promise<void>;
-  updateCategories: (categories: AssetCategory[]) => Promise<void>; // Keep for backward compatibility if needed
+  updateCategories: (categories: AssetCategory[]) => Promise<void>;
+
+  // --- TYPE ACTIONS (INI YANG HILANG SEBELUMNYA) ---
+  createType: (data: any) => Promise<void>;
+  updateTypeDetails: (id: number, data: any) => Promise<void>;
+  deleteType: (id: number, categoryId: number) => Promise<void>;
 
   updateThresholds: (thresholds: Record<string, number>) => void;
 
@@ -115,6 +126,19 @@ const sanitizeBulkAsset = (
   return asset;
 };
 
+// --- HELPER BARU: NORMALISASI DATA SERVER ---
+const normalizeCategories = (categories: AssetCategory[]): AssetCategory[] => {
+  return categories.map((cat) => ({
+    ...cat,
+    types: (cat.types || []).map((t) => ({
+      ...t,
+      // Paksa menjadi lowercase agar cocok dengan logika Frontend (asset/material)
+      classification: (t.classification || "asset").toLowerCase() as any,
+      trackingMethod: (t.trackingMethod || "individual").toLowerCase() as any,
+    })),
+  }));
+};
+
 // Helper Notifikasi
 const notifyAdmins = (type: string, refId: string, message: string) => {
   const users = useMasterDataStore.getState().users;
@@ -145,13 +169,15 @@ export const useAssetStore = create<AssetState>()(
       thresholds: {},
       isLoading: false,
 
-      // --- ASSET ACTIONS ---
-
       fetchAssets: async () => {
         set({ isLoading: true });
         try {
           const assets = await unifiedApi.refreshAssets();
-          const categories = await unifiedApi.refreshCategories();
+          const rawCategories = await unifiedApi.refreshCategories();
+
+          // FIX: Normalisasi kategori dari server sebelum disimpan ke state
+          const categories = normalizeCategories(rawCategories);
+
           set({
             assets,
             categories,
@@ -165,7 +191,11 @@ export const useAssetStore = create<AssetState>()(
 
       fetchCategories: async () => {
         try {
-          const categories = await unifiedApi.refreshCategories();
+          const rawCategories = await unifiedApi.refreshCategories();
+
+          // FIX: Normalisasi kategori dari server
+          const categories = normalizeCategories(rawCategories);
+
           set({ categories });
         } catch (error) {
           console.error("[AssetStore] fetchCategories failed:", error);
@@ -175,7 +205,6 @@ export const useAssetStore = create<AssetState>()(
       addAsset: async (rawAsset) => {
         const asset = sanitizeBulkAsset(rawAsset, get().categories) as Asset;
 
-        // STRICT INTEGER ENFORCEMENT ON BALANCE
         if ((rawAsset as any).initialBalance !== undefined) {
           asset.initialBalance = toInt((rawAsset as any).initialBalance);
           asset.currentBalance = toInt(
@@ -183,7 +212,6 @@ export const useAssetStore = create<AssetState>()(
           );
         }
 
-        // STRICT INTEGER ON QUANTITY (For Bulk Count)
         if ((rawAsset as any).quantity) {
           (asset as any).quantity = toInt((rawAsset as any).quantity);
         }
@@ -383,29 +411,22 @@ export const useAssetStore = create<AssetState>()(
         }
       },
 
-      // --- CATEGORY ACTIONS (UPDATED) ---
-
-      // ... di dalam src/stores/useAssetStore.ts ...
+      // --- CATEGORY ACTIONS ---
 
       createCategory: async (data) => {
         try {
-          // 1. Kirim data ke API (tanpa 'types' agar tidak ditolak Backend)
           const response = await categoriesApi.create(data as any);
 
-          // 2. NORMALISASI DATA (FIX CRASH)
-          // Backend mengembalikan object tanpa 'types'.
-          // Kita harus memastikannya ada sebelum masuk ke State Frontend.
+          // Normalisasi Data untuk Frontend (Inject types jika kosong)
           const newCategory = {
             ...response,
-            types: response.types || [], // <--- INI KUNCI PERBAIKANNYA
+            types: response.types || [],
             associatedDivisions: response.associatedDivisions || [],
           };
 
-          // 3. Update State dengan data yang sudah aman
           set((state) => ({
             categories: [...state.categories, newCategory],
           }));
-
           return newCategory;
         } catch (error) {
           console.error("[AssetStore] createCategory failed:", error);
@@ -414,7 +435,6 @@ export const useAssetStore = create<AssetState>()(
       },
 
       updateCategoryDetails: async (id, data) => {
-        // Panggil endpoint PATCH /api/v1/categories/:id
         try {
           const updatedCategory = await categoriesApi.update(id, data);
           set((state) => ({
@@ -427,7 +447,6 @@ export const useAssetStore = create<AssetState>()(
       },
 
       deleteCategory: async (id) => {
-        // Panggil endpoint DELETE /api/v1/categories/:id
         try {
           await categoriesApi.delete(id);
           set((state) => ({
@@ -440,12 +459,104 @@ export const useAssetStore = create<AssetState>()(
       },
 
       updateCategories: async (categories) => {
-        // Deprecated: Bulk update (PUT)
         try {
           await categoriesApi.updateAll(categories);
           set({ categories });
         } catch (error) {
           console.error("[AssetStore] updateCategories failed:", error);
+          throw error;
+        }
+      },
+
+      // --- TYPE ACTIONS (IMPLEMENTASI LENGKAP) ---
+
+      // ... di dalam src/stores/useAssetStore.ts ...
+
+      createType: async (data) => {
+        try {
+          const newTypeResponse = await categoriesApi.createType(data);
+
+          // FIX: Cast ke 'any' agar TypeScript tidak rewel soal tipe 'unknown'
+          const rawResponse = newTypeResponse as any;
+
+          // Normalisasi classification ke lowercase agar sesuai filter UI
+          const normalizedClassification = (rawResponse.classification || "asset").toLowerCase();
+
+          const newTypeForState = {
+            ...rawResponse, // Spread dari rawResponse yang sudah di-cast
+            classification: normalizedClassification,
+            standardItems: [],
+          } as AssetType;
+
+          set((state) => ({
+            categories: state.categories.map((cat) => {
+              if (Number(cat.id) === Number(data.categoryId)) {
+                return {
+                  ...cat,
+                  types: [...(cat.types || []), newTypeForState],
+                };
+              }
+              return cat;
+            }),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] createType failed:", error);
+          throw error;
+        }
+      },
+
+      updateTypeDetails: async (id, data) => {
+        try {
+          const updatedTypeResponse = await categoriesApi.updateType(id, data);
+
+          // FIX: Cast ke 'any' agar TypeScript mengizinkan akses properti 'classification'
+          const rawResponse = updatedTypeResponse as any;
+
+          // Normalisasi classification (menjadi lowercase)
+          const normalizedClassification = (rawResponse.classification || "asset").toLowerCase();
+
+          const updatedTypeForState = {
+            ...rawResponse,
+            classification: normalizedClassification,
+          } as AssetType;
+
+          set((state) => ({
+            categories: state.categories.map((cat) => {
+              // Pastikan types array ada sebelum melakukan .some
+              if (cat.types && cat.types.some((t) => t.id === id)) {
+                return {
+                  ...cat,
+                  types: cat.types.map((t) => (t.id === id ? updatedTypeForState : t)),
+                };
+              }
+              return cat;
+            }),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] updateTypeDetails failed:", error);
+          throw error;
+        }
+      },
+
+      deleteType: async (id, categoryId) => {
+        try {
+          await categoriesApi.deleteType(id);
+
+          set((state) => ({
+            categories: state.categories.map((cat) => {
+              if (cat.id === categoryId) {
+                return {
+                  ...cat,
+                  types: cat.types.filter((t) => t.id !== id),
+                };
+              }
+              return cat;
+            }),
+          }));
+
+          // HAPUS BARIS INI: await get().fetchCategories();
+        } catch (error) {
+          console.error("[AssetStore] deleteType failed:", error);
           throw error;
         }
       },
@@ -486,12 +597,11 @@ export const useAssetStore = create<AssetState>()(
       },
 
       checkAvailability: (itemName, brand, qtyNeeded, requestUnit, excludeRequestId) => {
+        // ... (Kode checkAvailability tetap sama, disingkat agar fit)
         const assets = get().assets;
         const categories = get().categories;
         const requests = useRequestStore.getState().requests;
-
         const qtyNeededInt = Math.ceil(qtyNeeded);
-
         let isMeasurement = false;
         let containerUnit = "Unit";
         let baseUnit = "Unit";
@@ -514,13 +624,10 @@ export const useAssetStore = create<AssetState>()(
         }
 
         const isRequestingContainer = !requestUnit || requestUnit === containerUnit;
-
         const allPhysicalAssets = assets.filter(
           (a) => a.name === itemName && a.brand === brand && a.status === AssetStatus.IN_STORAGE
         );
-
         let effectivePhysicalAssets = allPhysicalAssets;
-
         if (isMeasurement && isRequestingContainer) {
           effectivePhysicalAssets = allPhysicalAssets.filter((a) => {
             const current = a.currentBalance ?? 0;
@@ -528,21 +635,17 @@ export const useAssetStore = create<AssetState>()(
             return current >= initial - 0.0001;
           });
         }
-
         const totalPhysicalCount = allPhysicalAssets.length;
         const totalPhysicalContent = toInt(
           allPhysicalAssets.reduce((sum, a) => sum + (a.currentBalance ?? 0), 0)
         );
-
         const activeRequests = requests.filter(
           (r) =>
             r.id !== excludeRequestId &&
             ![ItemStatus.COMPLETED, ItemStatus.REJECTED, ItemStatus.CANCELLED].includes(r.status)
         );
-
         let reservedCount = 0;
         let reservedContent = 0;
-
         activeRequests.forEach((req) => {
           const matchingItems = req.items.filter(
             (i) => i.itemName === itemName && i.itemTypeBrand === brand
@@ -552,7 +655,6 @@ export const useAssetStore = create<AssetState>()(
             if (status?.status === "stock_allocated") {
               const qty = toInt(status.approvedQuantity ?? item.quantity);
               const itemUnit = item.unit || "Unit";
-
               if (isMeasurement) {
                 if (itemUnit === containerUnit) {
                   reservedCount += qty;
@@ -565,11 +667,8 @@ export const useAssetStore = create<AssetState>()(
             }
           });
         });
-
         reservedContent = toInt(reservedContent);
-
         const availableCount = Math.max(0, effectivePhysicalAssets.length - reservedCount);
-
         const sortedAssets = [...effectivePhysicalAssets].sort((a, b) => {
           if (isMeasurement && !isRequestingContainer) {
             const aIsPartial = (a.currentBalance ?? 0) < (a.initialBalance ?? 0);
@@ -579,19 +678,15 @@ export const useAssetStore = create<AssetState>()(
           }
           return new Date(a.registrationDate).getTime() - new Date(b.registrationDate).getTime();
         });
-
         const assetsAvailableForAllocation = sortedAssets.slice(reservedCount);
-
         const rawAvailableContentSum = assetsAvailableForAllocation.reduce(
           (sum, a) => sum + (a.currentBalance ?? 0),
           0
         );
         const availableContent = Math.max(0, toInt(rawAvailableContentSum - reservedContent));
-
         let isSufficient = false;
         let isFragmented = false;
         let recommendedSourceIds: string[] = [];
-
         if (isMeasurement) {
           if (isRequestingContainer) {
             isSufficient = availableCount >= qtyNeededInt;
@@ -603,11 +698,9 @@ export const useAssetStore = create<AssetState>()(
             const perfectFit = assetsAvailableForAllocation.find(
               (a) => (a.currentBalance ?? 0) >= qtyNeededInt
             );
-
             if (!perfectFit && isSufficient) {
               isFragmented = true;
             }
-
             if (perfectFit) {
               recommendedSourceIds = [perfectFit.id];
             } else {
@@ -625,7 +718,6 @@ export const useAssetStore = create<AssetState>()(
             .slice(0, qtyNeededInt)
             .map((a) => a.id);
         }
-
         return {
           physicalCount: totalPhysicalCount,
           totalContent: totalPhysicalContent,

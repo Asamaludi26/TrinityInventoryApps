@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  AssetCategory,
-  AssetType,
-  Asset,
-  TrackingMethod,
-  ItemClassification,
-} from "../../types";
+import { AssetCategory, AssetType, Asset, TrackingMethod, ItemClassification } from "../../types";
 import Modal from "./Modal";
 import { PencilIcon } from "../icons/PencilIcon";
 import { TrashIcon } from "../icons/TrashIcon";
@@ -23,15 +17,15 @@ interface TypeManagementModalProps {
   onClose: () => void;
   parentCategory: AssetCategory;
   typeToEdit: AssetType | null;
-  // Legacy Props (optional)
+  // Legacy Props (optional - kept for compatibility but not used for logic)
   assets?: Asset[];
   onSave?: (
     parentCategory: AssetCategory,
     typeData: Omit<AssetType, "id" | "standardItems">,
-    typeId?: number,
+    typeId?: number
   ) => void;
   onDelete?: (parentCategory: AssetCategory, typeToDelete: AssetType) => void;
-  defaultClassification?: ItemClassification; // Prop dari parent berdasarkan Tab aktif
+  defaultClassification?: ItemClassification;
 }
 
 interface TypeToDelete extends AssetType {
@@ -44,29 +38,28 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
   parentCategory,
   typeToEdit,
   assets: propAssets,
-  onSave: propOnSave,
-  onDelete: propOnDelete,
-  defaultClassification = "asset", // Default value
+  // onSave & onDelete props are bypassed in favor of Store Actions for consistency
+  defaultClassification = "asset",
 }) => {
   // Store hooks
   const storeAssets = useAssetStore((state) => state.assets);
   const assetCategories = useAssetStore((state) => state.categories);
-  const updateCategories = useAssetStore((state) => state.updateCategories);
+
+  // PERUBAHAN 1: Ambil action baru dari store
+  const createType = useAssetStore((state) => state.createType);
+  const updateTypeDetails = useAssetStore((state) => state.updateTypeDetails);
+  const deleteType = useAssetStore((state) => state.deleteType);
 
   // Use store assets if available
   const assets = storeAssets.length > 0 ? storeAssets : propAssets || [];
 
-  // Derived state
-  const category =
-    assetCategories.find((c) => c.id === parentCategory.id) || parentCategory;
+  // Derived state (Re-fetch category from store to get latest types)
+  const category = assetCategories.find((c) => c.id === parentCategory.id) || parentCategory;
   const types = category.types || [];
 
   const [name, setName] = useState("");
-  const [classification, setClassification] = useState<ItemClassification>(
-    defaultClassification,
-  );
-  const [trackingMethod, setTrackingMethod] =
-    useState<TrackingMethod>("individual");
+  const [classification, setClassification] = useState<ItemClassification>(defaultClassification);
+  const [trackingMethod, setTrackingMethod] = useState<TrackingMethod>("individual");
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [typeToDelete, setTypeToDelete] = useState<TypeToDelete | null>(null);
@@ -75,28 +68,24 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
 
   const isEditing = editingId !== null;
 
-  // Effect untuk inisialisasi data saat modal dibuka atau mode edit berubah
+  // Effect untuk inisialisasi data
   useEffect(() => {
     if (isOpen) {
       if (typeToEdit) {
-        // Mode Edit: Gunakan data eksisting
         setEditingId(typeToEdit.id);
         setName(typeToEdit.name);
         setClassification(typeToEdit.classification || "asset");
         setTrackingMethod(typeToEdit.trackingMethod || "individual");
       } else {
-        // Mode Baru: Reset form dan terapkan logika otomatis
         resetForm();
       }
     } else {
       resetForm();
     }
-  }, [isOpen, typeToEdit, defaultClassification]); // Re-run jika defaultClassification berubah
+  }, [isOpen, typeToEdit, defaultClassification]);
 
-  // Logika Otomatisasi: Paksa tracking method berdasarkan klasifikasi
+  // Logika Otomatisasi
   useEffect(() => {
-    // Hanya terapkan logika paksa jika BUKAN mode edit (saat membuat baru)
-    // Atau jika user secara eksplisit mengubah klasifikasi
     if (!isEditing) {
       if (classification === "material") {
         setTrackingMethod("bulk");
@@ -108,12 +97,9 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
 
   const resetForm = () => {
     setName("");
-    // Set klasifikasi sesuai tab yang aktif di parent
     setClassification(defaultClassification);
-
     const isMaterialTab = defaultClassification === "material";
     setTrackingMethod(isMaterialTab ? "bulk" : "individual");
-
     setEditingId(null);
     setIsLoading(false);
   };
@@ -127,36 +113,30 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
 
   const handleDeleteClick = (type: AssetType) => {
     const assetCount = assets.filter(
-      (asset) => asset.category === category.name && asset.type === type.name,
+      (asset) => asset.category === category.name && asset.type === type.name
     ).length;
     setTypeToDelete({ ...type, assetCount });
   };
 
+  // PERUBAHAN 2: Gunakan deleteType dari Store
   const handleConfirmDelete = async () => {
     if (typeToDelete && typeToDelete.assetCount === 0) {
-      if (propOnDelete) {
-        propOnDelete(category, typeToDelete);
-      } else {
-        // Store Logic
-        const updatedCategories = assetCategories.map((cat) => {
-          if (cat.id === category.id) {
-            return {
-              ...cat,
-              types: cat.types.filter((t) => t.id !== typeToDelete.id),
-            };
-          }
-          return cat;
-        });
-        await updateCategories(updatedCategories);
-        addNotification(
-          `Tipe "${typeToDelete.name}" berhasil dihapus.`,
-          "success",
-        );
+      setIsLoading(true);
+      try {
+        // Panggil Action Store: deleteType
+        await deleteType(typeToDelete.id, category.id);
+        addNotification(`Tipe "${typeToDelete.name}" berhasil dihapus.`, "success");
+      } catch (error) {
+        console.error(error);
+        addNotification("Gagal menghapus tipe.", "error");
+      } finally {
+        setIsLoading(false);
+        setTypeToDelete(null);
       }
-      setTypeToDelete(null);
     }
   };
 
+  // PERUBAHAN 3: Gunakan createType / updateTypeDetails dari Store
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -164,54 +144,44 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
       return;
     }
 
-    // Validate Material Requirement
     if (classification === "material" && !category.isCustomerInstallable) {
       addNotification(
-        'Peringatan: Material seharusnya berada dalam Kategori yang dapat dipasang ke pelanggan ("Installable"). Pastikan kategori ini sudah diatur dengan benar.',
-        "warning",
+        "Peringatan: Material seharusnya berada dalam Kategori yang dapat dipasang ke pelanggan.",
+        "warning"
       );
     }
 
     setIsLoading(true);
 
-    const typeData = {
-      name,
-      classification,
-      trackingMethod,
-    };
+    try {
+      const typeData = {
+        name,
+        // Mapping manual ke Uppercase sesuai permintaan Backend
+        classification: classification === "material" ? "MATERIAL" : "ASSET",
+        trackingMethod: trackingMethod === "bulk" ? "BULK" : "INDIVIDUAL",
+        categoryId: category.id,
+      };
 
-    if (propOnSave) {
-      propOnSave(category, typeData, editingId || undefined);
-    } else {
-      // Store Logic
-      const updatedCategories = assetCategories.map((cat) => {
-        if (cat.id === category.id) {
-          let updatedTypes;
-          if (editingId) {
-            updatedTypes = cat.types.map((t) =>
-              t.id === editingId ? { ...t, ...typeData } : t,
-            );
-            addNotification(`Tipe "${name}" berhasil diperbarui.`, "success");
-          } else {
-            const newType: AssetType = {
-              ...typeData,
-              id: Date.now(),
-              standardItems: [],
-            };
-            updatedTypes = [...cat.types, newType];
-            addNotification(`Tipe "${name}" berhasil ditambahkan.`, "success");
-          }
-          return { ...cat, types: updatedTypes };
-        }
-        return cat;
-      });
-      await updateCategories(updatedCategories);
+      if (editingId) {
+        // UPDATE (PATCH)
+        await updateTypeDetails(editingId, typeData);
+        addNotification(`Tipe "${name}" berhasil diperbarui.`, "success");
+      } else {
+        // CREATE (POST)
+        await createType(typeData);
+        addNotification(`Tipe "${name}" berhasil ditambahkan.`, "success");
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error(error);
+      addNotification("Gagal menyimpan tipe. Pastikan koneksi server aman.", "error");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
-    resetForm();
   };
 
+  // --- JSX (Render UI) Tetap Sama ---
   return (
     <>
       <Modal
@@ -235,10 +205,7 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label
-                  htmlFor="typeName"
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="typeName" className="block text-sm font-medium text-gray-700">
                   Nama Tipe / Material
                 </label>
                 <input
@@ -253,13 +220,12 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Auto-Configuration Display */}
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Konfigurasi Item (Otomatis)
                   </label>
                   {classification === "asset" ? (
-                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-3 animate-fade-in-up">
+                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-3">
                       <div className="p-2 bg-blue-100 text-primary-600 rounded-full flex-shrink-0">
                         <BsTools />
                       </div>
@@ -269,14 +235,12 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
                         </div>
                         <div className="text-xs text-gray-500">
                           Metode Pelacakan:{" "}
-                          <span className="font-bold text-primary-600">
-                            Individual (SN & MAC)
-                          </span>
+                          <span className="font-bold text-primary-600">Individual (SN & MAC)</span>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg flex flex-col gap-3 animate-fade-in-up">
+                    <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg flex flex-col gap-3">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-orange-100 text-orange-600 rounded-full flex-shrink-0">
                           <BsLightningFill />
@@ -287,10 +251,8 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
                           </div>
                           <div className="text-xs text-gray-500">
                             Metode Pelacakan:{" "}
-                            <span className="font-bold text-orange-600">
-                              Massal (Bulk)
-                            </span>
-                            . Konfigurasi detail stok diatur pada level Model.
+                            <span className="font-bold text-orange-600">Massal (Bulk)</span>.
+                            Konfigurasi detail stok diatur pada level Model.
                           </div>
                         </div>
                       </div>
@@ -331,7 +293,7 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
                 types.map((type) => {
                   const modelCount = type.standardItems?.length || 0;
                   const assetCount = assets.filter(
-                    (a) => a.category === category.name && a.type === type.name,
+                    (a) => a.category === category.name && a.type === type.name
                   ).length;
                   const isMaterial = type.classification === "material";
 
@@ -342,9 +304,7 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-900">
-                            {type.name}
-                          </p>
+                          <p className="text-sm font-semibold text-gray-900">{type.name}</p>
                           {isMaterial ? (
                             <span className="px-1.5 py-0.5 text-[10px] font-bold text-orange-700 bg-orange-100 rounded border border-orange-200 uppercase">
                               Material
@@ -381,9 +341,7 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center text-gray-500 border-2 border-dashed rounded-lg">
                   <InboxIcon className="w-10 h-10 text-gray-400" />
-                  <p className="mt-2 text-sm">
-                    Belum ada tipe untuk kategori ini.
-                  </p>
+                  <p className="mt-2 text-sm">Belum ada tipe untuk kategori ini.</p>
                 </div>
               )}
             </div>
@@ -391,16 +349,12 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
         </div>
       </Modal>
 
-      {/* Confirmation Modals remain unchanged */}
+      {/* Delete Confirmation Modal */}
       {typeToDelete && (
         <Modal
           isOpen={!!typeToDelete}
           onClose={() => setTypeToDelete(null)}
-          title={
-            typeToDelete.assetCount > 0
-              ? "Tidak Dapat Menghapus"
-              : "Konfirmasi Hapus Tipe"
-          }
+          title={typeToDelete.assetCount > 0 ? "Tidak Dapat Menghapus" : "Konfirmasi Hapus Tipe"}
           size="md"
           hideDefaultCloseButton
         >
@@ -411,22 +365,19 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
               <ExclamationTriangleIcon className="w-8 h-8" />
             </div>
             <h3 className="mt-4 text-lg font-semibold text-gray-800">
-              {typeToDelete.assetCount > 0
-                ? `Tipe Sedang Digunakan`
-                : `Hapus Tipe?`}
+              {typeToDelete.assetCount > 0 ? `Tipe Sedang Digunakan` : `Hapus Tipe?`}
             </h3>
             {typeToDelete.assetCount > 0 ? (
               <p className="mt-2 text-sm text-gray-600">
                 Anda tidak dapat menghapus tipe{" "}
-                <span className="font-bold">"{typeToDelete.name}"</span> karena
-                masih ada {typeToDelete.assetCount} aset yang terhubung. Harap
-                pindahkan atau hapus aset tersebut terlebih dahulu.
+                <span className="font-bold">"{typeToDelete.name}"</span> karena masih ada{" "}
+                {typeToDelete.assetCount} aset yang terhubung.
               </p>
             ) : (
               <p className="mt-2 text-sm text-gray-600">
                 Anda yakin ingin menghapus tipe{" "}
-                <span className="font-bold">"{typeToDelete.name}"</span>?
-                Tindakan ini tidak dapat diurungkan.
+                <span className="font-bold">"{typeToDelete.name}"</span>? Tindakan ini tidak dapat
+                diurungkan.
               </p>
             )}
           </div>
@@ -453,7 +404,7 @@ export const TypeManagementModal: React.FC<TypeManagementModalProps> = ({
                   onClick={handleConfirmDelete}
                   className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-danger rounded-lg shadow-sm hover:bg-red-700"
                 >
-                  Ya, Hapus
+                  {isLoading ? <SpinnerIcon className="w-4 h-4" /> : "Ya, Hapus"}
                 </button>
               </>
             )}

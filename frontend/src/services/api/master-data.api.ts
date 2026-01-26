@@ -6,13 +6,7 @@
  */
 
 import { apiClient } from "./client";
-import {
-  User,
-  Customer,
-  Division,
-  AssetCategory,
-  CustomerStatus,
-} from "../../types";
+import { User, Customer, Division, AssetCategory, CustomerStatus } from "../../types";
 import {
   transformBackendUser,
   transformBackendCustomer,
@@ -101,10 +95,7 @@ export const customersApi = {
     return apiClient.delete(`/customers/${id}`);
   },
 
-  updateStatus: async (
-    id: string,
-    status: CustomerStatus,
-  ): Promise<Customer> => {
+  updateStatus: async (id: string, status: CustomerStatus): Promise<Customer> => {
     const backendStatus = toBackendCustomerStatus(status);
     const result = await apiClient.patch<any>(`/customers/${id}/status`, {
       status: backendStatus,
@@ -150,10 +141,7 @@ export const categoriesApi = {
     return apiClient.post<AssetCategory>("/categories", data);
   },
 
-  update: async (
-    id: number,
-    data: Partial<AssetCategory>,
-  ): Promise<AssetCategory> => {
+  update: async (id: number, data: Partial<AssetCategory>): Promise<AssetCategory> => {
     return apiClient.patch<AssetCategory>(`/categories/${id}`, data);
   },
 
@@ -163,9 +151,7 @@ export const categoriesApi = {
    */
   updateAll: async (categories: AssetCategory[]): Promise<AssetCategory[]> => {
     // Filter out categories without valid IDs for update
-    const validCategories = categories.filter(
-      (cat) => cat.id && typeof cat.id === "number",
-    );
+    const validCategories = categories.filter((cat) => cat.id && typeof cat.id === "number");
 
     if (validCategories.length === 0) {
       console.warn("[categoriesApi] No valid categories to update");
@@ -182,10 +168,7 @@ export const categoriesApi = {
 
     try {
       // Use PUT for bulk update (atomic transaction on backend)
-      const results = await apiClient.put<AssetCategory[]>(
-        "/categories",
-        payload,
-      );
+      const results = await apiClient.put<AssetCategory[]>("/categories", payload);
       return results;
     } catch (err) {
       console.error("[categoriesApi] Bulk update failed:", err);
@@ -195,5 +178,44 @@ export const categoriesApi = {
 
   delete: async (id: number): Promise<void> => {
     return apiClient.delete(`/categories/${id}`);
+  },
+
+  // --- TYPE MANAGEMENT (NEW) ---
+  // Menambahkan metode spesifik untuk mengelola Tipe agar tidak perlu menggunakan Bulk Update Kategori
+
+  createType: async (data: any) => {
+    // Panggil Endpoint: POST /api/v1/categories/types
+    // Endpoint ini harus ada di backend Anda (CategoriesController @Post('types'))
+    const response = await apiClient.post("/categories/types", data);
+    return response;
+  },
+
+  updateType: async (id: number, data: any) => {
+    // Panggil Endpoint: PATCH /api/v1/categories/types/:id
+    const response = await apiClient.patch(`/categories/types/${id}`, data);
+    return response;
+  },
+
+  deleteType: async (id: number) => {
+    // Panggil Endpoint: DELETE /api/v1/categories/types/:id
+    const response = await apiClient.delete(`/categories/types/${id}`);
+    return response;
+  },
+
+  // --- MODEL MANAGEMENT (NEW - Opsional jika Backend support) ---
+
+  createModel: async (data: any) => {
+    const response = await apiClient.post("/categories/models", data);
+    return response;
+  },
+
+  updateModel: async (id: number, data: any) => {
+    const response = await apiClient.patch(`/categories/models/${id}`, data);
+    return response;
+  },
+
+  deleteModel: async (id: number) => {
+    const response = await apiClient.delete(`/categories/models/${id}`);
+    return response;
   },
 };
