@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
+  ParseArrayPipe, // <--- 1. IMPORT INI (WAJIB)
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -42,11 +43,15 @@ export class CategoriesController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK)
   /**
-   * PERBAIKAN BARIS 44:
-   * Mengganti '[key: string]: any' menjadi '[key: string]: unknown'.
-   * Ini cocok dengan signature yang sudah kita perbaiki di Service.
+   * PERBAIKAN UTAMA DI SINI:
+   * Menambahkan 'new ParseArrayPipe()' di dalam @Body().
+   * Ini memaksa input JSON harus berupa Array [...].
+   * Jika user mengirim Object {}, akan return 400 Bad Request.
    */
-  updateBulkCategories(@Body() categories: Array<{ id: number; [key: string]: unknown }>) {
+  updateBulkCategories(
+    @Body(new ParseArrayPipe()) // <--- 2. GUNAKAN PIPE DI SINI
+    categories: Array<{ id: number; [key: string]: unknown }>,
+  ) {
     return this.categoriesService.updateBulk(categories);
   }
 

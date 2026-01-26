@@ -9,17 +9,13 @@ import {
   ActivityLogEntry,
   ItemStatus,
 } from "../types";
-import {
-  assetsApi,
-  stockApi,
-  categoriesApi,
-  unifiedApi,
-} from "../services/api";
+import { assetsApi, stockApi, categoriesApi, unifiedApi } from "../services/api";
 import { useNotificationStore } from "./useNotificationStore";
 import { useMasterDataStore } from "./useMasterDataStore";
 import { useAuthStore } from "./useAuthStore";
 import { useRequestStore } from "./useRequestStore";
 
+// --- INTERFACE DEFINITION ---
 interface AssetState {
   assets: Asset[];
   categories: AssetCategory[];
@@ -27,37 +23,34 @@ interface AssetState {
   thresholds: Record<string, number>;
   isLoading: boolean;
 
+  // Asset Actions
   fetchAssets: () => Promise<void>;
+  fetchCategories: () => Promise<void>; // Added explicit category fetch
   addAsset: (
-    asset:
-      | Asset
-      | (Asset & { initialBalance?: number; currentBalance?: number }),
+    asset: Asset | (Asset & { initialBalance?: number; currentBalance?: number })
   ) => Promise<void>;
   updateAsset: (id: string, data: Partial<Asset>) => Promise<void>;
-  updateAssetBatch: (
-    ids: string[],
-    data: Partial<Asset>,
-    referenceId?: string,
-  ) => Promise<void>;
+  updateAssetBatch: (ids: string[], data: Partial<Asset>, referenceId?: string) => Promise<void>;
   deleteAsset: (id: string) => Promise<void>;
 
-  updateCategories: (categories: AssetCategory[]) => Promise<void>;
+  // Category Actions (NEW RESTFUL METHODS)
+  createCategory: (data: Omit<AssetCategory, "id" | "types">) => Promise<AssetCategory>;
+  updateCategoryDetails: (id: number, data: Partial<AssetCategory>) => Promise<void>;
+  deleteCategory: (id: number) => Promise<void>;
+  updateCategories: (categories: AssetCategory[]) => Promise<void>; // Keep for backward compatibility if needed
+
   updateThresholds: (thresholds: Record<string, number>) => void;
 
-  recordMovement: (
-    movement: Omit<StockMovement, "id" | "balanceAfter">,
-  ) => Promise<void>;
+  // Stock Movement & Logic Actions
+  recordMovement: (movement: Omit<StockMovement, "id" | "balanceAfter">) => Promise<void>;
   getStockHistory: (name: string, brand: string) => StockMovement[];
-
-  // NEW: Helper untuk mendapatkan stok spesifik teknisi
   getTechnicianStock: (technicianName: string) => Asset[];
-
   checkAvailability: (
     itemName: string,
     brand: string,
     qtyNeeded: number,
     requestUnit?: string,
-    excludeRequestId?: string,
+    excludeRequestId?: string
   ) => {
     physicalCount: number;
     totalContent: number;
@@ -74,7 +67,6 @@ interface AssetState {
     baseUnit: string;
     recommendedSourceIds: string[];
   };
-
   validateStockForRequest: (
     items: {
       itemName: string;
@@ -82,9 +74,8 @@ interface AssetState {
       quantity: number;
       unit?: string;
     }[],
-    excludeRequestId?: string,
+    excludeRequestId?: string
   ) => { valid: boolean; errors: string[] };
-
   consumeMaterials: (
     materials: {
       materialAssetId?: string;
@@ -98,7 +89,7 @@ interface AssetState {
       location?: string;
       docNumber?: string;
       technicianName?: string;
-    },
+    }
   ) => Promise<{ success: boolean; errors: string[] }>;
 }
 
@@ -111,7 +102,7 @@ const toInt = (num: number | undefined | null): number => {
 const sanitizeBulkAsset = (
   asset: Asset | Partial<Asset>,
   categories: AssetCategory[],
-  existingAsset?: Asset,
+  existingAsset?: Asset
 ): Asset | Partial<Asset> => {
   const categoryName = asset.category || existingAsset?.category;
   const typeName = asset.type || existingAsset?.type;
@@ -154,6 +145,8 @@ export const useAssetStore = create<AssetState>()(
       thresholds: {},
       isLoading: false,
 
+      // --- ASSET ACTIONS ---
+
       fetchAssets: async () => {
         set({ isLoading: true });
         try {
@@ -170,6 +163,15 @@ export const useAssetStore = create<AssetState>()(
         }
       },
 
+      fetchCategories: async () => {
+        try {
+          const categories = await unifiedApi.refreshCategories();
+          set({ categories });
+        } catch (error) {
+          console.error("[AssetStore] fetchCategories failed:", error);
+        }
+      },
+
       addAsset: async (rawAsset) => {
         const asset = sanitizeBulkAsset(rawAsset, get().categories) as Asset;
 
@@ -177,8 +179,7 @@ export const useAssetStore = create<AssetState>()(
         if ((rawAsset as any).initialBalance !== undefined) {
           asset.initialBalance = toInt((rawAsset as any).initialBalance);
           asset.currentBalance = toInt(
-            (rawAsset as any).currentBalance ??
-              (rawAsset as any).initialBalance,
+            (rawAsset as any).currentBalance ?? (rawAsset as any).initialBalance
           );
         }
 
@@ -191,18 +192,13 @@ export const useAssetStore = create<AssetState>()(
           const newAsset = await assetsApi.create(asset);
           set((state) => ({ assets: [newAsset, ...state.assets] }));
 
-          const category = get().categories.find(
-            (c) => c.name === asset.category,
-          );
+          const category = get().categories.find((c) => c.name === asset.category);
           const type = category?.types.find((t) => t.name === asset.type);
 
           let logQty = 1;
           if (asset.initialBalance !== undefined) {
             logQty = asset.initialBalance;
-          } else if (
-            type?.trackingMethod === "bulk" &&
-            (rawAsset as any).quantity
-          ) {
+          } else if (type?.trackingMethod === "bulk" && (rawAsset as any).quantity) {
             logQty = (rawAsset as any).quantity;
           }
 
@@ -228,13 +224,8 @@ export const useAssetStore = create<AssetState>()(
         const originalAsset = current.find((a) => a.id === id);
         if (!originalAsset) return;
 
-        const data = sanitizeBulkAsset(
-          rawData,
-          get().categories,
-          originalAsset,
-        );
+        const data = sanitizeBulkAsset(rawData, get().categories, originalAsset);
 
-        // STRICT INTEGER ENFORCEMENT & NaN Safety
         if (data.currentBalance !== undefined) {
           data.currentBalance = Math.max(0, toInt(data.currentBalance));
         }
@@ -243,26 +234,15 @@ export const useAssetStore = create<AssetState>()(
         }
 
         try {
-          const updatedAsset = await assetsApi.update(
-            id,
-            data as Partial<Asset>,
-          );
+          const updatedAsset = await assetsApi.update(id, data as Partial<Asset>);
           set((state) => ({
             assets: state.assets.map((a) => (a.id === id ? updatedAsset : a)),
           }));
 
-          if (
-            originalAsset &&
-            data.status &&
-            data.status !== originalAsset.status
-          ) {
+          if (originalAsset && data.status && data.status !== originalAsset.status) {
             let type: MovementType | null = null;
-
-            // --- SMART LOGGING FOR STATUS CHANGE ---
             const isMeasurement = originalAsset.currentBalance !== undefined;
-            const qtyToLog = isMeasurement
-              ? originalAsset.currentBalance || 0
-              : 1;
+            const qtyToLog = isMeasurement ? originalAsset.currentBalance || 0 : 1;
 
             if (
               originalAsset.status === AssetStatus.IN_STORAGE &&
@@ -296,7 +276,7 @@ export const useAssetStore = create<AssetState>()(
               notifyAdmins(
                 "ASSET_DAMAGED_REPORT",
                 id,
-                `melaporkan kerusakan pada aset ${originalAsset.name}`,
+                `melaporkan kerusakan pada aset ${originalAsset.name}`
               );
             }
           }
@@ -308,8 +288,7 @@ export const useAssetStore = create<AssetState>()(
 
       updateAssetBatch: async (ids, rawData, referenceId = "Batch Update") => {
         const current = get().assets;
-        const currentUser =
-          useAuthStore.getState().currentUser?.name || "System";
+        const currentUser = useAuthStore.getState().currentUser?.name || "System";
         const movementsToLog: Omit<StockMovement, "id" | "balanceAfter">[] = [];
 
         const updated = current.map((a) => {
@@ -319,8 +298,7 @@ export const useAssetStore = create<AssetState>()(
               rawData.status &&
               rawData.status !== AssetStatus.IN_STORAGE;
             const isMovingIn =
-              a.status !== AssetStatus.IN_STORAGE &&
-              rawData.status === AssetStatus.IN_STORAGE;
+              a.status !== AssetStatus.IN_STORAGE && rawData.status === AssetStatus.IN_STORAGE;
 
             if (isMovingOut || isMovingIn) {
               const isMeasurement = a.currentBalance !== undefined;
@@ -358,14 +336,12 @@ export const useAssetStore = create<AssetState>()(
           return a;
         });
 
-        // Batch update via API
         try {
-          // For real API, update each asset individually or call batch endpoint
           await Promise.all(
             ids.map((id) => {
               const asset = updated.find((a) => a.id === id);
               if (asset) return assetsApi.update(id, rawData);
-            }),
+            })
           );
           set({ assets: updated });
 
@@ -388,9 +364,7 @@ export const useAssetStore = create<AssetState>()(
 
           if (assetToDelete && assetToDelete.status === "Di Gudang") {
             const isMeasurement = assetToDelete.currentBalance !== undefined;
-            const qtyToLog = isMeasurement
-              ? assetToDelete.currentBalance || 0
-              : 1;
+            const qtyToLog = isMeasurement ? assetToDelete.currentBalance || 0 : 1;
 
             await get().recordMovement({
               assetName: assetToDelete.name,
@@ -409,7 +383,64 @@ export const useAssetStore = create<AssetState>()(
         }
       },
 
+      // --- CATEGORY ACTIONS (UPDATED) ---
+
+      // ... di dalam src/stores/useAssetStore.ts ...
+
+      createCategory: async (data) => {
+        try {
+          // 1. Kirim data ke API (tanpa 'types' agar tidak ditolak Backend)
+          const response = await categoriesApi.create(data as any);
+
+          // 2. NORMALISASI DATA (FIX CRASH)
+          // Backend mengembalikan object tanpa 'types'.
+          // Kita harus memastikannya ada sebelum masuk ke State Frontend.
+          const newCategory = {
+            ...response,
+            types: response.types || [], // <--- INI KUNCI PERBAIKANNYA
+            associatedDivisions: response.associatedDivisions || [],
+          };
+
+          // 3. Update State dengan data yang sudah aman
+          set((state) => ({
+            categories: [...state.categories, newCategory],
+          }));
+
+          return newCategory;
+        } catch (error) {
+          console.error("[AssetStore] createCategory failed:", error);
+          throw error;
+        }
+      },
+
+      updateCategoryDetails: async (id, data) => {
+        // Panggil endpoint PATCH /api/v1/categories/:id
+        try {
+          const updatedCategory = await categoriesApi.update(id, data);
+          set((state) => ({
+            categories: state.categories.map((c) => (c.id === id ? updatedCategory : c)),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] updateCategoryDetails failed:", error);
+          throw error;
+        }
+      },
+
+      deleteCategory: async (id) => {
+        // Panggil endpoint DELETE /api/v1/categories/:id
+        try {
+          await categoriesApi.delete(id);
+          set((state) => ({
+            categories: state.categories.filter((c) => c.id !== id),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] deleteCategory failed:", error);
+          throw error;
+        }
+      },
+
       updateCategories: async (categories) => {
+        // Deprecated: Bulk update (PUT)
         try {
           await categoriesApi.updateAll(categories);
           set({ categories });
@@ -418,6 +449,8 @@ export const useAssetStore = create<AssetState>()(
           throw error;
         }
       },
+
+      // --- LOGIC & HELPERS ---
 
       updateThresholds: (thresholds) => {
         set({ thresholds });
@@ -435,38 +468,24 @@ export const useAssetStore = create<AssetState>()(
           }));
         } catch (error) {
           console.error("[AssetStore] recordMovement failed:", error);
-          // Don't throw - movement logging is secondary
         }
       },
 
       getStockHistory: (name, brand) => {
         return get()
-          .stockMovements.filter(
-            (m) => m.assetName === name && m.brand === brand,
-          )
-          .sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-          );
+          .stockMovements.filter((m) => m.assetName === name && m.brand === brand)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       },
 
-      // NEW: Get Technician Specific Stock
       getTechnicianStock: (technicianName) => {
         return get().assets.filter(
           (a) =>
-            (a.status === AssetStatus.IN_CUSTODY ||
-              a.status === AssetStatus.IN_USE) &&
-            a.currentUser === technicianName,
+            (a.status === AssetStatus.IN_CUSTODY || a.status === AssetStatus.IN_USE) &&
+            a.currentUser === technicianName
         );
       },
 
-      checkAvailability: (
-        itemName,
-        brand,
-        qtyNeeded,
-        requestUnit,
-        excludeRequestId,
-      ) => {
-        // ... (Logic ATP existing tetap sama) ...
+      checkAvailability: (itemName, brand, qtyNeeded, requestUnit, excludeRequestId) => {
         const assets = get().assets;
         const categories = get().categories;
         const requests = useRequestStore.getState().requests;
@@ -479,17 +498,14 @@ export const useAssetStore = create<AssetState>()(
 
         for (const cat of categories) {
           for (const typ of cat.types) {
-            const model = typ.standardItems?.find(
-              (m) => m.name === itemName && m.brand === brand,
-            );
+            const model = typ.standardItems?.find((m) => m.name === itemName && m.brand === brand);
             if (model) {
               if (model.bulkType === "measurement") {
                 isMeasurement = true;
                 containerUnit = model.unitOfMeasure || "Hasbal";
                 baseUnit = model.baseUnitOfMeasure || "Meter";
               } else {
-                containerUnit =
-                  model.unitOfMeasure || typ.unitOfMeasure || "Unit";
+                containerUnit = model.unitOfMeasure || typ.unitOfMeasure || "Unit";
               }
               break;
             }
@@ -497,14 +513,10 @@ export const useAssetStore = create<AssetState>()(
           if (isMeasurement) break;
         }
 
-        const isRequestingContainer =
-          !requestUnit || requestUnit === containerUnit;
+        const isRequestingContainer = !requestUnit || requestUnit === containerUnit;
 
         const allPhysicalAssets = assets.filter(
-          (a) =>
-            a.name === itemName &&
-            a.brand === brand &&
-            a.status === AssetStatus.IN_STORAGE,
+          (a) => a.name === itemName && a.brand === brand && a.status === AssetStatus.IN_STORAGE
         );
 
         let effectivePhysicalAssets = allPhysicalAssets;
@@ -518,22 +530,14 @@ export const useAssetStore = create<AssetState>()(
         }
 
         const totalPhysicalCount = allPhysicalAssets.length;
-        // SAFE CALCULATION
         const totalPhysicalContent = toInt(
-          allPhysicalAssets.reduce(
-            (sum, a) => sum + (a.currentBalance ?? 0),
-            0,
-          ),
+          allPhysicalAssets.reduce((sum, a) => sum + (a.currentBalance ?? 0), 0)
         );
 
         const activeRequests = requests.filter(
           (r) =>
             r.id !== excludeRequestId &&
-            ![
-              ItemStatus.COMPLETED,
-              ItemStatus.REJECTED,
-              ItemStatus.CANCELLED,
-            ].includes(r.status),
+            ![ItemStatus.COMPLETED, ItemStatus.REJECTED, ItemStatus.CANCELLED].includes(r.status)
         );
 
         let reservedCount = 0;
@@ -541,7 +545,7 @@ export const useAssetStore = create<AssetState>()(
 
         activeRequests.forEach((req) => {
           const matchingItems = req.items.filter(
-            (i) => i.itemName === itemName && i.itemTypeBrand === brand,
+            (i) => i.itemName === itemName && i.itemTypeBrand === brand
           );
           matchingItems.forEach((item) => {
             const status = req.itemStatuses?.[item.id];
@@ -564,36 +568,25 @@ export const useAssetStore = create<AssetState>()(
 
         reservedContent = toInt(reservedContent);
 
-        const availableCount = Math.max(
-          0,
-          effectivePhysicalAssets.length - reservedCount,
-        );
+        const availableCount = Math.max(0, effectivePhysicalAssets.length - reservedCount);
 
         const sortedAssets = [...effectivePhysicalAssets].sort((a, b) => {
           if (isMeasurement && !isRequestingContainer) {
-            const aIsPartial =
-              (a.currentBalance ?? 0) < (a.initialBalance ?? 0);
-            const bIsPartial =
-              (b.currentBalance ?? 0) < (b.initialBalance ?? 0);
+            const aIsPartial = (a.currentBalance ?? 0) < (a.initialBalance ?? 0);
+            const bIsPartial = (b.currentBalance ?? 0) < (b.initialBalance ?? 0);
             if (aIsPartial && !bIsPartial) return -1;
             if (!aIsPartial && bIsPartial) return 1;
           }
-          return (
-            new Date(a.registrationDate).getTime() -
-            new Date(b.registrationDate).getTime()
-          );
+          return new Date(a.registrationDate).getTime() - new Date(b.registrationDate).getTime();
         });
 
         const assetsAvailableForAllocation = sortedAssets.slice(reservedCount);
 
         const rawAvailableContentSum = assetsAvailableForAllocation.reduce(
           (sum, a) => sum + (a.currentBalance ?? 0),
-          0,
+          0
         );
-        const availableContent = Math.max(
-          0,
-          toInt(rawAvailableContentSum - reservedContent),
-        );
+        const availableContent = Math.max(0, toInt(rawAvailableContentSum - reservedContent));
 
         let isSufficient = false;
         let isFragmented = false;
@@ -608,7 +601,7 @@ export const useAssetStore = create<AssetState>()(
           } else {
             isSufficient = availableContent >= qtyNeededInt;
             const perfectFit = assetsAvailableForAllocation.find(
-              (a) => (a.currentBalance ?? 0) >= qtyNeededInt,
+              (a) => (a.currentBalance ?? 0) >= qtyNeededInt
             );
 
             if (!perfectFit && isSufficient) {
@@ -664,16 +657,13 @@ export const useAssetStore = create<AssetState>()(
             item.itemTypeBrand,
             item.quantity,
             item.unit,
-            excludeRequestId,
+            excludeRequestId
           );
           if (!check.isSufficient) {
-            const unitLabel =
-              check.unitType === "container"
-                ? check.containerUnit
-                : check.baseUnit;
+            const unitLabel = check.unitType === "container" ? check.containerUnit : check.baseUnit;
             const avail = check.availableSmart;
             errors.push(
-              `${item.itemName}: Stok tidak cukup (Butuh: ${item.quantity} ${unitLabel}, Ada: ${avail} ${unitLabel})`,
+              `${item.itemName}: Stok tidak cukup (Butuh: ${item.quantity} ${unitLabel}, Ada: ${avail} ${unitLabel})`
             );
           }
         });
@@ -681,13 +671,13 @@ export const useAssetStore = create<AssetState>()(
       },
 
       consumeMaterials: async (materials, context) => {
+        // ... (KODE consumeMaterials TIDAK SAYA UBAH KARENA SUDAH BENAR & PANJANG) ...
+        // ... (Silakan copy-paste logika consumeMaterials dari kode Anda sebelumnya) ...
         const { assets, categories } = get();
         const errors: string[] = [];
 
         const actorName =
-          context.technicianName ||
-          useAuthStore.getState().currentUser?.name ||
-          "System";
+          context.technicianName || useAuthStore.getState().currentUser?.name || "System";
 
         type PlannedUpdate = {
           assetId: string;
@@ -705,7 +695,7 @@ export const useAssetStore = create<AssetState>()(
           for (const cat of categories) {
             for (const type of cat.types) {
               const model = type.standardItems?.find(
-                (i) => i.name === mat.itemName && i.brand === mat.brand,
+                (i) => i.name === mat.itemName && i.brand === mat.brand
               );
               if (model) {
                 if (type.trackingMethod === "bulk") isBulk = true;
@@ -721,71 +711,55 @@ export const useAssetStore = create<AssetState>()(
 
           // SMART LOGIC: Auto-Detect Source
           if (mat.materialAssetId) {
-            // 1. Jika User memilih source spesifik, gunakan itu.
-            const specificAsset = assets.find(
-              (a) => a.id === mat.materialAssetId,
-            );
+            const specificAsset = assets.find((a) => a.id === mat.materialAssetId);
             if (specificAsset) {
               targetAssets = [specificAsset];
             } else {
               errors.push(
-                `Stok spesifik ${mat.materialAssetId} (${mat.itemName}) tidak valid/ditemukan.`,
+                `Stok spesifik ${mat.materialAssetId} (${mat.itemName}) tidak valid/ditemukan.`
               );
               continue;
             }
           } else {
-            // 2. Jika tidak, cari stok milik TEKNISI dulu (Custody), baru Gudang.
             targetAssets = assets
               .filter((a) => {
-                const isMatch =
-                  a.name === mat.itemName && a.brand === mat.brand;
+                const isMatch = a.name === mat.itemName && a.brand === mat.brand;
                 if (!isMatch) return false;
 
-                // Prioritas 1: Dipegang Teknisi
                 const isTechnicianCustody =
                   a.currentUser === actorName &&
-                  (a.status === AssetStatus.IN_CUSTODY ||
-                    a.status === AssetStatus.IN_USE);
+                  (a.status === AssetStatus.IN_CUSTODY || a.status === AssetStatus.IN_USE);
 
-                // Prioritas 2: Di Gudang
                 const isInStorage = a.status === AssetStatus.IN_STORAGE;
 
                 return isTechnicianCustody || isInStorage;
               })
               .sort((a, b) => {
-                // Sort: Teknisi Custody First -> Gudang Second
                 const aIsOwn = a.currentUser === actorName;
                 const bIsOwn = b.currentUser === actorName;
                 if (aIsOwn && !bIsOwn) return -1;
                 if (!aIsOwn && bIsOwn) return 1;
 
-                // Sort: Partial First (Habiskan sisa dulu)
                 if (isMeasurement) {
-                  const aPartial =
-                    (a.currentBalance ?? 0) < (a.initialBalance ?? 0);
-                  const bPartial =
-                    (b.currentBalance ?? 0) < (b.initialBalance ?? 0);
+                  const aPartial = (a.currentBalance ?? 0) < (a.initialBalance ?? 0);
+                  const bPartial = (b.currentBalance ?? 0) < (b.initialBalance ?? 0);
                   if (aPartial && !bPartial) return -1;
                   if (!aPartial && bPartial) return 1;
                 }
 
-                // FIFO (Oldest first)
                 return (
-                  new Date(a.registrationDate).getTime() -
-                  new Date(b.registrationDate).getTime()
+                  new Date(a.registrationDate).getTime() - new Date(b.registrationDate).getTime()
                 );
               });
           }
 
           if (targetAssets.length === 0) {
             errors.push(
-              `Stok ${mat.itemName} tidak tersedia untuk teknisi ${actorName} maupun di Gudang.`,
+              `Stok ${mat.itemName} tidak tersedia untuk teknisi ${actorName} maupun di Gudang.`
             );
             continue;
           }
 
-          // UNIFIED BULK LOGIC (Count OR Measurement)
-          // Treated same: deduct from balance/quantity of a single record if possible
           if (isBulk) {
             let remainingNeed = qtyToDeduct;
 
@@ -801,27 +775,21 @@ export const useAssetStore = create<AssetState>()(
 
               const isFromCustody =
                 asset.status === AssetStatus.IN_CUSTODY ||
-                (asset.status === AssetStatus.IN_USE &&
-                  asset.currentUser === actorName);
+                (asset.status === AssetStatus.IN_USE && asset.currentUser === actorName);
 
-              const movementType = isFromCustody
-                ? "OUT_USAGE_CUSTODY"
-                : "OUT_INSTALLATION";
+              const movementType = isFromCustody ? "OUT_USAGE_CUSTODY" : "OUT_INSTALLATION";
               const locationContext = isFromCustody ? "CUSTODY" : "WAREHOUSE";
 
               let usedAmount = 0;
               const updates: Partial<Asset> = {};
 
               if (currentEffectiveBalance > remainingNeed) {
-                const newBalance = toInt(
-                  currentEffectiveBalance - remainingNeed,
-                );
+                const newBalance = toInt(currentEffectiveBalance - remainingNeed);
                 updates.currentBalance = newBalance;
                 tempBalances[asset.id] = newBalance;
                 usedAmount = remainingNeed;
                 remainingNeed = 0;
               } else {
-                // Asset habis terpakai
                 updates.currentBalance = 0;
                 updates.status = AssetStatus.CONSUMED;
                 tempBalances[asset.id] = 0;
@@ -849,31 +817,27 @@ export const useAssetStore = create<AssetState>()(
             }
 
             if (remainingNeed > 0) {
-              errors.push(
-                `Stok fisik ${mat.itemName} kurang ${remainingNeed} ${mat.unit}.`,
-              );
+              errors.push(`Stok fisik ${mat.itemName} kurang ${remainingNeed} ${mat.unit}.`);
             }
           } else {
-            // INDIVIDUAL UNIT LOGIC (Devices with SN)
             const qtyToConsume = Math.min(qtyToDeduct, targetAssets.length);
             if (qtyToConsume < qtyToDeduct) {
               errors.push(
-                `Stok fisik ${mat.itemName} kurang ${qtyToDeduct - qtyToConsume} ${mat.unit}.`,
+                `Stok fisik ${mat.itemName} kurang ${qtyToDeduct - qtyToConsume} ${mat.unit}.`
               );
             } else {
               const itemsToUpdate = targetAssets.slice(0, qtyToConsume);
               for (const item of itemsToUpdate) {
                 if (plan.some((p) => p.assetId === item.id)) {
                   errors.push(
-                    `Item ${item.id} (${item.name}) terpilih ganda dalam transaksi ini. Stok tidak cukup.`,
+                    `Item ${item.id} (${item.name}) terpilih ganda dalam transaksi ini. Stok tidak cukup.`
                   );
                   break;
                 }
 
                 const isFromCustody =
                   item.status === AssetStatus.IN_CUSTODY ||
-                  (item.status === AssetStatus.IN_USE &&
-                    item.currentUser === actorName);
+                  (item.status === AssetStatus.IN_USE && item.currentUser === actorName);
                 const locationContext = isFromCustody ? "CUSTODY" : "WAREHOUSE";
 
                 plan.push({
@@ -919,7 +883,6 @@ export const useAssetStore = create<AssetState>()(
         });
 
         try {
-          // Batch update for real API
           const idsToUpdate = plan.map((p) => p.assetId);
           await Promise.all(
             idsToUpdate.map((id) => {
@@ -927,12 +890,10 @@ export const useAssetStore = create<AssetState>()(
               if (asset) {
                 const planForAsset = plan.filter((p) => p.assetId === id);
                 let mergedUpdates = {};
-                planForAsset.forEach(
-                  (p) => (mergedUpdates = { ...mergedUpdates, ...p.updates }),
-                );
+                planForAsset.forEach((p) => (mergedUpdates = { ...mergedUpdates, ...p.updates }));
                 return assetsApi.update(id, mergedUpdates);
               }
-            }),
+            })
           );
           set({ assets: updatedAssets });
 
@@ -954,6 +915,6 @@ export const useAssetStore = create<AssetState>()(
         categories: state.categories,
         thresholds: state.thresholds,
       }),
-    },
-  ),
+    }
+  )
 );
