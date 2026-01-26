@@ -1064,7 +1064,7 @@ model Dismantle {
 // ============================================
 
 model Notification {
-  id          Int      @id @default(autoincrement())
+  id          BigInt      @id @default(autoincrement())
   message     String   @db.Text
   type        String   @db.VarChar(50)
   recipientId Int      @map("recipient_id")

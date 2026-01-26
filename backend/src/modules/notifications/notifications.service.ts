@@ -102,10 +102,10 @@ export class NotificationsService {
   /**
    * Mark a notification as read
    */
-  async markAsRead(id: number, recipientId: number) {
+  async markAsRead(id: number | bigint | string, recipientId: number) {
     return this.prisma.notification.updateMany({
       where: {
-        id,
+        id: BigInt(id),
         recipientId,
       },
       data: {
@@ -132,10 +132,10 @@ export class NotificationsService {
   /**
    * Delete a notification
    */
-  async remove(id: number, recipientId: number) {
+  async remove(id: number | bigint | string, recipientId: number) {
     return this.prisma.notification.deleteMany({
       where: {
-        id,
+        id: BigInt(id),
         recipientId,
       },
     });
