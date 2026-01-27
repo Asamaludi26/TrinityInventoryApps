@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { User } from "../../../types";
 import { useAuthStore } from "../../../stores/useAuthStore";
 import { useNotification } from "../../../providers/NotificationProvider";
@@ -8,18 +8,18 @@ interface UseManageAccountLogicProps {
   currentUser: User;
 }
 
+export interface PasswordValidationState {
+  currentPasswordValid: boolean | null;
+  currentPasswordVerifying: boolean;
+  currentPasswordError: string;
+  confirmPasswordMatch: boolean | null;
+  newPasswordSameAsCurrent: boolean; // true = kata sandi baru sama dengan saat ini (tidak boleh)
+}
+
 export const useManageAccountLogic = ({ currentUser }: UseManageAccountLogicProps) => {
   const updateCurrentUser = useAuthStore((state) => state.updateCurrentUser);
   const logout = useAuthStore((state) => state.logout);
   const addNotification = useNotification();
-
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
 
   // --- STATE ---
   const [name, setName] = useState(currentUser.name);
@@ -40,11 +40,17 @@ export const useManageAccountLogic = ({ currentUser }: UseManageAccountLogicProp
 
   const [isLoading, setIsLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
-
-  // KITA NONAKTIFKAN MODAL CANGGIH DULU, PAKAI NATIVE ALERT
   const [showReloginModal, setShowReloginModal] = useState(false);
 
-  // --- LOGIC PASSWORD ---
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidationState>({
+    currentPasswordValid: null,
+    currentPasswordVerifying: false,
+    currentPasswordError: "",
+    confirmPasswordMatch: null,
+    newPasswordSameAsCurrent: false,
+  });
+
+  // --- PASSWORD STRENGTH LOGIC ---
   const allowedSymbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
   const { allowedSymbolsRegex, symbolCheckRegex } = useMemo(() => {
     const escaped = allowedSymbols.replace(/[-[\]{}()*+?.,\\^$|]/g, "\\$&");
@@ -85,45 +91,182 @@ export const useManageAccountLogic = ({ currentUser }: UseManageAccountLogicProp
     return { score: 0, label: "", color: "" };
   }, [newPassword, passwordChecks]);
 
-  // --- VALIDASI ---
+  // --- VERIFIKASI PASSWORD SAAT INI (useEffect dengan debounce) ---
+  useEffect(() => {
+    // Jika password kosong atau terlalu pendek, reset state
+    if (!currentPassword || currentPassword.length < 3) {
+      setPasswordValidation((prev) => ({
+        ...prev,
+        currentPasswordValid: null,
+        currentPasswordVerifying: false,
+        currentPasswordError: "",
+      }));
+      return;
+    }
+
+    // Set verifying state
+    setPasswordValidation((prev) => ({
+      ...prev,
+      currentPasswordVerifying: true,
+      currentPasswordValid: null,
+      currentPasswordError: "",
+    }));
+
+    // Debounce 600ms
+    const timer = setTimeout(() => {
+      usersApi
+        .verifyPassword(currentUser.id, currentPassword)
+        .then((result) => {
+          const isValid = result?.valid === true;
+          setPasswordValidation((prev) => ({
+            ...prev,
+            currentPasswordValid: isValid,
+            currentPasswordVerifying: false,
+            currentPasswordError: isValid ? "" : "Kata sandi saat ini tidak sesuai.",
+          }));
+        })
+        .catch(() => {
+          setPasswordValidation((prev) => ({
+            ...prev,
+            currentPasswordValid: false,
+            currentPasswordVerifying: false,
+            currentPasswordError: "Gagal memverifikasi. Coba lagi.",
+          }));
+        });
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [currentPassword, currentUser.id]);
+
+  // --- CEK KATA SANDI BARU TIDAK SAMA DENGAN SAAT INI ---
+  useEffect(() => {
+    // Kata sandi baru tidak boleh sama dengan kata sandi saat ini
+    const isSame = !!(currentPassword && newPassword && currentPassword === newPassword);
+    setPasswordValidation((prev) => ({
+      ...prev,
+      newPasswordSameAsCurrent: isSame,
+    }));
+  }, [currentPassword, newPassword]);
+
+  // --- KONFIRMASI PASSWORD MATCH ---
+  useEffect(() => {
+    if (!confirmPassword) {
+      setPasswordValidation((prev) => ({
+        ...prev,
+        confirmPasswordMatch: null,
+      }));
+      return;
+    }
+
+    const match = newPassword === confirmPassword;
+    setPasswordValidation((prev) => ({
+      ...prev,
+      confirmPasswordMatch: match,
+    }));
+  }, [newPassword, confirmPassword]);
+
+  // --- CAN SUBMIT ---
+  const canSubmit = useMemo(() => {
+    if (isLoading || isRedirecting) return false;
+    if (!name.trim() || !email.trim()) return false;
+
+    // Jika tidak ada password baru, hanya profil yang diubah
+    if (!newPassword && !currentPassword) return true;
+
+    // Jika ada password baru, semua validasi harus terpenuhi
+    if (newPassword) {
+      if (passwordValidation.currentPasswordValid !== true) return false;
+      if (passwordValidation.newPasswordSameAsCurrent) return false; // Tidak boleh sama
+      if (passwordValidation.confirmPasswordMatch !== true) return false;
+      const allChecks = Object.values(passwordChecks).every(Boolean);
+      if (!allChecks) return false;
+    }
+
+    return true;
+  }, [
+    isLoading,
+    isRedirecting,
+    name,
+    email,
+    newPassword,
+    currentPassword,
+    passwordValidation.currentPasswordValid,
+    passwordValidation.newPasswordSameAsCurrent,
+    passwordValidation.confirmPasswordMatch,
+    passwordChecks,
+  ]);
+
+  // --- VALIDASI FORM ---
   const validate = () => {
     let isValid = true;
     setNameError("");
     setEmailError("");
     setPasswordError("");
 
-    // Simple validation bypass for debugging logic issues
-    if (!name || !email) {
-      addNotification("Nama dan Email wajib diisi", "error");
-      return false;
+    if (name.trim().length < 3) {
+      setNameError("Nama harus memiliki minimal 3 karakter.");
+      isValid = false;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setEmailError("Format email tidak valid.");
+      isValid = false;
     }
 
     if (newPassword) {
       if (!currentPassword) {
-        setPasswordError("Password lama wajib diisi");
-        return false;
+        setPasswordError("Kata sandi saat ini wajib diisi.");
+        isValid = false;
+      } else if (passwordValidation.currentPasswordValid !== true) {
+        setPasswordError("Kata sandi saat ini tidak valid.");
+        isValid = false;
       }
-      if (newPassword !== confirmPassword) {
-        setPasswordError("Konfirmasi password tidak cocok");
-        return false;
+
+      // Cek kata sandi baru tidak sama dengan saat ini
+      if (passwordValidation.newPasswordSameAsCurrent) {
+        setPasswordError("Kata sandi baru tidak boleh sama dengan kata sandi saat ini.");
+        isValid = false;
+      } else if (!passwordChecks.length) {
+        setPasswordError("Kata sandi baru minimal 8 karakter.");
+        isValid = false;
+      } else if (!passwordChecks.upperLower) {
+        setPasswordError("Kata sandi baru harus mengandung huruf besar dan kecil.");
+        isValid = false;
+      } else if (!passwordChecks.number) {
+        setPasswordError("Kata sandi baru harus mengandung angka.");
+        isValid = false;
+      } else if (!passwordChecks.symbol) {
+        setPasswordError("Kata sandi baru harus mengandung simbol.");
+        isValid = false;
+      } else if (!passwordChecks.noSpaces) {
+        setPasswordError("Kata sandi baru tidak boleh mengandung spasi.");
+        isValid = false;
+      } else if (!passwordChecks.onlyAllowed) {
+        setPasswordError("Kata sandi baru mengandung simbol yang tidak diizinkan.");
+        isValid = false;
+      } else if (newPassword !== confirmPassword) {
+        setPasswordError("Konfirmasi kata sandi baru tidak cocok.");
+        isValid = false;
       }
     }
 
-    return true;
+    return isValid;
   };
 
   const handleRelogin = () => {
+    setIsRedirecting(true);
     logout();
-    window.location.assign("/login");
+    setTimeout(() => {
+      window.location.assign("/login");
+    }, 500);
   };
 
-  // --- SUBMIT HANDLER YANG LEBIH AMAN ---
+  // --- SUBMIT HANDLER ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("1. Submit triggered");
 
     if (!validate()) {
-      console.log("Validation failed");
+      addNotification("Harap perbaiki error pada formulir.", "error");
       return;
     }
 
@@ -134,75 +277,63 @@ export const useManageAccountLogic = ({ currentUser }: UseManageAccountLogicProp
       let isProfileUpdated = false;
       let updatedUser = currentUser;
 
-      console.log("2. Starting API Calls...");
-
       // 1. Ganti Password
       if (newPassword && currentPassword) {
-        console.log("3. Calling changePassword API...");
         await usersApi.changePassword(currentUser.id, {
           currentPassword,
           newPassword,
         });
         isPasswordUpdated = true;
-        console.log("4. Password changed SUCCESS");
       }
 
       // 2. Ganti Profil
       if (name !== currentUser.name || email !== currentUser.email) {
-        console.log("5. Calling update profile API...");
         const payload = { name, email };
         updatedUser = await usersApi.update(currentUser.id, payload);
         isProfileUpdated = true;
-        console.log("6. Profile updated SUCCESS");
       }
 
-      console.log("7. All API calls finished. Handling UI...");
-
       // --- LOGIC SUKSES ---
-
       if (isPasswordUpdated) {
-        setIsLoading(false); // Stop spinner
-        setIsRedirecting(true); // Disable input
-
-        // GUNAKAN NATIVE ALERT (Anti Gagal)
-        // Jika ini muncul, berarti logika backend & frontend SUKSES.
-        // Masalahnya hanya di Modal CSS Anda sebelumnya.
-        alert("BERHASIL! Password telah diubah. Anda harus login ulang.");
-
-        handleRelogin(); // Langsung logout
+        setIsLoading(false);
+        setShowReloginModal(true);
         return;
       }
 
       if (isProfileUpdated) {
         updateCurrentUser(updatedUser);
-        addNotification("Profil berhasil disimpan", "success");
+        addNotification("Profil berhasil disimpan.", "success");
       } else {
-        addNotification("Tidak ada perubahan", "info");
+        addNotification("Tidak ada perubahan yang disimpan.", "info");
       }
 
-      // Reset form
+      // Reset password fields
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (error: any) {
-      console.error("CRITICAL ERROR:", error);
-
+      setPasswordValidation({
+        currentPasswordValid: null,
+        currentPasswordVerifying: false,
+        currentPasswordError: "",
+        confirmPasswordMatch: null,
+        newPasswordSameAsCurrent: false,
+      });
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
       let msg = "Terjadi kesalahan sistem.";
-      if (error.response && error.response.data) {
-        msg = error.response.data.message || JSON.stringify(error.response.data);
-      } else if (error.message) {
-        msg = error.message;
+      if (err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err.message) {
+        msg = err.message;
       }
-
       addNotification(msg, "error");
     } finally {
-      // Pastikan loading mati apa pun yang terjadi
       setIsLoading(false);
-      console.log("8. Finally block executed");
     }
   };
 
   return {
+    // State
     name,
     setName,
     email,
@@ -218,13 +349,23 @@ export const useManageAccountLogic = ({ currentUser }: UseManageAccountLogicProp
     isLoading,
     isRedirecting,
     showReloginModal,
-    handleRelogin,
+
+    // Errors
     nameError,
     emailError,
     passwordError,
+
+    // Password validation
+    passwordValidation,
     passwordChecks,
     passwordStrength,
     allowedSymbols,
+
+    // Computed
+    canSubmit,
+
+    // Actions
     handleSubmit,
+    handleRelogin,
   };
 };

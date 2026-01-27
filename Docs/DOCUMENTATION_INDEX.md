@@ -159,18 +159,28 @@ Docs/
 
 ### Recent Updates
 
-| Tanggal    | Area    | File                                                                             | Deskripsi                       |
-| ---------- | ------- | -------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-01-18 | Backend | [pnpm-migration-security](Develop/backend/2026-01-18_pnpm-migration-security.md) | Migrasi pnpm, security features |
+| Tanggal    | Area     | File                                                                                                | Deskripsi                                 |
+| ---------- | -------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 2026-01-27 | Frontend | [manage-account-fix-documentation](Develop/frontend/2026-01-27_manage-account-fix-documentation.md) | Fix validasi password real-time           |
+| 2026-01-27 | Feature  | [RESET_PASSWORD_ANALYSIS](06_FEATURES/02_USER_MANAGEMENT/RESET_PASSWORD_ANALYSIS.md)                | Analisa reset password & password standar |
+| 2026-01-27 | Feature  | [MANAGE_ACCOUNT_REFACTOR](06_FEATURES/02_USER_MANAGEMENT/MANAGE_ACCOUNT_REFACTOR.md)                | Refaktor kelola akun saya                 |
+| 2026-01-24 | Frontend | [sidebar-redesign](Develop/frontend/2026-01-24_sidebar-redesign.md)                                 | Redesign sidebar dengan dark mode         |
+| 2026-01-18 | Backend  | [pnpm-migration-security](Develop/backend/2026-01-18_pnpm-migration-security.md)                    | Migrasi pnpm, security features           |
 
 ### Error Tracking
 
 | Area           | Resolved | Open | Lokasi                                                         |
 | -------------- | -------- | ---- | -------------------------------------------------------------- |
 | Backend        | 0        | 0    | [ErrorHandling/backend/](ErrorHandling/backend/)               |
-| Frontend       | 0        | 0    | [ErrorHandling/frontend/](ErrorHandling/frontend/)             |
+| Frontend       | 1        | 0    | [ErrorHandling/frontend/](ErrorHandling/frontend/)             |
 | Database       | 0        | 0    | [ErrorHandling/database/](ErrorHandling/database/)             |
 | Infrastructure | 0        | 0    | [ErrorHandling/infrastructure/](ErrorHandling/infrastructure/) |
+
+### Troubleshooting Resolved
+
+| Tanggal    | Issue                                | File                                                                                                 |
+| ---------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 2026-01-27 | Password validation spinner infinite | [PASSWORD_VALIDATION_TROUBLESHOOTING](ErrorHandling/frontend/PASSWORD_VALIDATION_TROUBLESHOOTING.md) |
 
 ---
 

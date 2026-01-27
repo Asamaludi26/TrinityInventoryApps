@@ -10,43 +10,90 @@ import { CheckIcon } from "../../components/icons/CheckIcon";
 import { CloseIcon } from "../../components/icons/CloseIcon";
 import { useManageAccountLogic } from "./hooks/useManageAccountLogic";
 import { PasswordStrengthMeter } from "./components/PasswordStrengthMeter";
-// Pastikan path Modal benar
-import Modal from "../../components/ui/Modal";
-// Gunakan icon sederhana jika LogoutIcon tidak ada
-import { ChevronRightIcon } from "../../components/icons/ChevronRightIcon";
+import { PasswordAlert } from "./components/PasswordAlert";
+import { ReloginSuccessModal } from "./components/ReloginSuccessModal";
 
 interface ManageAccountPageProps {
   currentUser: User;
   onBack: () => void;
 }
 
+/**
+ * Form Section dengan dukungan dark mode
+ */
 const FormSection: React.FC<{
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, icon, children }) => (
-  <div className="pt-6 border-t border-gray-200 first:pt-0 first:border-t-0">
+  <div className="pt-6 border-t border-gray-200 dark:border-gray-600 first:pt-0 first:border-t-0">
     <div className="flex items-center mb-4">
       {icon}
-      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
     </div>
     <div className="space-y-4">{children}</div>
   </div>
 );
 
+/**
+ * CheckList Item untuk kriteria password
+ */
 const CheckListItem: React.FC<{ met: boolean; text: React.ReactNode }> = ({ met, text }) => (
   <li
-    className={`flex items-start gap-2 transition-colors ${
-      met ? "text-green-700" : "text-gray-500"
+    className={`flex items-start gap-2 transition-colors duration-200 ${
+      met ? "text-green-700 dark:text-green-300" : "text-gray-600 dark:text-gray-300"
     }`}
   >
     {met ? (
-      <CheckIcon className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+      <CheckIcon className="w-4 h-4 mt-0.5 text-green-600 dark:text-green-400 flex-shrink-0" />
     ) : (
-      <CloseIcon className="w-4 h-4 mt-0.5 text-red-500 flex-shrink-0" />
+      <CloseIcon className="w-4 h-4 mt-0.5 text-red-500 dark:text-red-400 flex-shrink-0" />
     )}
     <span>{text}</span>
   </li>
+);
+
+/**
+ * Password field status indicator - warna tetap karena input background putih
+ */
+const PasswordStatusIndicator: React.FC<{
+  isVerifying: boolean;
+  isValid: boolean | null;
+}> = ({ isVerifying, isValid }) => {
+  if (isVerifying) {
+    return (
+      <div className="absolute inset-y-0 right-10 flex items-center pr-3">
+        <SpinnerIcon className="w-4 h-4 text-gray-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isValid === true) {
+    return (
+      <div className="absolute inset-y-0 right-10 flex items-center pr-3">
+        <CheckIcon className="w-4 h-4 text-green-500" />
+      </div>
+    );
+  }
+
+  if (isValid === false) {
+    return (
+      <div className="absolute inset-y-0 right-10 flex items-center pr-3">
+        <CloseIcon className="w-4 h-4 text-red-500" />
+      </div>
+    );
+  }
+
+  return null;
+};
+
+/**
+ * Info Box dengan styling modern dan dark mode
+ */
+const InfoBox: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="p-4 mt-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/80 dark:to-gray-900/80 border border-gray-200 dark:border-gray-600 shadow-sm">
+    {children}
+  </div>
 );
 
 const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBack }) => {
@@ -63,28 +110,74 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
     setConfirmPassword,
     passwordVisibility,
     setPasswordVisibility,
-
     isLoading,
-    isRedirecting, // State ini sekarang sudah di-expose hook
-    showReloginModal, // State ini sekarang sudah di-expose hook
-    handleRelogin, // Action ini sekarang sudah di-expose hook
+    isRedirecting,
+    showReloginModal,
 
+    // Errors
     nameError,
     emailError,
     passwordError,
+
+    // Password validation
+    passwordValidation,
     passwordChecks,
     passwordStrength,
     allowedSymbols,
+
+    // Computed
+    canSubmit,
+
+    // Actions
     handleSubmit,
+    handleRelogin,
   } = useManageAccountLogic({ currentUser });
+
+  // Determine border color for current password field
+  const currentPasswordBorderClass = (() => {
+    if (passwordValidation.currentPasswordVerifying) return "border-gray-300";
+    if (passwordValidation.currentPasswordValid === true)
+      return "border-green-500 focus:ring-green-500 focus:border-green-500";
+    if (passwordValidation.currentPasswordValid === false)
+      return "border-red-500 focus:ring-red-500 focus:border-red-500";
+    return "border-gray-300";
+  })();
+
+  // Determine border color for new password field
+  const newPasswordBorderClass = (() => {
+    if (passwordValidation.newPasswordSameAsCurrent && newPassword)
+      return "border-red-500 focus:ring-red-500 focus:border-red-500";
+    return "border-gray-300 focus:ring-primary-500 focus:border-primary-500";
+  })();
+
+  // Determine border color for confirm password field
+  const confirmPasswordBorderClass = (() => {
+    if (!confirmPassword) return "border-gray-300";
+    if (passwordValidation.confirmPasswordMatch === true)
+      return "border-green-500 focus:ring-green-500 focus:border-green-500";
+    if (passwordValidation.confirmPasswordMatch === false)
+      return "border-red-500 focus:ring-red-500 focus:border-red-500";
+    return "border-gray-300";
+  })();
+
+  // Common input classes dengan dark mode - input tetap terang
+  const inputBaseClass =
+    "block w-full px-4 py-2.5 text-sm rounded-xl shadow-sm transition-all duration-200 disabled:opacity-60 bg-white text-gray-900 placeholder-gray-400";
+
+  // Common label classes - tetap kontras
+  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5";
 
   return (
     <>
       <FormPageLayout title="Kelola Akun Saya">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
-          <FormSection title="Profil" icon={<UserIcon className="w-6 h-6 mr-3 text-primary-600" />}>
+          {/* === PROFIL SECTION === */}
+          <FormSection
+            title="Profil"
+            icon={<UserIcon className="w-6 h-6 mr-3 text-primary-600 dark:text-primary-400" />}
+          >
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="name" className={labelClass}>
                 Nama Lengkap
               </label>
               <input
@@ -94,12 +187,17 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={isLoading || isRedirecting}
-                className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 text-sm text-gray-700 rounded-lg shadow-sm disabled:opacity-60"
+                className={`${inputBaseClass} border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
+                placeholder="Masukkan nama lengkap"
               />
-              {nameError && <p className="mt-1 text-xs text-danger-text">{nameError}</p>}
+              {nameError && (
+                <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                  {nameError}
+                </p>
+              )}
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className={labelClass}>
                 Alamat Email
               </label>
               <input
@@ -109,39 +207,57 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading || isRedirecting}
-                className="block w-full px-3 py-2 mt-1 bg-gray-50 border border-gray-300 text-sm text-gray-700 rounded-lg shadow-sm disabled:opacity-60"
+                className={`${inputBaseClass} border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary-500 focus:border-primary-500`}
+                placeholder="contoh@email.com"
               />
-              {emailError && <p className="mt-1 text-xs text-danger-text">{emailError}</p>}
+              {emailError && (
+                <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                  {emailError}
+                </p>
+              )}
             </div>
           </FormSection>
 
+          {/* === UBAH KATA SANDI SECTION === */}
           <FormSection
             title="Ubah Kata Sandi"
-            icon={<LockIcon className="w-6 h-6 mr-3 text-primary-600" />}
+            icon={<LockIcon className="w-6 h-6 mr-3 text-primary-600 dark:text-primary-400" />}
           >
-            <p className="text-sm text-gray-500 -mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4">
               Kosongkan jika Anda tidak ingin mengubah kata sandi.
             </p>
 
             {/* Input Password Saat Ini */}
             <div>
-              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="currentPassword" className={labelClass}>
                 Kata Sandi Saat Ini
               </label>
-              <div className="relative mt-1">
+              <div className="relative">
                 <input
                   type={passwordVisibility.current ? "text" : "password"}
                   id="currentPassword"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   disabled={isLoading || isRedirecting}
-                  className="block w-full px-3 py-2 pr-10 bg-gray-50 border border-gray-300 text-sm text-gray-700 rounded-lg shadow-sm disabled:opacity-60"
+                  className={`${inputBaseClass} pr-20 border ${currentPasswordBorderClass}`}
+                  placeholder="Masukkan kata sandi saat ini"
+                  autoComplete="current-password"
+                />
+                <PasswordStatusIndicator
+                  isVerifying={passwordValidation.currentPasswordVerifying}
+                  isValid={passwordValidation.currentPasswordValid}
                 />
                 <button
                   type="button"
-                  onClick={() => setPasswordVisibility((p) => ({ ...p, current: !p.current }))}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-primary-600"
+                  onClick={() =>
+                    setPasswordVisibility((p) => ({
+                      ...p,
+                      current: !p.current,
+                    }))
+                  }
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-primary-600 transition-colors"
                   disabled={isLoading || isRedirecting}
+                  tabIndex={-1}
                 >
                   {passwordVisibility.current ? (
                     <EyeSlashIcon className="w-5 h-5" />
@@ -150,27 +266,42 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
                   )}
                 </button>
               </div>
+
+              {/* Alert: Password saat ini tidak valid */}
+              <div className="mt-3">
+                <PasswordAlert
+                  type="warning"
+                  message={passwordValidation.currentPasswordError}
+                  show={
+                    passwordValidation.currentPasswordValid === false &&
+                    !!passwordValidation.currentPasswordError
+                  }
+                />
+              </div>
             </div>
 
             {/* Input Password Baru */}
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="newPassword" className={labelClass}>
                 Kata Sandi Baru
               </label>
-              <div className="relative mt-1">
+              <div className="relative">
                 <input
                   type={passwordVisibility.new ? "text" : "password"}
                   id="newPassword"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   disabled={isLoading || isRedirecting}
-                  className="block w-full px-3 py-2 pr-10 bg-gray-50 border border-gray-300 text-sm text-gray-700 rounded-lg shadow-sm disabled:opacity-60"
+                  className={`${inputBaseClass} pr-10 border ${newPasswordBorderClass}`}
+                  placeholder="Masukkan kata sandi baru"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setPasswordVisibility((p) => ({ ...p, new: !p.new }))}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-primary-600"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-primary-600 transition-colors"
                   disabled={isLoading || isRedirecting}
+                  tabIndex={-1}
                 >
                   {passwordVisibility.new ? (
                     <EyeSlashIcon className="w-5 h-5" />
@@ -180,81 +311,149 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
                 </button>
               </div>
 
-              {newPassword && <PasswordStrengthMeter passwordStrength={passwordStrength} />}
+              {/* Alert: Password baru sama dengan saat ini */}
+              <div className="mt-3">
+                <PasswordAlert
+                  type="error"
+                  message="Kata sandi baru tidak boleh sama dengan kata sandi saat ini."
+                  show={passwordValidation.newPasswordSameAsCurrent && !!newPassword}
+                />
+              </div>
 
-              {newPassword && (
-                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 space-y-1">
-                  <p className="font-semibold text-gray-700 mb-2">
+              {/* Password Strength Meter */}
+              {newPassword && !passwordValidation.newPasswordSameAsCurrent && (
+                <PasswordStrengthMeter passwordStrength={passwordStrength} />
+              )}
+
+              {/* Password Criteria Checklist */}
+              {newPassword && !passwordValidation.newPasswordSameAsCurrent && (
+                <InfoBox>
+                  <p className="font-semibold text-gray-800 dark:text-white mb-3 text-sm">
                     Kata sandi harus memenuhi kriteria berikut:
                   </p>
-                  <ul className="space-y-1.5">
-                    <CheckListItem met={passwordChecks.length} text="Minimal 8 karakter." />
+                  <ul className="space-y-2 text-xs">
+                    <CheckListItem met={passwordChecks.length} text="Minimal 8 karakter" />
                     <CheckListItem
                       met={passwordChecks.upperLower}
-                      text="Kombinasi huruf besar dan kecil."
+                      text="Kombinasi huruf besar dan kecil"
                     />
                     <CheckListItem
                       met={passwordChecks.number}
-                      text="Sertakan setidaknya satu angka."
+                      text="Sertakan setidaknya satu angka"
                     />
                     <CheckListItem
                       met={passwordChecks.symbol}
                       text={
                         <span>
-                          Sertakan setidaknya satu simbol (<code>!@#$%^&*...</code>).
+                          Sertakan setidaknya satu simbol{" "}
+                          <code className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 rounded text-xs font-mono">
+                            !@#$%^&*
+                          </code>
                         </span>
                       }
                     />
                     <CheckListItem
                       met={passwordChecks.noSpaces}
-                      text="Tidak boleh mengandung spasi."
+                      text="Tidak boleh mengandung spasi"
                     />
                     <CheckListItem
                       met={passwordChecks.onlyAllowed}
                       text={
                         <span>
-                          Hanya menggunakan simbol yang diizinkan:{" "}
-                          <code className="break-all">{allowedSymbols}</code>
+                          Hanya simbol yang diizinkan:{" "}
+                          <code className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100 rounded text-xs font-mono break-all">
+                            {allowedSymbols}
+                          </code>
                         </span>
                       }
                     />
                   </ul>
-                </div>
+                </InfoBox>
               )}
             </div>
 
             {/* Input Konfirmasi Password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className={labelClass}>
                 Konfirmasi Kata Sandi Baru
               </label>
-              <div className="relative mt-1">
+              <div className="relative">
                 <input
-                  type="password"
+                  type={passwordVisibility.confirm ? "text" : "password"}
                   id="confirmPassword"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={isLoading || isRedirecting}
-                  className="block w-full px-3 py-2 pr-10 bg-gray-50 border border-gray-300 text-sm text-gray-700 rounded-lg shadow-sm disabled:opacity-60"
+                  className={`${inputBaseClass} pr-20 border ${confirmPasswordBorderClass}`}
+                  placeholder="Ulangi kata sandi baru"
+                  autoComplete="new-password"
+                />
+                {/* Confirm password match indicator */}
+                {confirmPassword && (
+                  <div className="absolute inset-y-0 right-10 flex items-center pr-3">
+                    {passwordValidation.confirmPasswordMatch === true ? (
+                      <CheckIcon className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <CloseIcon className="w-4 h-4 text-red-500" />
+                    )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPasswordVisibility((p) => ({
+                      ...p,
+                      confirm: !p.confirm,
+                    }))
+                  }
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-primary-600 transition-colors"
+                  disabled={isLoading || isRedirecting}
+                  tabIndex={-1}
+                >
+                  {passwordVisibility.confirm ? (
+                    <EyeSlashIcon className="w-5 h-5" />
+                  ) : (
+                    <EyeIcon className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+
+              {/* Alert: Konfirmasi password tidak cocok */}
+              <div className="mt-3">
+                <PasswordAlert
+                  type="error"
+                  message="Konfirmasi kata sandi tidak cocok dengan kata sandi baru."
+                  show={passwordValidation.confirmPasswordMatch === false}
                 />
               </div>
             </div>
-            {passwordError && <p className="mt-1 text-xs text-danger-text">{passwordError}</p>}
+
+            {/* General password error */}
+            {passwordError && (
+              <div className="mt-2">
+                <PasswordAlert type="error" message={passwordError} show={true} />
+              </div>
+            )}
           </FormSection>
 
-          <div className="flex justify-end pt-5 space-x-3 border-t">
+          {/* === ACTION BUTTONS === */}
+          <div className="flex justify-end pt-6 space-x-3 border-t border-gray-200 dark:border-gray-600">
             <button
               type="button"
               onClick={onBack}
               disabled={isLoading || isRedirecting}
-              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-60"
+              className="px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-60 transition-all duration-200"
             >
               Kembali
             </button>
             <button
               type="submit"
-              disabled={isLoading || isRedirecting}
-              className={`inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700 disabled:bg-primary-600/70 disabled:cursor-not-allowed`}
+              disabled={!canSubmit}
+              className={`inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-xl shadow-sm ${
+                canSubmit
+                  ? "bg-primary-600 hover:bg-primary-700"
+                  : "bg-gray-400 dark:bg-gray-500 cursor-not-allowed"
+              }`}
             >
               {isLoading ? (
                 <>
@@ -274,42 +473,12 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
         </form>
       </FormPageLayout>
 
-      {/* --- MODAL RELOGIN DENGAN HARDCODED STYLE --- */}
-      {showReloginModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            zIndex: 99999, // Z-Index Ekstrim
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-sm mx-4 relative z-[100000]">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
-                <CheckIcon className="h-8 w-8 text-green-600" />
-              </div>
-
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Sukses!</h3>
-
-              <p className="text-gray-600 mb-8">Password berhasil diubah. Silakan login kembali.</p>
-
-              <button
-                onClick={handleRelogin}
-                className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg transition-colors"
-              >
-                Login Kembali
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal Relogin Sukses */}
+      <ReloginSuccessModal
+        isOpen={showReloginModal}
+        onRelogin={handleRelogin}
+        isRedirecting={isRedirecting}
+      />
     </>
   );
 };

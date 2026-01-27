@@ -2,7 +2,8 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ChangePasswordDto } from './dto/change-password.dto'; // Import DTO baru
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyPasswordDto } from './dto/verify-password.dto';
 import { UserRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -203,7 +204,12 @@ export class UsersService {
       }
     }
 
-    // 3. Hash password baru
+    // 3. Validasi: Password baru tidak boleh sama dengan password saat ini
+    if (changePasswordDto.currentPassword === changePasswordDto.newPassword) {
+      throw new BadRequestException('Kata sandi baru tidak boleh sama dengan kata sandi saat ini');
+    }
+
+    // 4. Hash password baru
     const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
 
     // 4. Update di database
@@ -259,5 +265,26 @@ export class UsersService {
       where: { id },
       data: { permissions },
     });
+  }
+
+  /**
+   * Verifikasi password saat ini untuk fitur kelola akun.
+   * Digunakan untuk validasi real-time sebelum submit.
+   */
+  async verifyPassword(
+    id: number,
+    verifyPasswordDto: VerifyPasswordDto,
+  ): Promise<{ valid: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { password: true },
+    });
+
+    if (!user || !user.password) {
+      throw new NotFoundException('Pengguna tidak ditemukan');
+    }
+
+    const isMatch = await bcrypt.compare(verifyPasswordDto.password, user.password);
+    return { valid: isMatch };
   }
 }

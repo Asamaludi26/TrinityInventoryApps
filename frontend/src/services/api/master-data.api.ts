@@ -62,6 +62,14 @@ export const usersApi = {
     return apiClient.patch(`/users/${id}/change-password`, data);
   },
 
+  /**
+   * Verifikasi password saat ini secara real-time.
+   * Digunakan untuk validasi sebelum submit form kelola akun.
+   */
+  verifyPassword: async (id: number, password: string): Promise<{ valid: boolean }> => {
+    return apiClient.post(`/users/${id}/verify-password`, { password });
+  },
+
   delete: async (id: number): Promise<void> => {
     return apiClient.delete(`/users/${id}`);
   },

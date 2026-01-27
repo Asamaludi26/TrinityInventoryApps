@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyPasswordDto } from './dto/verify-password.dto';
 import { UserRole } from '@prisma/client';
 
 @Controller('users')
@@ -76,6 +77,14 @@ export class UsersController {
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.usersService.changePassword(id, changePasswordDto);
+  }
+
+  @Post(':id/verify-password')
+  async verifyPassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() verifyPasswordDto: VerifyPasswordDto,
+  ) {
+    return this.usersService.verifyPassword(id, verifyPasswordDto);
   }
 
   @Patch(':id/reset-password')

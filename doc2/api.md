@@ -127,15 +127,17 @@ Authorization: Bearer <token>
 
 ### Endpoints
 
-| Method   | Path                        | Description                | Roles Required              |
-| -------- | --------------------------- | -------------------------- | --------------------------- |
-| `POST`   | `/users`                    | Create user                | SUPER_ADMIN, ADMIN_LOGISTIK |
-| `GET`    | `/users`                    | List all users (paginated) | All authenticated           |
-| `GET`    | `/users/:id`                | Get user by ID             | All authenticated           |
-| `PATCH`  | `/users/:id`                | Update user                | SUPER_ADMIN, ADMIN_LOGISTIK |
-| `DELETE` | `/users/:id`                | Soft delete user           | SUPER_ADMIN                 |
-| `PATCH`  | `/users/:id/reset-password` | Reset password             | SUPER_ADMIN, ADMIN_LOGISTIK |
-| `PATCH`  | `/users/:id/permissions`    | Update permissions         | SUPER_ADMIN                 |
+| Method   | Path                         | Description                | Roles Required              |
+| -------- | ---------------------------- | -------------------------- | --------------------------- |
+| `POST`   | `/users`                     | Create user                | SUPER_ADMIN, ADMIN_LOGISTIK |
+| `GET`    | `/users`                     | List all users (paginated) | All authenticated           |
+| `GET`    | `/users/:id`                 | Get user by ID             | All authenticated           |
+| `PATCH`  | `/users/:id`                 | Update user                | SUPER_ADMIN, ADMIN_LOGISTIK |
+| `DELETE` | `/users/:id`                 | Soft delete user           | SUPER_ADMIN                 |
+| `PATCH`  | `/users/:id/change-password` | Change own password        | Owner only                  |
+| `POST`   | `/users/:id/verify-password` | Verify current password    | Owner only                  |
+| `PATCH`  | `/users/:id/reset-password`  | Reset password (by admin)  | SUPER_ADMIN, ADMIN_LOGISTIK |
+| `PATCH`  | `/users/:id/permissions`     | Update permissions         | SUPER_ADMIN                 |
 
 ### Create User
 
@@ -151,6 +153,92 @@ Content-Type: application/json
   "role": "STAFF",
   "divisionId": 2,
   "permissions": ["dashboard:view", "assets:view"]
+}
+```
+
+> **Note:** Field `password` bersifat optional. Jika tidak diisi, sistem akan menggunakan password standar `Trinity@2026` dan user wajib mengganti saat login pertama.
+
+### Change Password (Self)
+
+```http
+PATCH /users/:id/change-password
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "currentPassword": "OldPassword123!",
+  "newPassword": "NewSecurePass456!"
+}
+```
+
+**Validasi Password Baru:**
+
+- Minimal 8 karakter
+- Maksimal 128 karakter
+- Harus mengandung huruf besar, huruf kecil, angka, dan simbol
+- Tidak boleh mengandung spasi
+- Tidak boleh sama dengan password saat ini
+
+**Response Success:**
+
+```json
+{
+  "id": 1,
+  "name": "John Doe",
+  "email": "john@trinitimedia.com",
+  "role": "STAFF"
+}
+```
+
+**Response Error:**
+
+```json
+{
+  "statusCode": 400,
+  "message": "Kata sandi saat ini salah",
+  "error": "Bad Request"
+}
+```
+
+### Verify Password (Real-time Validation)
+
+Endpoint untuk validasi password saat ini secara real-time, biasanya digunakan dengan debounce di frontend.
+
+```http
+POST /users/:id/verify-password
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "password": "CurrentPassword123!"
+}
+```
+
+**Response:**
+
+```json
+{
+  "valid": true
+}
+```
+
+atau
+
+```json
+{
+  "valid": false
+}
+```
+
+### Reset Password (Admin)
+
+```http
+PATCH /users/:id/reset-password
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "password": "TemporaryPass123!"
 }
 ```
 

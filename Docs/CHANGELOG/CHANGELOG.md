@@ -11,6 +11,49 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+#### Fitur Kelola Akun - Validasi Real-time (2026-01-27)
+
+- **Endpoint Verifikasi Password**: `POST /api/users/:id/verify-password` untuk validasi password saat ini secara real-time
+- **PasswordAlert Component**: Komponen alert modern untuk warning dan error validasi password
+- **ReloginSuccessModal Component**: Modal elegan yang menginformasikan user harus login ulang setelah ganti password
+- **PasswordStrengthMeter Component**: Indikator kekuatan password dengan bar visual
+- **Real-time Password Validation**: Validasi kata sandi saat ini dengan debounce 600ms langsung ke database
+- **Confirm Password Match Check**: Validasi kecocokan konfirmasi password secara real-time
+- **Smart Submit Button**: Tombol simpan otomatis disabled jika ada validasi yang gagal
+- **Validasi Password Tidak Boleh Sama**: Mencegah user menggunakan password yang sama dengan password saat ini
+
+### Changed
+
+#### Perbaikan Bug & Refaktor Kelola Akun Saya (2026-01-27)
+
+**Masalah**: Spinner validasi password terus berputar tanpa henti meskipun backend sudah berhasil merespons.
+
+**Root Cause**: Implementasi `useCallback` dengan dependency kompleks menyebabkan closure stale - handler tidak pernah terpanggil dengan benar.
+
+**Solusi**: Rewrite total menggunakan `useEffect` dengan debounce sederhana.
+
+- `useManageAccountLogic.ts`: **REWRITE TOTAL** - Ganti useCallback dengan useEffect + debounce
+- `ManageAccountPage.tsx`: UI baru dengan alert modern, dark mode support, dan modal relogin
+- `users.service.ts`: Tambah method `verifyPassword()` dan validasi password tidak boleh sama
+- `users.controller.ts`: Tambah endpoint verify-password
+- `master-data.api.ts`: Tambah fungsi API `verifyPassword()` di frontend
+- `change-password.dto.ts`: Enhanced validation dengan regex untuk kompleksitas password
+
+#### Dark Mode Support - Halaman Kelola Akun (2026-01-27)
+
+- `FormPageLayout.tsx`: Dukungan dark mode untuk judul dan card container
+- `ManageAccountPage.tsx`: Input dengan background putih konsisten di light/dark mode
+- `PasswordAlert.tsx`: Warna dark mode yang proper
+- `PasswordStrengthMeter.tsx`: Styling dark mode
+- `ReloginSuccessModal.tsx`: Styling dark mode
+
+> **Dokumentasi lengkap**:
+>
+> - [MANAGE_ACCOUNT_REFACTOR.md](06_FEATURES/02_USER_MANAGEMENT/MANAGE_ACCOUNT_REFACTOR.md)
+> - [2026-01-27_manage-account-fix-documentation.md](Develop/frontend/2026-01-27_manage-account-fix-documentation.md)
+
+---
+
 #### Frontend - Sidebar Redesign (2026-01-24)
 
 - **Collapsible Sidebar**: Toggle sidebar antara mode expanded (w-72) dan collapsed (w-20) di semua layar desktop
