@@ -21,6 +21,7 @@ export interface AuthResponse {
     role: string;
     division?: string;
     permissions: string[];
+    mustChangePassword?: boolean; // Flag untuk paksa ganti password
   };
   token: string;
 }
@@ -98,6 +99,7 @@ export class AuthService {
         role: user.role,
         division: user.division?.name,
         permissions: user.permissions,
+        mustChangePassword: user.mustChangePassword, // Flag untuk force change password
       },
       token,
     };
@@ -143,6 +145,7 @@ export class AuthService {
         role: user.role,
         division: user.division?.name,
         permissions: user.permissions,
+        mustChangePassword: user.mustChangePassword,
       },
       token,
     };
@@ -167,6 +170,7 @@ export class AuthService {
         role: user.role,
         division: user.division?.name,
         permissions: user.permissions,
+        mustChangePassword: user.mustChangePassword,
       };
     } catch {
       throw new UnauthorizedException('Token tidak valid atau expired');

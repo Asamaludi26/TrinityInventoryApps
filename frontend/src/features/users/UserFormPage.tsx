@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Division, User, UserRole, Permission } from "../../types";
+import { User, UserRole, Permission } from "../../types";
 import { useNotification } from "../../providers/NotificationProvider";
 import { SpinnerIcon } from "../../components/icons/SpinnerIcon";
 import { CustomSelect } from "../../components/ui/CustomSelect";
@@ -11,9 +11,14 @@ import {
 } from "../../utils/permissions";
 import { PermissionManager } from "./components/PermissionManager";
 import { LockIcon } from "../../components/icons/LockIcon";
+import { BsInfoCircle, BsShieldLock, BsExclamationTriangle } from "react-icons/bs";
 
 // Store Import
 import { useMasterDataStore } from "../../stores/useMasterDataStore";
+import { usersApi } from "../../services/api/master-data.api";
+
+// Password standar untuk akun baru
+const DEFAULT_PASSWORD = "Trinity@2026";
 
 const userRoles: UserRole[] = [
   "Staff",
@@ -23,17 +28,22 @@ const userRoles: UserRole[] = [
   "Super Admin",
 ];
 
+// Interface untuk role limit info
+interface RoleLimitInfo {
+  role: string;
+  displayName: string;
+  limit: number | null;
+  current: number;
+  available: number | null;
+}
+
 interface UserFormPageProps {
   currentUser: User;
   onCancel: () => void;
   editingUser: User | null;
 }
 
-const UserFormPage: React.FC<UserFormPageProps> = ({
-  currentUser,
-  onCancel,
-  editingUser,
-}) => {
+const UserFormPage: React.FC<UserFormPageProps> = ({ currentUser, onCancel, editingUser }) => {
   // Zustand State
   const divisions = useMasterDataStore((state) => state.divisions);
   const addUser = useMasterDataStore((state) => state.addUser);
@@ -43,22 +53,69 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
   const [email, setEmail] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("Staff");
   const [selectedDivisionId, setSelectedDivisionId] = useState<string>(
-    divisions[0]?.id.toString() || "",
+    divisions[0]?.id.toString() || ""
   );
   const [permissions, setPermissions] = useState<Permission[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [roleLimits, setRoleLimits] = useState<RoleLimitInfo[]>([]);
+  const [roleWarning, setRoleWarning] = useState<string | null>(null);
   const addNotification = useNotification();
 
-  const inventoryDivisionId = divisions
-    .find((d) => d.name === "Logistik")
-    ?.id.toString();
-  const canManagePermissions = hasPermission(
-    currentUser,
-    "users:manage-permissions",
-  );
+  const inventoryDivisionId = divisions.find((d) => d.name === "Logistik")?.id.toString();
+  const canManagePermissions = hasPermission(currentUser, "users:manage-permissions");
 
   const isSuperAdminAccount = editingUser?.role === "Super Admin";
+
+  // Fetch role limits on mount
+  useEffect(() => {
+    const fetchRoleLimits = async () => {
+      try {
+        const limits = await usersApi.getRoleLimits();
+        setRoleLimits(limits);
+      } catch (error) {
+        console.error("Failed to fetch role limits:", error);
+      }
+    };
+    fetchRoleLimits();
+  }, []);
+
+  // Check role availability when role changes
+  useEffect(() => {
+    if (!roleLimits.length) return;
+
+    const limitInfo = roleLimits.find((r) => {
+      // Map frontend role name to backend role name
+      const backendRoleMap: Record<string, string> = {
+        "Super Admin": "SUPER_ADMIN",
+        "Admin Logistik": "ADMIN_LOGISTIK",
+        "Admin Purchase": "ADMIN_PURCHASE",
+      };
+      return r.role === backendRoleMap[selectedRole];
+    });
+
+    if (limitInfo && limitInfo.limit !== null) {
+      // For edit mode, if same role, available = limit - (current - 1) since we're counting ourselves
+      const available =
+        editingUser?.role === selectedRole
+          ? limitInfo.limit - limitInfo.current + 1
+          : limitInfo.available;
+
+      if (available !== null && available <= 0 && editingUser?.role !== selectedRole) {
+        setRoleWarning(
+          `Batas maksimal akun ${limitInfo.displayName} sudah tercapai (${limitInfo.limit} akun). Pilih role lain atau nonaktifkan akun yang ada.`
+        );
+      } else if (available !== null && available === 1) {
+        setRoleWarning(
+          `Peringatan: Hanya tersisa ${available} slot untuk role ${limitInfo.displayName}.`
+        );
+      } else {
+        setRoleWarning(null);
+      }
+    } else {
+      setRoleWarning(null);
+    }
+  }, [selectedRole, roleLimits, editingUser]);
 
   // Initial Load
   useEffect(() => {
@@ -102,10 +159,7 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
   }, [selectedRole, inventoryDivisionId]);
 
   const handleDivisionChange = (divisionId: string) => {
-    if (
-      divisionId !== inventoryDivisionId &&
-      selectedRole === "Admin Logistik"
-    ) {
+    if (divisionId !== inventoryDivisionId && selectedRole === "Admin Logistik") {
       setSelectedRole("Staff");
     }
     setSelectedDivisionId(divisionId);
@@ -128,8 +182,7 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
       name,
       email,
       role: selectedRole,
-      divisionId:
-        selectedRole === "Super Admin" ? null : parseInt(selectedDivisionId),
+      divisionId: selectedRole === "Super Admin" ? null : parseInt(selectedDivisionId),
       permissions: cleanPermissions,
     };
 
@@ -142,12 +195,22 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
         addNotification("Akun baru berhasil ditambahkan.", "success");
       }
       onCancel(); // Navigate back
-    } catch (error) {
-      addNotification("Terjadi kesalahan saat menyimpan data.", "error");
+    } catch (error: unknown) {
+      // Handle specific error messages from backend
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+            "Terjadi kesalahan saat menyimpan data.";
+      addNotification(errorMessage, "error");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Check if submit should be disabled due to role limit
+  const isRoleLimitExceeded =
+    roleWarning?.includes("Batas maksimal") && (editingUser?.role !== selectedRole || !editingUser);
 
   return (
     <FormPageLayout
@@ -157,7 +220,7 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50"
+            className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
           >
             Batal
           </button>
@@ -165,8 +228,8 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
             <button
               type="submit"
               form="user-form"
-              disabled={isSubmitting}
-              className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700 disabled:bg-primary-600/70"
+              disabled={isSubmitting || isRoleLimitExceeded}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700 disabled:bg-primary-600/70 disabled:cursor-not-allowed"
             >
               {isSubmitting && <SpinnerIcon className="w-5 h-5 mr-2" />}
               {editingUser ? "Simpan Perubahan" : "Simpan Akun"}
@@ -175,18 +238,34 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
         </>
       }
     >
-      <form
-        id="user-form"
-        onSubmit={handleSubmit}
-        className="mx-auto space-y-8"
-      >
+      <form id="user-form" onSubmit={handleSubmit} className="mx-auto space-y-8">
         {isSuperAdminAccount && (
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800">
-            <LockIcon className="w-5 h-5 mt-0.5" />
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-amber-800 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-200">
+            <LockIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />
             <div className="text-sm">
-              <strong>Akun Terproteksi.</strong> Peran dan hak akses akun Super
-              Admin tidak dapat diubah untuk mencegah penguncian sistem secara
-              tidak sengaja.
+              <strong>Akun Terproteksi.</strong> Peran dan hak akses akun Super Admin tidak dapat
+              diubah untuk mencegah penguncian sistem secara tidak sengaja.
+            </div>
+          </div>
+        )}
+
+        {/* Info Password Standar untuk Akun Baru */}
+        {!editingUser && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-200">
+            <BsInfoCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <strong className="block mb-1">Informasi Password Awal</strong>
+              <p>
+                Akun baru akan menggunakan password standar:{" "}
+                <code className="font-mono bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-600 select-all">
+                  {DEFAULT_PASSWORD}
+                </code>
+              </p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-300">
+                <BsShieldLock className="w-3.5 h-3.5" />
+                Pengguna <strong>wajib mengganti password</strong> saat pertama kali login untuk
+                keamanan.
+              </p>
             </div>
           </div>
         )}
@@ -195,7 +274,7 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
           <div>
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Nama Lengkap
             </label>
@@ -207,14 +286,14 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
                 onChange={(e) => setName(e.target.value)}
                 disabled={isSuperAdminAccount}
                 required
-                className="block w-full px-3 py-2 mt-1 text-gray-900 placeholder:text-gray-400 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm disabled:bg-gray-200 disabled:text-gray-500"
+                className="block w-full px-3 py-2 mt-1 text-gray-900 placeholder:text-gray-400 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm disabled:bg-gray-200 disabled:text-gray-500"
               />
             </div>
           </div>
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Email
             </label>
@@ -226,14 +305,14 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isSuperAdminAccount}
                 required
-                className="block w-full px-3 py-2 mt-1 text-gray-900 placeholder:text-gray-400 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm disabled:bg-gray-200 disabled:text-gray-500"
+                className="block w-full px-3 py-2 mt-1 text-gray-900 placeholder:text-gray-400 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm disabled:bg-gray-200 disabled:text-gray-500"
               />
             </div>
           </div>
           <div>
             <label
               htmlFor="role"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Role
             </label>
@@ -245,16 +324,29 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
                 disabled={isSuperAdminAccount}
               />
             </div>
-            {selectedRole === "Admin Logistik" && (
-              <p className="mt-2 text-xs text-gray-500">
+            {selectedRole === "Admin Logistik" && !roleWarning && (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Role Admin Logistik hanya berlaku untuk Divisi Logistik.
               </p>
+            )}
+            {/* Role Limit Warning */}
+            {roleWarning && (
+              <div
+                className={`mt-2 p-2.5 rounded-lg flex items-start gap-2 text-sm ${
+                  roleWarning.includes("Batas maksimal")
+                    ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                    : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700"
+                }`}
+              >
+                <BsExclamationTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{roleWarning}</span>
+              </div>
             )}
           </div>
           <div>
             <label
               htmlFor="division"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Divisi
             </label>
@@ -282,15 +374,15 @@ const UserFormPage: React.FC<UserFormPageProps> = ({
         </div>
 
         {canManagePermissions && (
-          <div className="pt-6 border-t">
+          <div className="pt-6 border-t dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <LockIcon className="w-6 h-6 text-primary-600" />
+                <LockIcon className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Manajemen Hak Akses (Permissions)
                   </h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Hak akses bertanda kunci wajib dimiliki oleh role ini.
                   </p>
                 </div>

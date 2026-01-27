@@ -66,6 +66,7 @@ model User {
   passwordResetExpires     DateTime? @map("password_reset_expires")
   passwordResetRequested   Boolean   @default(false) @map("password_reset_requested")
   passwordResetRequestDate DateTime? @map("password_reset_request_date")
+  mustChangePassword       Boolean   @default(false) @map("must_change_password") // Force password change on first login
 
   // Session Management
   lastLoginAt  DateTime? @map("last_login_at")

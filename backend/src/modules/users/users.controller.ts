@@ -52,6 +52,17 @@ export class UsersController {
     return this.usersService.findAll({ skip, take, role, divisionId, search });
   }
 
+  /**
+   * GET /users/role-limits
+   * Mendapatkan informasi batas jumlah akun per role
+   */
+  @Get('role-limits')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN_LOGISTIK)
+  getRoleLimits() {
+    return this.usersService.getRoleAccountCounts();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);

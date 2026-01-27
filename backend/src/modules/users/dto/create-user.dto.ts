@@ -7,6 +7,8 @@ import {
   IsInt,
   IsArray,
   IsString,
+  MaxLength,
+  Matches,
 } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
@@ -15,9 +17,18 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Email wajib diisi' })
   email: string;
 
-  @IsNotEmpty({ message: 'Password wajib diisi' })
-  @MinLength(6, { message: 'Password minimal 6 karakter' })
-  password: string;
+  /**
+   * Password bersifat opsional saat membuat user baru.
+   * Jika tidak diisi, sistem akan menggunakan password standar (Trinity@2026)
+   * dan user wajib menggantinya saat login pertama kali.
+   */
+  @IsOptional()
+  @MinLength(8, { message: 'Password minimal 8 karakter' })
+  @MaxLength(128, { message: 'Password maksimal 128 karakter' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+    message: 'Password harus mengandung huruf besar, huruf kecil, dan angka',
+  })
+  password?: string;
 
   @IsNotEmpty({ message: 'Nama wajib diisi' })
   name: string;

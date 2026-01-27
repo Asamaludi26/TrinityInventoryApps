@@ -22,6 +22,7 @@ export const JWT_DEFAULT_EXPIRY = '7d';
 // Password
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_SALT_ROUNDS = 12;
+export const DEFAULT_USER_PASSWORD = 'Trinity@2026'; // Password standar untuk akun baru
 
 // File Upload
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -52,6 +53,14 @@ export const USER_ROLES = {
   ADMIN_PURCHASE: 'ADMIN_PURCHASE',
   STAFF: 'STAFF',
   TEKNISI: 'TEKNISI',
+} as const;
+
+// Role Account Limits
+export const ROLE_ACCOUNT_LIMITS: Record<string, number> = {
+  SUPER_ADMIN: 1,
+  ADMIN_LOGISTIK: 3,
+  ADMIN_PURCHASE: 3,
+  // STAFF, LEADER, TEKNISI tidak dibatasi
 } as const;
 
 // Permission Actions

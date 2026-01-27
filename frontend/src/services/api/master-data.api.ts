@@ -33,6 +33,21 @@ export const usersApi = {
     }
   },
 
+  /**
+   * Mendapatkan informasi batas jumlah akun per role
+   */
+  getRoleLimits: async (): Promise<
+    {
+      role: string;
+      displayName: string;
+      limit: number | null;
+      current: number;
+      available: number | null;
+    }[]
+  > => {
+    return apiClient.get("/users/role-limits");
+  },
+
   create: async (data: Omit<User, "id">): Promise<User> => {
     const payload = {
       ...data,

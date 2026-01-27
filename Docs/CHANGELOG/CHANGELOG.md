@@ -11,6 +11,22 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+#### Fitur Batasan Jumlah Akun Per Role (2026-01-27)
+
+- **Backend Role Limits**: Validasi jumlah akun maksimal per role (Super Admin: 1, Admin Logistik: 3, Admin Purchase: 3)
+- **Endpoint Role Limits**: `GET /api/v1/users/role-limits` untuk mendapatkan informasi batasan dan jumlah akun saat ini
+- **Frontend Role Limit Warning**: Peringatan visual saat role mendekati atau mencapai batas maksimal
+- **Dark Mode Fix - UserFormPage**: Perbaikan tampilan dark mode untuk semua elemen form pembuatan user
+
+> **Dokumentasi lengkap**: Lihat [2026-01-27_role-account-limits.md](Develop/backend/2026-01-27_role-account-limits.md)
+
+#### Fitur Password Standar untuk Akun Baru (2026-01-27)
+
+- **Password Standar**: Akun baru otomatis menggunakan password `Trinity@2026`
+- **Field mustChangePassword**: Database field untuk paksa user ganti password
+- **Info Box di UserFormPage**: Tampilan informasi password standar saat tambah akun baru
+- **AuthResponse Update**: Sertakan flag `mustChangePassword` dalam response login
+
 #### Fitur Kelola Akun - Validasi Real-time (2026-01-27)
 
 - **Endpoint Verifikasi Password**: `POST /api/users/:id/verify-password` untuk validasi password saat ini secara real-time
@@ -23,6 +39,32 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Validasi Password Tidak Boleh Sama**: Mencegah user menggunakan password yang sama dengan password saat ini
 
 ### Changed
+
+#### Implementasi Batasan Jumlah Akun Per Role (2026-01-27)
+
+- `app.constants.ts`: Tambah konstanta `ROLE_ACCOUNT_LIMITS` untuk batasan jumlah akun
+- `users.service.ts`: Tambah method `validateRoleAccountLimit()`, `getRoleAccountCounts()`, `getRoleDisplayName()`
+- `users.controller.ts`: Tambah endpoint `GET /users/role-limits` dengan guard SUPER_ADMIN dan ADMIN_LOGISTIK
+- `master-data.api.ts`: Tambah fungsi API `getRoleLimits()` di frontend
+- `UserFormPage.tsx`: Tambah role limit checking, warning display, dan perbaikan dark mode
+
+**Perubahan Perilaku**:
+
+- `create()`: Validasi batasan role sebelum membuat user baru
+- `update()`: Validasi batasan role saat mengubah role user
+- Response HTTP 409 (Conflict) jika batasan terlampaui
+
+#### Implementasi Password Standar (2026-01-27)
+
+- `prisma/schema.prisma`: Tambah field `mustChangePassword Boolean @default(false)`
+- `app.constants.ts`: Tambah konstanta `DEFAULT_USER_PASSWORD = 'Trinity@2026'`
+- `create-user.dto.ts`: Password jadi optional dengan validasi kompleksitas
+- `users.service.ts`: Logic default password dan set `mustChangePassword` flag
+- `auth.service.ts`: Sertakan `mustChangePassword` dalam response login
+- `UserFormPage.tsx`: Info box password standar dengan dark mode support
+- `types/index.ts`: Tambah `mustChangePassword` di interface User
+
+> **Dokumentasi lengkap**: Lihat [DEFAULT_PASSWORD_IMPLEMENTATION.md](06_FEATURES/02_USER_MANAGEMENT/DEFAULT_PASSWORD_IMPLEMENTATION.md)
 
 #### Perbaikan Bug & Refaktor Kelola Akun Saya (2026-01-27)
 

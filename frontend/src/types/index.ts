@@ -83,8 +83,9 @@ export interface User {
   role: UserRole;
   divisionId: number | null;
   permissions: Permission[];
-  passwordResetRequested?: boolean; // New Flag
-  passwordResetRequestDate?: string; // New Flag
+  passwordResetRequested?: boolean; // Flag untuk request reset password
+  passwordResetRequestDate?: string; // Tanggal request reset
+  mustChangePassword?: boolean; // Flag untuk paksa ganti password saat login pertama
 }
 
 export interface LoginResponse {
