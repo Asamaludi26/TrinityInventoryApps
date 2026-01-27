@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto'; // Import DTO baru
 import { UserRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -160,6 +161,8 @@ export class UsersService {
 
     const sanitized = this.sanitizeUserData(updateUserDto);
 
+    // Jika password disertakan dalam update biasa (updateUserDto), hash juga
+    // Namun sebaiknya gunakan changePassword untuk keamanan lebih baik
     if (sanitized.password) {
       sanitized.password = await bcrypt.hash(sanitized.password, 10);
     }
@@ -173,6 +176,43 @@ export class UsersService {
       data: updateData,
       include: {
         division: true,
+      },
+    });
+
+    const { password: _password, ...result } = updated;
+    return result;
+  }
+
+  // METHOD BARU: changePassword
+  async changePassword(id: number, changePasswordDto: ChangePasswordDto) {
+    // 1. Cari user
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Pengguna tidak ditemukan');
+    }
+
+    // 2. Verifikasi password lama
+    // Jika user punya password (misal bukan login social), cek validitasnya
+    if (user.password) {
+      const isMatch = await bcrypt.compare(changePasswordDto.currentPassword, user.password);
+      if (!isMatch) {
+        throw new BadRequestException('Kata sandi saat ini salah');
+      }
+    }
+
+    // 3. Hash password baru
+    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+
+    // 4. Update di database
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        password: hashedPassword,
+        // Opsional: revoke refresh token agar user harus login ulang
+        refreshToken: null,
       },
     });
 

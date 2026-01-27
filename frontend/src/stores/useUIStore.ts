@@ -6,13 +6,18 @@ import { WAMessagePayload } from "../services/whatsappIntegration"; // Import ti
 // Theme Mode
 export type ThemeMode = "light" | "dark";
 
+// Helper type untuk State Halaman (menggantikan any)
+// Menggunakan Record<string, unknown> memungkinkan objek apa pun tapi memaksa type checking saat digunakan
+export type PageState = Record<string, unknown>;
+
 interface UIState {
   activePage: Page;
   isPageLoading: boolean;
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
   theme: ThemeMode;
-  pageInitialState: any;
+  // FIX: Mengganti any dengan PageState | null
+  pageInitialState: PageState | null;
   highlightedItemId: string | null;
 
   // WA Simulation State
@@ -20,7 +25,8 @@ interface UIState {
   waModalData: WAMessagePayload | null;
 
   // Actions
-  setActivePage: (page: Page, initialState?: any) => void;
+  // FIX: Mengganti any dengan PageState | null
+  setActivePage: (page: Page, initialState?: PageState | null) => void;
   setPageLoading: (isLoading: boolean) => void;
   toggleSidebar: (isOpen?: boolean) => void;
   toggleSidebarCollapsed: (isCollapsed?: boolean) => void;

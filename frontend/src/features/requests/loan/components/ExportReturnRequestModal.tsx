@@ -12,21 +12,33 @@ import {
   BsLayoutTextWindowReverse,
 } from "react-icons/bs";
 
+// FIX: Definisi tipe spesifik untuk menggantikan 'any'
+type MappedReturnData = Record<string, string | number>;
+
+interface ExportHeader {
+  title: string;
+  metadata: Record<string, string>;
+}
+
 interface ExportReturnRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User;
   data: AssetReturn[];
   onConfirmExport: (
-    mappedData: any[],
+    mappedData: MappedReturnData[], // FIX: Ganti any[]
     filename: string,
-    extraHeader: any,
+    extraHeader: ExportHeader // FIX: Ganti any
   ) => void;
 }
 
-export const ExportReturnRequestModal: React.FC<
-  ExportReturnRequestModalProps
-> = ({ isOpen, onClose, currentUser, data, onConfirmExport }) => {
+export const ExportReturnRequestModal: React.FC<ExportReturnRequestModalProps> = ({
+  isOpen,
+  onClose,
+  currentUser,
+  data,
+  onConfirmExport,
+}) => {
   const [rangeType, setRangeType] = useState("all");
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -57,25 +69,26 @@ export const ExportReturnRequestModal: React.FC<
         }
         case "month":
           return (
-            itemDate.getMonth() === now.getMonth() &&
-            itemDate.getFullYear() === now.getFullYear()
+            itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear()
           );
         case "year":
           return itemDate.getFullYear() === now.getFullYear();
-        case "custom":
+        // FIX: Tambahkan kurung kurawal {} untuk membuat block scope pada case ini
+        case "custom": {
           if (!startDate || !endDate) return true;
           const start = new Date(startDate);
           start.setHours(0, 0, 0, 0);
           const end = new Date(endDate);
           end.setHours(23, 59, 59, 999);
           return itemDate >= start && itemDate <= end;
+        }
         default:
           return true;
       }
     });
   }, [data, rangeType, startDate, endDate]);
 
-  const prepareMappedData = (returns: AssetReturn[]) => {
+  const prepareMappedData = (returns: AssetReturn[]): MappedReturnData[] => {
     // Flatten items so each item is a row in CSV, repeating parent doc info
     return returns.flatMap((ret, index) => {
       const fmtDate = (d?: string | null) =>
@@ -109,15 +122,14 @@ export const ExportReturnRequestModal: React.FC<
     const filename = `LAPORAN_PENGEMBALIAN_${rangeType.toUpperCase()}_${timestamp}`;
     const mappedData = prepareMappedData(filteredData);
 
-    const extraHeader = {
+    const extraHeader: ExportHeader = {
       title: "LAPORAN PENGEMBALIAN ASET (RETURN)",
       metadata: {
         Akun: currentUser.name,
         "Range Waktu":
           rangeType === "custom"
             ? `${startDate?.toLocaleDateString("id-ID")} - ${endDate?.toLocaleDateString("id-ID")}`
-            : rangeOptions.find((o) => o.value === rangeType)?.label ||
-              rangeType,
+            : rangeOptions.find((o) => o.value === rangeType)?.label || rangeType,
         "Tanggal Cetak": now.toLocaleDateString("id-ID", {
           day: "2-digit",
           month: "long",
@@ -131,21 +143,14 @@ export const ExportReturnRequestModal: React.FC<
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Ekspor Laporan Pengembalian"
-      size="lg"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Ekspor Laporan Pengembalian" size="lg">
       <div className="space-y-5">
         <div className="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-xl border-b-2 border-primary-500 relative overflow-hidden shadow-sm">
           <div className="flex-shrink-0 p-2 bg-white/5 rounded-lg border border-white/10">
             <BsLayoutTextWindowReverse className="w-6 h-6 text-primary-500" />
           </div>
           <div className="relative z-10">
-            <h4 className="font-bold text-base tracking-tight">
-              Konfigurasi Ekspor CSV
-            </h4>
+            <h4 className="font-bold text-base tracking-tight">Konfigurasi Ekspor CSV</h4>
             <p className="text-[11px] text-slate-400 font-medium opacity-90">
               Dokumen akan diunduh dalam format tabel standar Excel.
             </p>
@@ -159,11 +164,7 @@ export const ExportReturnRequestModal: React.FC<
               Rentang Waktu Laporan
             </label>
             <div className="space-y-3">
-              <CustomSelect
-                options={rangeOptions}
-                value={rangeType}
-                onChange={setRangeType}
-              />
+              <CustomSelect options={rangeOptions} value={rangeType} onChange={setRangeType} />
 
               {rangeType === "custom" && (
                 <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg animate-fade-in-up">
@@ -181,11 +182,7 @@ export const ExportReturnRequestModal: React.FC<
                     <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 ml-1">
                       Sampai
                     </label>
-                    <DatePicker
-                      id="export-end"
-                      selectedDate={endDate}
-                      onDateChange={setEndDate}
-                    />
+                    <DatePicker id="export-end" selectedDate={endDate} onDateChange={setEndDate} />
                   </div>
                 </div>
               )}
@@ -200,9 +197,7 @@ export const ExportReturnRequestModal: React.FC<
             <div className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
               <Avatar name={currentUser.name} className="w-9 h-9 shadow-sm" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-gray-900 truncate">
-                  {currentUser.name}
-                </p>
+                <p className="text-sm font-bold text-gray-900 truncate">{currentUser.name}</p>
                 <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mt-0.5">
                   {currentUser.role} &bull; TRINITI MEDIA
                 </p>
@@ -229,9 +224,7 @@ export const ExportReturnRequestModal: React.FC<
                 </span>
                 <p className="text-xl font-bold text-white leading-none">
                   {filteredData.length}
-                  <span className="text-[10px] font-medium text-slate-500 ml-1.5">
-                    dokumen
-                  </span>
+                  <span className="text-[10px] font-medium text-slate-500 ml-1.5">dokumen</span>
                 </p>
               </div>
             </div>

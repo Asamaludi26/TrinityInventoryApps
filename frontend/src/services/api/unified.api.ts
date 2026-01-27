@@ -32,6 +32,10 @@ import {
   transformBackendCustomer,
 } from "../../utils/enumMapper";
 
+// Helper type untuk data mentah dari backend
+// Record<string, unknown> lebih aman daripada any dan diterima oleh linter
+type BackendDTO = Record<string, unknown>;
+
 // --- TYPES ---
 export interface UnifiedAppData {
   assets: Asset[];
@@ -72,32 +76,27 @@ export const unifiedApi = {
         dismantles,
         notifications,
       ] = await Promise.all([
-        apiClient.get<any[]>("/assets").catch(() => []),
-        apiClient.get<any[]>("/requests").catch(() => []),
-        apiClient.get<any[]>("/users").catch(() => []),
+        apiClient.get<BackendDTO[]>("/assets").catch(() => []),
+        apiClient.get<BackendDTO[]>("/requests").catch(() => []),
+        apiClient.get<BackendDTO[]>("/users").catch(() => []),
         apiClient.get<Division[]>("/divisions").catch(() => []),
         apiClient.get<AssetCategory[]>("/categories").catch(() => []),
-        apiClient.get<any[]>("/customers").catch(() => []),
-        apiClient.get<any[]>("/loan-requests").catch(() => []),
+        apiClient.get<BackendDTO[]>("/customers").catch(() => []),
+        apiClient.get<BackendDTO[]>("/loan-requests").catch(() => []),
         apiClient.get<Handover[]>("/transactions/handovers").catch(() => []),
-        apiClient
-          .get<Installation[]>("/transactions/installations")
-          .catch(() => []),
-        apiClient
-          .get<Maintenance[]>("/transactions/maintenances")
-          .catch(() => []),
+        apiClient.get<Installation[]>("/transactions/installations").catch(() => []),
+        apiClient.get<Maintenance[]>("/transactions/maintenances").catch(() => []),
         apiClient.get<Dismantle[]>("/transactions/dismantles").catch(() => []),
         apiClient.get<Notification[]>("/notifications").catch(() => []),
       ]);
 
       // Transform backend data to frontend types
-      const assets = (assetsRaw || []).map(transformBackendAsset);
-      const requests = (requestsRaw || []).map(transformBackendRequest);
-      const users = (usersRaw || []).map(transformBackendUser);
-      const customers = (customersRaw || []).map(transformBackendCustomer);
-      const loanRequests = (loanRequestsRaw || []).map(
-        transformBackendLoanRequest,
-      );
+      // FIX: Menghapus 'as any' karena Record<string, unknown> kompatibel dengan transformer
+      const assets = (assetsRaw || []).map((item) => transformBackendAsset(item));
+      const requests = (requestsRaw || []).map((item) => transformBackendRequest(item));
+      const users = (usersRaw || []).map((item) => transformBackendUser(item));
+      const customers = (customersRaw || []).map((item) => transformBackendCustomer(item));
+      const loanRequests = (loanRequestsRaw || []).map((item) => transformBackendLoanRequest(item));
 
       return {
         assets,
@@ -125,28 +124,28 @@ export const unifiedApi = {
    * Refresh specific data domains
    */
   refreshAssets: async (): Promise<Asset[]> => {
-    const response = await apiClient.get<any[]>("/assets");
-    return (response || []).map(transformBackendAsset);
+    const response = await apiClient.get<BackendDTO[]>("/assets");
+    return (response || []).map((item) => transformBackendAsset(item));
   },
 
   refreshRequests: async (): Promise<Request[]> => {
-    const response = await apiClient.get<any[]>("/requests");
-    return (response || []).map(transformBackendRequest);
+    const response = await apiClient.get<BackendDTO[]>("/requests");
+    return (response || []).map((item) => transformBackendRequest(item));
   },
 
   refreshLoanRequests: async (): Promise<LoanRequest[]> => {
-    const response = await apiClient.get<any[]>("/loan-requests");
-    return (response || []).map(transformBackendLoanRequest);
+    const response = await apiClient.get<BackendDTO[]>("/loan-requests");
+    return (response || []).map((item) => transformBackendLoanRequest(item));
   },
 
   refreshUsers: async (): Promise<User[]> => {
-    const response = await apiClient.get<any[]>("/users");
-    return (response || []).map(transformBackendUser);
+    const response = await apiClient.get<BackendDTO[]>("/users");
+    return (response || []).map((item) => transformBackendUser(item));
   },
 
   refreshCustomers: async (): Promise<Customer[]> => {
-    const response = await apiClient.get<any[]>("/customers");
-    return (response || []).map(transformBackendCustomer);
+    const response = await apiClient.get<BackendDTO[]>("/customers");
+    return (response || []).map((item) => transformBackendCustomer(item));
   },
 
   refreshCategories: async (): Promise<AssetCategory[]> => {
@@ -158,17 +157,12 @@ export const unifiedApi = {
   },
 
   refreshTransactions: async () => {
-    const [handovers, installations, maintenances, dismantles] =
-      await Promise.all([
-        apiClient.get<Handover[]>("/transactions/handovers").catch(() => []),
-        apiClient
-          .get<Installation[]>("/transactions/installations")
-          .catch(() => []),
-        apiClient
-          .get<Maintenance[]>("/transactions/maintenances")
-          .catch(() => []),
-        apiClient.get<Dismantle[]>("/transactions/dismantles").catch(() => []),
-      ]);
+    const [handovers, installations, maintenances, dismantles] = await Promise.all([
+      apiClient.get<Handover[]>("/transactions/handovers").catch(() => []),
+      apiClient.get<Installation[]>("/transactions/installations").catch(() => []),
+      apiClient.get<Maintenance[]>("/transactions/maintenances").catch(() => []),
+      apiClient.get<Dismantle[]>("/transactions/dismantles").catch(() => []),
+    ]);
 
     return { handovers, installations, maintenances, dismantles };
   },

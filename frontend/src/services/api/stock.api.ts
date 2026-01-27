@@ -9,6 +9,9 @@
 import { apiClient } from "./client";
 import type { StockMovement, MovementType } from "../../types";
 
+// Helper Type untuk data mentah
+type BackendDTO = Record<string, unknown>;
+
 // --- Type Mapping Utilities ---
 
 // Backend MovementType -> Frontend MovementType
@@ -52,9 +55,11 @@ const toBackendMovementType = (type: MovementType): BackendMovementType => {
 };
 
 // Transform backend stock movement to frontend
-const transformStockMovement = (data: any): StockMovement => ({
-  ...data,
-  type: data.type ? fromBackendMovementType(data.type) : undefined,
+const transformStockMovement = (data: BackendDTO): StockMovement => ({
+  ...(data as unknown as StockMovement),
+  type: data.type
+    ? fromBackendMovementType(data.type as BackendMovementType)
+    : ("OUT_ADJUSTMENT" as MovementType), // Fallback aman
 });
 
 export interface StockMovementFilter {
@@ -87,21 +92,18 @@ export const stockApi = {
    * Get all stock movements
    * Note: This endpoint may need to be added to backend if not exists
    */
-  getMovements: async (
-    filters?: StockMovementFilter,
-  ): Promise<StockMovement[]> => {
+  getMovements: async (filters?: StockMovementFilter): Promise<StockMovement[]> => {
     const params = new URLSearchParams();
     if (filters) {
       if (filters.assetName) params.append("assetName", filters.assetName);
       if (filters.brand) params.append("brand", filters.brand);
-      if (filters.type)
-        params.append("type", toBackendMovementType(filters.type));
+      if (filters.type) params.append("type", toBackendMovementType(filters.type));
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
     }
     const query = params.toString();
-    const data = await apiClient.get<any[]>(
-      `/assets/stock-movements${query ? `?${query}` : ""}`,
+    const data = await apiClient.get<BackendDTO[]>(
+      `/assets/stock-movements${query ? `?${query}` : ""}`
     );
     return data.map(transformStockMovement);
   },
@@ -111,9 +113,7 @@ export const stockApi = {
    * Uses stock-summary endpoint from assets controller
    */
   getLedger: async (): Promise<StockLedgerItem[]> => {
-    const data = await apiClient.get<StockSummaryItem[]>(
-      "/assets/stock-summary",
-    );
+    const data = await apiClient.get<StockSummaryItem[]>("/assets/stock-summary");
     // Transform stock summary to ledger format
     return data.map((item) => ({
       assetName: item.name,
@@ -135,15 +135,13 @@ export const stockApi = {
    * Record a new stock movement (consume stock)
    */
   recordMovement: async (
-    data: Omit<StockMovement, "id" | "balanceAfter">,
+    data: Omit<StockMovement, "id" | "balanceAfter">
   ): Promise<StockMovement> => {
     const payload = {
       ...data,
-      type: data.type
-        ? toBackendMovementType(data.type as MovementType)
-        : undefined,
+      type: data.type ? toBackendMovementType(data.type as MovementType) : undefined,
     };
-    const result = await apiClient.post<any>("/assets/consume", payload);
+    const result = await apiClient.post<BackendDTO>("/assets/consume", payload);
     return transformStockMovement(result);
   },
 
@@ -159,7 +157,7 @@ export const stockApi = {
     reason: string;
     referenceType?: string;
     referenceId?: string;
-  }): Promise<any> => {
+  }): Promise<Record<string, unknown>> => {
     return apiClient.post("/assets/consume", data);
   },
 
@@ -167,17 +165,12 @@ export const stockApi = {
    * Get stock history for specific item
    * Uses assets endpoint with filters
    */
-  getItemHistory: async (
-    assetName: string,
-    brand: string,
-  ): Promise<StockMovement[]> => {
+  getItemHistory: async (assetName: string, brand: string): Promise<StockMovement[]> => {
     const params = new URLSearchParams({
       assetName: assetName,
       brand: brand,
     });
-    const data = await apiClient.get<any[]>(
-      `/assets/stock-movements?${params.toString()}`,
-    );
+    const data = await apiClient.get<BackendDTO[]>(`/assets/stock-movements?${params.toString()}`);
     return data.map(transformStockMovement);
   },
 
@@ -187,7 +180,7 @@ export const stockApi = {
   checkAvailability: async (
     assetName: string,
     brand: string,
-    quantity: number,
+    quantity: number
   ): Promise<{
     available: boolean;
     currentBalance: number;

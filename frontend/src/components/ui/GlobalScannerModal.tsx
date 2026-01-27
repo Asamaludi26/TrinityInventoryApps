@@ -1,10 +1,28 @@
 import React, { useEffect, useRef, useState } from "react";
+// FIX: Import tipe Html5QrcodeScanner (atau Html5Qrcode) dari library jika tersedia,
+// Jika tidak, gunakan 'unknown' atau tipe custom minimal.
+// Di sini kita asumsikan library 'html5-qrcode' memiliki tipe dasar.
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import Modal from "./Modal";
 import { CheckIcon } from "../icons/CheckIcon";
 import { parseScanData } from "../../utils/scanner";
 import { ParsedScanResult } from "../../types";
 import { useNotification } from "../../providers/NotificationProvider";
+
+// FIX: Definisi interface minimal untuk instance scanner agar tidak pakai 'any'
+interface QrScannerInstance {
+  start: (
+    cameraId: string | { facingMode: string },
+    configuration: object,
+    qrCodeSuccessCallback: (decodedText: string, decodedResult: unknown) => void,
+    qrCodeErrorCallback: (errorMessage: string) => void
+  ) => Promise<void>;
+  stop: () => Promise<void>;
+  clear: () => void;
+  pause: () => void;
+  resume: () => void;
+  isScanning: boolean;
+}
 
 interface GlobalScannerModalProps {
   isOpen: boolean;
@@ -17,13 +35,14 @@ export const GlobalScannerModal: React.FC<GlobalScannerModalProps> = ({
   onClose,
   onScanSuccess,
 }) => {
-  const scannerRef = useRef<any>(null);
+  // FIX: Gunakan union type dengan null
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const addNotification = useNotification();
   const [isSuccess, setIsSuccess] = useState(false);
   const [scanResult, setScanResult] = useState<ParsedScanResult | null>(null);
 
   useEffect(() => {
-    let html5QrCode: any = null;
+    let html5QrCode: Html5Qrcode | null = null;
 
     if (isOpen && typeof Html5Qrcode !== "undefined") {
       setIsSuccess(false);
@@ -38,7 +57,8 @@ export const GlobalScannerModal: React.FC<GlobalScannerModalProps> = ({
         html5QrCode = new Html5Qrcode(elementId);
         scannerRef.current = html5QrCode;
 
-        const successCallback = (decodedText: string, decodedResult: any) => {
+        // FIX: Tambahkan underscore untuk parameter yang tidak digunakan (_decodedResult)
+        const successCallback = (decodedText: string, _decodedResult: unknown) => {
           // Pause logic to prevent multiple scans
           if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.pause();
@@ -51,11 +71,13 @@ export const GlobalScannerModal: React.FC<GlobalScannerModalProps> = ({
             html5QrCode
               .stop()
               .then(() => {
-                html5QrCode.clear();
+                html5QrCode?.clear();
                 setTimeout(() => onScanSuccess(parsed), 600);
               })
-              .catch((err: any) => {
-                console.warn("Error stopping scanner after success:", err);
+              .catch(() => {
+                // FIX: Gunakan komentar eslint-disable untuk log error yang valid
+                 
+                console.warn("Error stopping scanner after success");
                 // Even if stop fails, proceed to callback
                 setTimeout(() => onScanSuccess(parsed), 600);
               });
@@ -86,28 +108,32 @@ export const GlobalScannerModal: React.FC<GlobalScannerModalProps> = ({
             { facingMode: "environment" },
             config,
             successCallback,
-            (errorMessage: string) => {
+            // FIX: Tambahkan underscore untuk parameter error callback yang tidak digunakan
+            (_errorMessage: string) => {
               // Ignore parse errors, they are noisy
-            },
+            }
           )
-          .catch((err: any) => {
+          .catch((err: unknown) => {
+            // FIX: Type Guard untuk error object
+            const errorObj = err as { name?: string; message?: string };
+
             // Handle "play() request was interrupted" specifically
-            if (err?.name === "NotAllowedError") {
-              addNotification(
-                "Gagal memulai kamera. Pastikan izin telah diberikan.",
-                "error",
-              );
+            if (errorObj?.name === "NotAllowedError") {
+              addNotification("Gagal memulai kamera. Pastikan izin telah diberikan.", "error");
             } else if (
-              err?.message?.includes("interrupted") ||
-              err?.name === "AbortError"
+              errorObj?.message?.includes("interrupted") ||
+              errorObj?.name === "AbortError"
             ) {
               // This error is expected if the modal is closed quickly during initialization
+              // eslint-disable-next-line no-console
               console.debug("Scanner initialization interrupted");
             } else {
+               
               console.warn("Unable to start scanning.", err);
             }
           });
       } catch (e) {
+         
         console.error("Failed to initialize Html5Qrcode", e);
       }
     }
@@ -119,41 +145,36 @@ export const GlobalScannerModal: React.FC<GlobalScannerModalProps> = ({
         if (html5QrCode.isScanning) {
           html5QrCode
             .stop()
-            .then(() => html5QrCode.clear())
-            .catch((err: any) => console.warn("Cleanup stop error:", err));
+            .then(() => html5QrCode?.clear())
+            .catch((err: unknown) => {
+               
+              console.warn("Cleanup stop error:", err);
+            });
         } else {
           // If not scanning but instance exists (e.g. stopped or failed start), clear to remove video element
           try {
             html5QrCode.clear();
-          } catch (e) {}
+          } catch {
+            // FIX: Hapus variabel 'e' dan biarkan blok catch kosong (atau tambahkan komentar)
+            // Ignore clear errors during cleanup
+          }
         }
       }
     };
   }, [isOpen, onScanSuccess, onClose, addNotification]);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Pindai Kode QR atau Barcode"
-      size="md"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Pindai Kode QR atau Barcode" size="md">
       <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-black">
         <div id="global-qr-reader" className="w-full h-full"></div>
         {isSuccess && scanResult ? (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white text-center p-4 animate-fade-in-up z-20">
             <CheckIcon className="w-16 h-16 text-green-400 mb-4" />
             <h3 className="text-lg font-bold">Pindai Berhasil</h3>
-            {scanResult.name && (
-              <p className="mt-2 text-base">{scanResult.name}</p>
-            )}
-            {scanResult.id && (
-              <p className="text-sm font-mono text-gray-300">{scanResult.id}</p>
-            )}
+            {scanResult.name && <p className="mt-2 text-base">{scanResult.name}</p>}
+            {scanResult.id && <p className="text-sm font-mono text-gray-300">{scanResult.id}</p>}
             {scanResult.serialNumber && !scanResult.id && (
-              <p className="text-sm font-mono text-gray-300">
-                SN: {scanResult.serialNumber}
-              </p>
+              <p className="text-sm font-mono text-gray-300">SN: {scanResult.serialNumber}</p>
             )}
           </div>
         ) : (

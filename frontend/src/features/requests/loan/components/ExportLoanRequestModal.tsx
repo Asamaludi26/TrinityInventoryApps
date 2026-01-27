@@ -1,27 +1,35 @@
 import React, { useState, useMemo } from "react";
 import { LoanRequest, User } from "../../../../types";
 import Modal from "../../../../components/ui/Modal";
-import { Avatar } from "../../../../components/ui/Avatar";
+// FIX: Hapus Avatar (unused)
 import DatePicker from "../../../../components/ui/DatePicker";
 import { CustomSelect } from "../../../../components/ui/CustomSelect";
 import {
-  BsFileEarmarkSpreadsheet,
+  // FIX: Hapus BsFileEarmarkSpreadsheet & BsPersonBadge (unused)
   BsTable,
   BsCalendarRange,
-  BsPersonBadge,
   BsInfoCircleFill,
   BsLayoutTextWindowReverse,
 } from "react-icons/bs";
+
+// FIX: Definisi tipe
+type MappedLoanData = Record<string, string | number>;
+
+interface ExportHeader {
+  title: string;
+  metadata: Record<string, string>;
+}
 
 interface ExportLoanRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User;
   data: LoanRequest[];
+  // FIX: Ganti any dengan tipe spesifik
   onConfirmExport: (
-    mappedData: any[],
+    mappedData: MappedLoanData[],
     filename: string,
-    extraHeader: any,
+    extraHeader: ExportHeader
   ) => void;
 }
 
@@ -62,25 +70,26 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
         }
         case "month":
           return (
-            itemDate.getMonth() === now.getMonth() &&
-            itemDate.getFullYear() === now.getFullYear()
+            itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear()
           );
         case "year":
           return itemDate.getFullYear() === now.getFullYear();
-        case "custom":
+        // FIX: Tambahkan kurung kurawal {} untuk block scope
+        case "custom": {
           if (!startDate || !endDate) return true;
           const start = new Date(startDate);
           start.setHours(0, 0, 0, 0);
           const end = new Date(endDate);
           end.setHours(23, 59, 59, 999);
           return itemDate >= start && itemDate <= end;
+        }
         default:
           return true;
       }
     });
   }, [data, rangeType, startDate, endDate]);
 
-  const prepareMappedData = (requests: LoanRequest[]) => {
+  const prepareMappedData = (requests: LoanRequest[]): MappedLoanData[] => {
     return requests.map((req, index) => {
       const itemsFormatted = req.items
         .map((i) => {
@@ -122,15 +131,14 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
     const filename = `LAPORAN_PINJAM_${rangeType.toUpperCase()}_${timestamp}`;
     const mappedData = prepareMappedData(filteredData);
 
-    const extraHeader = {
+    const extraHeader: ExportHeader = {
       title: "LAPORAN REQUEST PEMINJAMAN ASET",
       metadata: {
         Akun: currentUser.name,
         "Range Waktu":
           rangeType === "custom"
             ? `${startDate?.toLocaleDateString("id-ID")} - ${endDate?.toLocaleDateString("id-ID")}`
-            : rangeOptions.find((o) => o.value === rangeType)?.label ||
-              rangeType,
+            : rangeOptions.find((o) => o.value === rangeType)?.label || rangeType,
         "Tanggal Cetak": now.toLocaleDateString("id-ID", {
           day: "2-digit",
           month: "long",
@@ -144,12 +152,7 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Ekspor Laporan Peminjaman"
-      size="lg"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Ekspor Laporan Peminjaman" size="lg">
       <div className="space-y-5">
         {/* Banner Section */}
         <div className="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-xl border-b-2 border-primary-500 relative overflow-hidden shadow-sm">
@@ -157,9 +160,7 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
             <BsLayoutTextWindowReverse className="w-6 h-6 text-primary-500" />
           </div>
           <div className="relative z-10">
-            <h4 className="font-bold text-base tracking-tight">
-              Konfigurasi Ekspor CSV
-            </h4>
+            <h4 className="font-bold text-base tracking-tight">Konfigurasi Ekspor CSV</h4>
             <p className="text-[11px] text-slate-400 font-medium opacity-90">
               Dokumen akan diunduh dalam format tabel standar Excel.
             </p>
@@ -174,11 +175,7 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
               Rentang Waktu Laporan
             </label>
             <div className="space-y-3">
-              <CustomSelect
-                options={rangeOptions}
-                value={rangeType}
-                onChange={setRangeType}
-              />
+              <CustomSelect options={rangeOptions} value={rangeType} onChange={setRangeType} />
 
               {rangeType === "custom" && (
                 <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg animate-fade-in-up">
@@ -196,11 +193,7 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
                     <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 ml-1">
                       Sampai
                     </label>
-                    <DatePicker
-                      id="export-end"
-                      selectedDate={endDate}
-                      onDateChange={setEndDate}
-                    />
+                    <DatePicker id="export-end" selectedDate={endDate} onDateChange={setEndDate} />
                   </div>
                 </div>
               )}
@@ -224,9 +217,7 @@ export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
                 </span>
                 <p className="text-xl font-bold text-white leading-none">
                   {filteredData.length}
-                  <span className="text-[10px] font-medium text-slate-500 ml-1.5">
-                    baris
-                  </span>
+                  <span className="text-[10px] font-medium text-slate-500 ml-1.5">baris</span>
                 </p>
               </div>
             </div>

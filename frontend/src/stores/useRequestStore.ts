@@ -38,15 +38,11 @@ interface RequestState {
       | "rejectedBy"
       | "rejectionDate"
       | "rejectedByDivision"
-    >,
+    >
   ) => Promise<void>;
   updateRequest: (id: string, data: Partial<Request>) => Promise<void>;
   deleteRequest: (id: string) => Promise<void>;
-  updateRequestRegistration: (
-    requestId: string,
-    itemId: number,
-    count: number,
-  ) => Promise<boolean>;
+  updateRequestRegistration: (requestId: string, itemId: number, count: number) => Promise<boolean>;
 
   addLoanRequest: (request: LoanRequest) => Promise<void>;
   updateLoanRequest: (id: string, data: Partial<LoanRequest>) => Promise<void>;
@@ -56,9 +52,18 @@ interface RequestState {
     payload: {
       approver: string;
       approvalDate: string;
-      assignedAssetIds: any;
-      itemStatuses: any;
-    },
+      // FIX: Ganti any dengan Record<number, string[]>
+      assignedAssetIds: Record<number, string[]>;
+      // FIX: Ganti any dengan struktur status item yang valid
+      itemStatuses: Record<
+        number,
+        {
+          status: "approved" | "rejected" | "partial";
+          reason?: string;
+          approvedQuantity?: number;
+        }
+      >;
+    }
   ) => Promise<void>;
 
   addReturn: (returnData: AssetReturn) => Promise<void>;
@@ -67,7 +72,7 @@ interface RequestState {
   processReturnBatch: (
     returnDocId: string,
     acceptedAssetIds: string[],
-    approverName: string,
+    approverName: string
   ) => Promise<void>;
   submitReturnRequest: (
     loanRequestId: string,
@@ -75,7 +80,7 @@ interface RequestState {
       assetId: string;
       condition: AssetCondition;
       notes: string;
-    }[],
+    }[]
   ) => Promise<void>;
 }
 
@@ -84,7 +89,7 @@ const sendSystemNotif = (
   type: string,
   refId: string,
   message: string,
-  isRole = false,
+  isRole = false
 ) => {
   const users = useMasterDataStore.getState().users;
   const currentUser = useAuthStore.getState().currentUser;
@@ -99,7 +104,7 @@ const sendSystemNotif = (
       (u) =>
         u.role === recipientRoleOrName ||
         (recipientRoleOrName === "Admin" &&
-          ["Admin Logistik", "Admin Purchase", "Super Admin"].includes(u.role)),
+          ["Admin Logistik", "Admin Purchase", "Super Admin"].includes(u.role))
     );
   } else {
     const user = users.find((u) => u.name === recipientRoleOrName);
@@ -162,42 +167,36 @@ export const useRequestStore = create<RequestState>((set, get) => ({
           "REQUEST_CREATED",
           createdRequest.id,
           "membuat request (Stok Tersedia, Siap Handover)",
-          true,
+          true
         );
         useNotificationStore
           .getState()
           .addToast(
             "Request dibuat. Stok tersedia, silakan hubungi Logistik untuk pengambilan.",
-            "success",
+            "success"
           );
       } else if (status === ItemStatus.COMPLETED) {
         useNotificationStore
           .getState()
-          .addToast(
-            "Request selesai otomatis (Stok Restock Tersedia).",
-            "success",
-          );
+          .addToast("Request selesai otomatis (Stok Restock Tersedia).", "success");
       } else {
         sendSystemNotif(
           "Admin Logistik",
           "REQUEST_CREATED",
           createdRequest.id,
           "membuat permintaan aset baru (Butuh Pengadaan/Review)",
-          true,
+          true
         );
         useNotificationStore
           .getState()
-          .addToast(
-            "Request berhasil dibuat dan menunggu persetujuan.",
-            "success",
-          );
+          .addToast("Request berhasil dibuat dan menunggu persetujuan.", "success");
       }
       sendSystemNotif(
         "Super Admin",
         "REQUEST_CREATED",
         createdRequest.id,
         "membuat permintaan aset baru",
-        true,
+        true
       );
     } catch (error) {
       console.error("[RequestStore] addRequest failed:", error);
@@ -221,22 +220,16 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             "REQUEST_LOGISTIC_APPROVED",
             id,
             "menyetujui tahap logistik, mohon proses pembelian",
-            true,
+            true
           );
-          sendSystemNotif(
-            requester,
-            "STATUS_CHANGE",
-            id,
-            "telah disetujui oleh Logistik",
-            false,
-          );
+          sendSystemNotif(requester, "STATUS_CHANGE", id, "telah disetujui oleh Logistik", false);
         } else if (data.status === ItemStatus.AWAITING_CEO_APPROVAL) {
           sendSystemNotif(
             "Super Admin",
             "REQUEST_AWAITING_FINAL_APPROVAL",
             id,
             "membutuhkan persetujuan final",
-            true,
+            true
           );
         } else if (data.status === ItemStatus.APPROVED) {
           sendSystemNotif(
@@ -244,22 +237,16 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             "REQUEST_FULLY_APPROVED",
             id,
             "telah disetujui final. Silakan proses PO",
-            true,
+            true
           );
-          sendSystemNotif(
-            requester,
-            "REQUEST_APPROVED",
-            id,
-            "telah disetujui sepenuhnya",
-            false,
-          );
+          sendSystemNotif(requester, "REQUEST_APPROVED", id, "telah disetujui sepenuhnya", false);
         } else if (data.status === ItemStatus.REJECTED) {
           sendSystemNotif(
             requester,
             "REQUEST_REJECTED",
             id,
             `telah ditolak. Alasan: ${data.rejectionReason || "-"}`,
-            false,
+            false
           );
         } else if (data.status === ItemStatus.ARRIVED) {
           sendSystemNotif(
@@ -267,14 +254,14 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             "STATUS_CHANGE",
             id,
             "Barang telah tiba. Mohon catat aset.",
-            true,
+            true
           );
           sendSystemNotif(
             requester,
             "STATUS_CHANGE",
             id,
             "Barang pesanan telah tiba di gudang",
-            false,
+            false
           );
         }
       }
@@ -312,8 +299,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     let isFullyComplete = true;
     request.items.forEach((item) => {
       const status = request.itemStatuses?.[item.id];
-      if (status?.status === "rejected" || status?.status === "stock_allocated")
-        return;
+      if (status?.status === "rejected" || status?.status === "stock_allocated") return;
       const approvedQty = status?.approvedQuantity ?? item.quantity;
       const regQty = updatedRegistered[item.id] || 0;
       if (regQty < approvedQty) isFullyComplete = false;
@@ -342,9 +328,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       isRegistered: isRegisteredFlag,
       // Jika completed langsung, isi completion data
       completionDate:
-        nextStatus === ItemStatus.COMPLETED
-          ? new Date().toISOString()
-          : request.completionDate,
+        nextStatus === ItemStatus.COMPLETED ? new Date().toISOString() : request.completionDate,
       completedBy:
         nextStatus === ItemStatus.COMPLETED
           ? useAuthStore.getState().currentUser?.name
@@ -373,7 +357,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
           "REQUEST_COMPLETED",
           requestId,
           "Aset telah diregistrasi dan siap diserahterimakan",
-          false,
+          false
         );
       }
     }
@@ -395,13 +379,15 @@ export const useRequestStore = create<RequestState>((set, get) => ({
   addLoanRequest: async (request) => {
     try {
       const createdLoan = await loansApi.create(request);
-      set((state) => ({ loanRequests: [createdLoan, ...state.loanRequests] }));
+      set((state) => ({
+        loanRequests: [createdLoan, ...state.loanRequests],
+      }));
       sendSystemNotif(
         "Admin Logistik",
         "REQUEST_CREATED",
         createdLoan.id,
         "membuat request pinjam aset",
-        true,
+        true
       );
     } catch (error) {
       console.error("[RequestStore] addLoanRequest failed:", error);
@@ -414,9 +400,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       const oldReq = get().loanRequests.find((r) => r.id === id);
       const updatedLoan = await loansApi.update(id, data);
       set((state) => ({
-        loanRequests: state.loanRequests.map((r) =>
-          r.id === id ? updatedLoan : r,
-        ),
+        loanRequests: state.loanRequests.map((r) => (r.id === id ? updatedLoan : r)),
       }));
 
       if (oldReq && data.status && oldReq.status !== data.status) {
@@ -426,7 +410,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             "REQUEST_REJECTED",
             id,
             "Request pinjaman ditolak",
-            false,
+            false
           );
         } else if (data.status === LoanRequestStatus.RETURNED) {
           sendSystemNotif(
@@ -434,7 +418,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
             "STATUS_CHANGE",
             id,
             "Pengembalian aset telah dikonfirmasi selesai",
-            false,
+            false
           );
         }
       }
@@ -448,9 +432,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     try {
       const updatedRequest = await loansApi.approve(id, payload);
       set((state) => ({
-        loanRequests: state.loanRequests.map((r) =>
-          r.id === id ? updatedRequest : r,
-        ),
+        loanRequests: state.loanRequests.map((r) => (r.id === id ? updatedRequest : r)),
       }));
       await useAssetStore.getState().fetchAssets();
 
@@ -461,7 +443,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
           "REQUEST_APPROVED",
           id,
           "Request pinjaman disetujui. Aset siap diambil",
-          false,
+          false
         );
       }
     } catch (error) {
@@ -491,7 +473,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         "STATUS_CHANGE",
         createdReturn.docNumber,
         `mengajukan pengembalian aset (Ref: ${createdReturn.loanRequestId})`,
-        true,
+        true
       );
     } catch (error) {
       console.error("[RequestStore] addReturn failed:", error);
@@ -517,8 +499,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
     const { addReturn, updateLoanRequest, returns, loanRequests } = get();
 
     const loanRequest = loanRequests.find((lr) => lr.id === loanRequestId);
-    if (!loanRequest || !currentUser)
-      throw new Error("Request atau pengguna tidak ditemukan.");
+    if (!loanRequest || !currentUser) throw new Error("Request atau pengguna tidak ditemukan.");
 
     const today = new Date();
     const returnDocNumber = generateDocumentNumber("RR", returns, today);
@@ -552,9 +533,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       });
     }
 
-    useUIStore
-      .getState()
-      .setActivePage("request-pinjam", { initialTab: "returns" });
+    useUIStore.getState().setActivePage("request-pinjam", { initialTab: "returns" });
     useUIStore.getState().setHighlightOnReturn(newReturnDoc.id);
   },
 
@@ -566,18 +545,12 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       const currentLoanRequests = get().loanRequests;
       const { updateAsset, updateAssetBatch } = useAssetStore.getState();
 
-      const returnDocIndex = currentReturns.findIndex(
-        (r) => r.id === returnDocId,
-      );
-      if (returnDocIndex === -1)
-        throw new Error("Dokumen pengembalian tidak ditemukan.");
+      const returnDocIndex = currentReturns.findIndex((r) => r.id === returnDocId);
+      if (returnDocIndex === -1) throw new Error("Dokumen pengembalian tidak ditemukan.");
 
       const returnDoc = currentReturns[returnDocIndex];
-      const loanRequest = currentLoanRequests.find(
-        (r) => r.id === returnDoc.loanRequestId,
-      );
-      if (!loanRequest)
-        throw new Error("Request pinjaman terkait tidak ditemukan.");
+      const loanRequest = currentLoanRequests.find((r) => r.id === returnDoc.loanRequestId);
+      if (!loanRequest) throw new Error("Request pinjaman terkait tidak ditemukan.");
 
       const updatedItems = returnDoc.items.map((item) => {
         if (acceptedAssetIds.includes(item.assetId)) {
@@ -616,11 +589,9 @@ export const useRequestStore = create<RequestState>((set, get) => ({
 
       for (const item of acceptedItems) {
         const isGood = [AssetCondition.GOOD, AssetCondition.USED_OKAY].includes(
-          item.returnedCondition,
+          item.returnedCondition
         );
-        const targetStatus = isGood
-          ? AssetStatus.IN_STORAGE
-          : AssetStatus.DAMAGED;
+        const targetStatus = isGood ? AssetStatus.IN_STORAGE : AssetStatus.DAMAGED;
 
         await updateAsset(item.assetId, {
           status: targetStatus,
@@ -633,30 +604,21 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       if (rejectedItems.length > 0) {
         await updateAssetBatch(
           rejectedItems.map((i) => i.assetId),
-          { status: AssetStatus.IN_USE },
+          { status: AssetStatus.IN_USE }
         );
       }
 
       const previouslyReturnedIds = loanRequest.returnedAssetIds || [];
       const newReturnedIds = acceptedItems.map((i) => i.assetId);
-      const finalReturnedIds = Array.from(
-        new Set([...previouslyReturnedIds, ...newReturnedIds]),
-      );
-      const allAssignedIds = Object.values(
-        loanRequest.assignedAssetIds || {},
-      ).flat();
+      const finalReturnedIds = Array.from(new Set([...previouslyReturnedIds, ...newReturnedIds]));
+      const allAssignedIds = Object.values(loanRequest.assignedAssetIds || {}).flat();
       const isFullyReturned =
-        allAssignedIds.length > 0 &&
-        allAssignedIds.every((id) => finalReturnedIds.includes(id));
+        allAssignedIds.length > 0 && allAssignedIds.every((id) => finalReturnedIds.includes(id));
 
       const updatedLoanRequest: Partial<LoanRequest> = {
         returnedAssetIds: finalReturnedIds,
-        status: isFullyReturned
-          ? LoanRequestStatus.RETURNED
-          : LoanRequestStatus.ON_LOAN,
-        actualReturnDate: isFullyReturned
-          ? now.toISOString()
-          : loanRequest.actualReturnDate,
+        status: isFullyReturned ? LoanRequestStatus.RETURNED : LoanRequestStatus.ON_LOAN,
+        actualReturnDate: isFullyReturned ? now.toISOString() : loanRequest.actualReturnDate,
       };
 
       const newReturnsList = [...get().returns];
@@ -667,7 +629,7 @@ export const useRequestStore = create<RequestState>((set, get) => ({
       } catch (err) {
         console.warn(
           "[RequestStore] processReturnBatch: returnsApi.update failed, using local state",
-          err,
+          err
         );
       }
 
@@ -679,16 +641,15 @@ export const useRequestStore = create<RequestState>((set, get) => ({
         "STATUS_CHANGE",
         returnDocId,
         `Pengembalian telah diverifikasi (${finalDocStatus})`,
-        false,
+        false
       );
       useNotificationStore
         .getState()
         .addToast(`Verifikasi selesai. Dokumen: ${finalDocStatus}.`, "success");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[RequestStore] processReturnBatch failed:", error);
-      useNotificationStore
-        .getState()
-        .addToast(error.message || "Gagal memproses pengembalian.", "error");
+      const errorMessage = error instanceof Error ? error.message : "Gagal memproses pengembalian.";
+      useNotificationStore.getState().addToast(errorMessage, "error");
       throw error;
     } finally {
       set({ isLoading: false });

@@ -1,31 +1,39 @@
 import React, { useState, useMemo } from "react";
-import { Request, User, ItemStatus } from "../../../../types";
+import { LoanRequest, User } from "../../../../types";
 import Modal from "../../../../components/ui/Modal";
-import { Avatar } from "../../../../components/ui/Avatar";
+// FIX: Hapus Avatar (unused)
 import DatePicker from "../../../../components/ui/DatePicker";
 import { CustomSelect } from "../../../../components/ui/CustomSelect";
 import {
-  BsFileEarmarkSpreadsheet,
+  // FIX: Hapus BsFileEarmarkSpreadsheet & BsPersonBadge (unused)
   BsTable,
   BsCalendarRange,
-  BsPersonBadge,
   BsInfoCircleFill,
   BsLayoutTextWindowReverse,
 } from "react-icons/bs";
 
-interface ExportRequestModalProps {
+// FIX: Definisi tipe
+type MappedLoanData = Record<string, string | number>;
+
+interface ExportHeader {
+  title: string;
+  metadata: Record<string, string>;
+}
+
+interface ExportLoanRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User;
-  data: Request[];
+  data: LoanRequest[];
+  // FIX: Ganti any dengan tipe spesifik
   onConfirmExport: (
-    mappedData: any[],
+    mappedData: MappedLoanData[],
     filename: string,
-    extraHeader: any,
+    extraHeader: ExportHeader
   ) => void;
 }
 
-export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
+export const ExportLoanRequestModal: React.FC<ExportLoanRequestModalProps> = ({
   isOpen,
   onClose,
   currentUser,
@@ -62,35 +70,36 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
         }
         case "month":
           return (
-            itemDate.getMonth() === now.getMonth() &&
-            itemDate.getFullYear() === now.getFullYear()
+            itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear()
           );
         case "year":
           return itemDate.getFullYear() === now.getFullYear();
-        case "custom":
+        // FIX: Tambahkan kurung kurawal {} untuk block scope
+        case "custom": {
           if (!startDate || !endDate) return true;
           const start = new Date(startDate);
           start.setHours(0, 0, 0, 0);
           const end = new Date(endDate);
           end.setHours(23, 59, 59, 999);
           return itemDate >= start && itemDate <= end;
+        }
         default:
           return true;
       }
     });
   }, [data, rangeType, startDate, endDate]);
 
-  const totalValueSum = useMemo(() => {
-    return filteredData.reduce((sum, item) => sum + (item.totalValue || 0), 0);
-  }, [filteredData]);
-
-  const prepareMappedData = (requests: Request[]) => {
+  const prepareMappedData = (requests: LoanRequest[]): MappedLoanData[] => {
     return requests.map((req, index) => {
       const itemsFormatted = req.items
-        .map((i) => `${i.quantity}x ${i.itemName} [${i.itemTypeBrand}]`)
+        .map((i) => {
+          const returnDateStr = i.returnDate
+            ? new Date(i.returnDate).toLocaleDateString("id-ID")
+            : "Tentatif";
+          return `${i.quantity}x ${i.itemName} [Kembali: ${returnDateStr}]`;
+        })
         .join("; ");
 
-      const totalQty = req.items.reduce((sum, i) => sum + i.quantity, 0);
       const fmtDate = (d?: string | null) =>
         d
           ? new Date(d).toLocaleDateString("id-ID", {
@@ -106,17 +115,12 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
         "TANGGAL PENGAJUAN": fmtDate(req.requestDate),
         "NAMA PEMOHON": req.requester.toUpperCase(),
         DIVISI: req.division,
-        "TIPE ORDER": req.order.type,
-        "REFERENSI PROYEK JUSTIFIKASI":
-          req.order.project || req.order.justification || "Reguler",
         "STATUS DOKUMEN": req.status,
         "DAFTAR BARANG": itemsFormatted,
-        "TOTAL UNIT": totalQty,
-        "ESTIMASI NILAI": req.totalValue || 0,
-        "APPROVER LOGISTIK": req.logisticApprover || "-",
-        "TGL APPROVE LOGISTIK": fmtDate(req.logisticApprovalDate),
-        "APPROVER FINAL": req.finalApprover || "-",
-        "TGL APPROVE FINAL": fmtDate(req.finalApprovalDate),
+        APPROVER: req.approver || "-",
+        "TANGGAL APPROVAL": fmtDate(req.approvalDate),
+        "TANGGAL PENGEMBALIAN AKTUAL": fmtDate(req.actualReturnDate),
+        CATATAN: req.notes || "-",
       };
     });
   };
@@ -124,18 +128,17 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
   const handleExport = () => {
     const now = new Date();
     const timestamp = now.toISOString().split("T")[0].replace(/-/g, "");
-    const filename = `LAPORAN_REQUEST_${rangeType.toUpperCase()}_${timestamp}`;
+    const filename = `LAPORAN_PINJAM_${rangeType.toUpperCase()}_${timestamp}`;
     const mappedData = prepareMappedData(filteredData);
 
-    const extraHeader = {
-      title: "LAPORAN DAFTAR REQUEST ASET",
+    const extraHeader: ExportHeader = {
+      title: "LAPORAN REQUEST PEMINJAMAN ASET",
       metadata: {
         Akun: currentUser.name,
         "Range Waktu":
           rangeType === "custom"
             ? `${startDate?.toLocaleDateString("id-ID")} - ${endDate?.toLocaleDateString("id-ID")}`
-            : rangeOptions.find((o) => o.value === rangeType)?.label ||
-              rangeType,
+            : rangeOptions.find((o) => o.value === rangeType)?.label || rangeType,
         "Tanggal Cetak": now.toLocaleDateString("id-ID", {
           day: "2-digit",
           month: "long",
@@ -149,17 +152,15 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Ekspor Laporan" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Ekspor Laporan Peminjaman" size="lg">
       <div className="space-y-5">
-        {/* Banner Section - More Refined & Clean */}
+        {/* Banner Section */}
         <div className="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-xl border-b-2 border-primary-500 relative overflow-hidden shadow-sm">
           <div className="flex-shrink-0 p-2 bg-white/5 rounded-lg border border-white/10">
             <BsLayoutTextWindowReverse className="w-6 h-6 text-primary-500" />
           </div>
           <div className="relative z-10">
-            <h4 className="font-bold text-base tracking-tight">
-              Konfigurasi Ekspor CSV
-            </h4>
+            <h4 className="font-bold text-base tracking-tight">Konfigurasi Ekspor CSV</h4>
             <p className="text-[11px] text-slate-400 font-medium opacity-90">
               Dokumen akan diunduh dalam format tabel standar Excel.
             </p>
@@ -174,11 +175,7 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
               Rentang Waktu Laporan
             </label>
             <div className="space-y-3">
-              <CustomSelect
-                options={rangeOptions}
-                value={rangeType}
-                onChange={setRangeType}
-              />
+              <CustomSelect options={rangeOptions} value={rangeType} onChange={setRangeType} />
 
               {rangeType === "custom" && (
                 <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg animate-fade-in-up">
@@ -196,40 +193,14 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
                     <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 ml-1">
                       Sampai
                     </label>
-                    <DatePicker
-                      id="export-end"
-                      selectedDate={endDate}
-                      onDateChange={setEndDate}
-                    />
+                    <DatePicker id="export-end" selectedDate={endDate} onDateChange={setEndDate} />
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Section 2: User Identity */}
-          <div className="p-4 bg-white border border-gray-200 rounded-xl">
-            <label className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-              <BsPersonBadge className="w-3.5 h-3.5 text-primary-600" />
-              Data Operator
-            </label>
-            <div className="flex items-center gap-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">
-              <Avatar name={currentUser.name} className="w-9 h-9 shadow-sm" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-gray-900 truncate">
-                  {currentUser.name}
-                </p>
-                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mt-0.5">
-                  {currentUser.role} &bull; TRINITI MEDIA
-                </p>
-              </div>
-              <div className="px-2 py-0.5 bg-white border border-blue-200 rounded text-[9px] font-bold text-primary-600 tracking-tighter shadow-sm">
-                AUTH OK
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Data Statistics - Balanced Sizes */}
+          {/* Section 2: Data Statistics */}
           <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-md">
             <div className="px-5 py-2.5 bg-white/5 border-b border-white/5 flex justify-between items-center">
               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
@@ -239,32 +210,21 @@ export const ExportRequestModal: React.FC<ExportRequestModalProps> = ({
                 <BsInfoCircleFill className="w-2.5 h-2.5" /> Live Validation
               </span>
             </div>
-            <div className="p-5 grid grid-cols-2 gap-6">
+            <div className="p-5 flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[9px] text-slate-500 uppercase font-bold tracking-widest">
                   Total Data
                 </span>
                 <p className="text-xl font-bold text-white leading-none">
                   {filteredData.length}
-                  <span className="text-[10px] font-medium text-slate-500 ml-1.5">
-                    baris
-                  </span>
-                </p>
-              </div>
-              <div className="space-y-1 border-l border-white/5 pl-6">
-                <span className="text-[9px] text-slate-500 uppercase font-bold tracking-widest">
-                  Akumulasi Nilai
-                </span>
-                <p className="text-xl font-bold text-primary-500 truncate leading-none">
-                  <span className="text-xs font-semibold mr-0.5">Rp</span>
-                  {totalValueSum.toLocaleString("id-ID")}
+                  <span className="text-[10px] font-medium text-slate-500 ml-1.5">baris</span>
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer Actions - Compact & Standard */}
+        {/* Footer Actions */}
         <div className="flex gap-3 pt-5 border-t border-gray-100">
           <button
             onClick={onClose}

@@ -23,12 +23,7 @@ export type Page =
   | "pengaturan-akun"
   | "kategori";
 
-export type UserRole =
-  | "Super Admin"
-  | "Admin Logistik"
-  | "Admin Purchase"
-  | "Leader"
-  | "Staff";
+export type UserRole = "Super Admin" | "Admin Logistik" | "Admin Purchase" | "Leader" | "Staff";
 
 export type Permission =
   | "dashboard:view"
@@ -215,7 +210,8 @@ export interface Asset {
   activityLog: ActivityLogEntry[];
   woRoIntNumber?: string | null;
   isDismantled?: boolean;
-  dismantleInfo?: any;
+  // FIX: Ganti 'any' dengan Record<string, unknown> agar lebih aman
+  dismantleInfo?: Record<string, unknown>;
   lastModifiedDate?: string;
   lastModifiedBy?: string;
 
@@ -349,12 +345,7 @@ export interface Request {
   itemStatuses?: Record<
     number,
     {
-      status:
-        | "approved"
-        | "rejected"
-        | "partial"
-        | "stock_allocated"
-        | "procurement_needed";
+      status: "approved" | "rejected" | "partial" | "stock_allocated" | "procurement_needed";
       reason?: string;
       approvedQuantity?: number;
     }
@@ -569,13 +560,7 @@ export interface Maintenance {
   notes?: string;
 }
 
-export type NotificationType =
-  | "info"
-  | "success"
-  | "warning"
-  | "error"
-  | "SYSTEM"
-  | string;
+export type NotificationType = "info" | "success" | "warning" | "error" | "SYSTEM" | string;
 
 export interface NotificationAction {
   label: string;
@@ -620,7 +605,8 @@ export type PreviewData = {
     | "installation"
     | "maintenance";
   id: string | number;
-  data?: any;
+  // FIX: Ganti 'any' dengan Record<string, unknown> agar lebih aman
+  data?: Record<string, unknown>;
 };
 
 export type MovementType =

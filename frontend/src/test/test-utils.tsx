@@ -10,10 +10,14 @@
  * @created 2026-01-19
  */
 
+/* eslint-disable react-refresh/only-export-components */
+
 import { render, RenderOptions, RenderResult } from "@testing-library/react";
 import { ReactElement, ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// FIX: Import userEvent secara eksplisit untuk menghindari masalah re-export
+import userEvent from "@testing-library/user-event";
 
 // Create a new QueryClient for each test
 function createTestQueryClient(): QueryClient {
@@ -48,16 +52,15 @@ function AllProviders({ children }: AllProvidersProps): ReactElement {
 /**
  * Custom render with all providers
  */
-function customRender(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, "wrapper">,
-): RenderResult {
+function customRender(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">): RenderResult {
   return render(ui, { wrapper: AllProviders, ...options });
 }
 
 // Re-export everything from testing-library
 export * from "@testing-library/react";
-export { userEvent } from "@testing-library/user-event";
+
+// FIX: Export userEvent secara eksplisit
+export { userEvent };
 
 // Override render with custom render
 export { customRender as render };

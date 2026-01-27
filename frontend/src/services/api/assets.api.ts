@@ -4,12 +4,11 @@
  */
 
 import { apiClient } from "./client";
-import { Asset } from "../../types";
-import {
-  transformBackendAsset,
-  toBackendAssetStatus,
-  BackendAssetStatus,
-} from "../../utils/enumMapper";
+import { Asset, AssetStatus } from "../../types";
+import { transformBackendAsset, toBackendAssetStatus } from "../../utils/enumMapper";
+
+// Helper Type
+type BackendDTO = Record<string, unknown>;
 
 export interface AssetFilters {
   status?: string;
@@ -45,20 +44,17 @@ export const assetsApi = {
     if (filters) {
       if (filters.status) {
         // Convert frontend status to backend status
-        params.append("status", toBackendAssetStatus(filters.status as any));
+        params.append("status", toBackendAssetStatus(filters.status as AssetStatus));
       }
       if (filters.search) params.append("search", filters.search);
       if (filters.location) params.append("location", filters.location);
-      if (filters.currentUser)
-        params.append("currentUserId", filters.currentUser);
+      if (filters.currentUser) params.append("currentUserId", filters.currentUser);
       if (filters.skip) params.append("skip", String(filters.skip));
       if (filters.take) params.append("take", String(filters.take));
     }
     const query = params.toString();
-    const response = await apiClient.get<any[]>(
-      `/assets${query ? `?${query}` : ""}`,
-    );
-    return response.map(transformBackendAsset);
+    const response = await apiClient.get<BackendDTO[]>(`/assets${query ? `?${query}` : ""}`);
+    return response.map((item) => transformBackendAsset(item));
   },
 
   /**
@@ -66,10 +62,17 @@ export const assetsApi = {
    */
   getById: async (id: string): Promise<Asset | null> => {
     try {
-      const response = await apiClient.get<any>(`/assets/${id}`);
+      const response = await apiClient.get<BackendDTO>(`/assets/${id}`);
       return transformBackendAsset(response);
-    } catch (error: any) {
-      if (error?.status === 404) return null;
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as Record<string, unknown>).status === 404
+      ) {
+        return null;
+      }
       throw error;
     }
   },
@@ -84,9 +87,7 @@ export const assetsApi = {
       brand: data.brand,
       serialNumber: data.serialNumber,
       macAddress: data.macAddress,
-      status: data.status
-        ? toBackendAssetStatus(data.status as any)
-        : "IN_STORAGE",
+      status: data.status ? toBackendAssetStatus(data.status as AssetStatus) : "IN_STORAGE",
       condition: data.condition || "GOOD",
       location: data.location,
       locationDetail: data.locationDetail,
@@ -98,10 +99,10 @@ export const assetsApi = {
       warrantyEndDate: data.warrantyEndDate,
       initialBalance: data.initialBalance,
       currentBalance: data.currentBalance,
-      quantity: data.quantity,
-      woRoIntNumber: data.woRoIntNumber,
+      quantity: (data as any).quantity, // Quantity mungkin custom prop, biarkan any atau tambahkan ke tipe
+      woRoIntNumber: (data as any).woRoIntNumber,
     };
-    const response = await apiClient.post<any>("/assets", backendData);
+    const response = await apiClient.post<BackendDTO>("/assets", backendData);
     return transformBackendAsset(response);
   },
 
@@ -109,11 +110,11 @@ export const assetsApi = {
    * Update asset
    */
   update: async (id: string, data: Partial<Asset>): Promise<Asset> => {
-    const backendData: any = { ...data };
+    const backendData: Record<string, unknown> = { ...data };
     if (data.status) {
-      backendData.status = toBackendAssetStatus(data.status as any);
+      backendData.status = toBackendAssetStatus(data.status as AssetStatus);
     }
-    const response = await apiClient.patch<any>(`/assets/${id}`, backendData);
+    const response = await apiClient.patch<BackendDTO>(`/assets/${id}`, backendData);
     return transformBackendAsset(response);
   },
 
@@ -121,8 +122,8 @@ export const assetsApi = {
    * Update asset status
    */
   updateStatus: async (id: string, status: string): Promise<Asset> => {
-    const backendStatus = toBackendAssetStatus(status as any);
-    const response = await apiClient.patch<any>(`/assets/${id}/status`, {
+    const backendStatus = toBackendAssetStatus(status as AssetStatus);
+    const response = await apiClient.patch<BackendDTO>(`/assets/${id}/status`, {
       status: backendStatus,
     });
     return transformBackendAsset(response);
@@ -134,18 +135,18 @@ export const assetsApi = {
   updateBatch: async (
     ids: string[],
     data: Partial<Asset>,
-    referenceId?: string,
+    referenceId?: string
   ): Promise<Asset[]> => {
-    const backendData: any = { ...data };
+    const backendData: Record<string, unknown> = { ...data };
     if (data.status) {
-      backendData.status = toBackendAssetStatus(data.status as any);
+      backendData.status = toBackendAssetStatus(data.status as AssetStatus);
     }
-    const response = await apiClient.patch<any[]>("/assets/batch", {
+    const response = await apiClient.patch<BackendDTO[]>("/assets/batch", {
       ids,
       data: backendData,
       referenceId,
     });
-    return response.map(transformBackendAsset);
+    return response.map((item) => transformBackendAsset(item));
   },
 
   /**
@@ -161,7 +162,7 @@ export const assetsApi = {
   checkAvailability: async (
     name: string,
     brand: string,
-    quantity: number,
+    quantity: number
   ): Promise<{
     isSufficient: boolean;
     available: number;
@@ -180,7 +181,7 @@ export const assetsApi = {
   /**
    * Get stock summary
    */
-  getStockSummary: async (): Promise<any[]> => {
+  getStockSummary: async (): Promise<Record<string, unknown>[]> => {
     return apiClient.get("/assets/stock-summary");
   },
 
@@ -189,7 +190,7 @@ export const assetsApi = {
    */
   consume: async (
     materials: ConsumeMaterial[],
-    context: ConsumeContext,
+    context: ConsumeContext
   ): Promise<{ success: boolean; errors: string[] }> => {
     return apiClient.post("/assets/consume", { items: materials, context });
   },

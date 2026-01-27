@@ -14,16 +14,19 @@ import {
   toBackendCustomerStatus,
 } from "../../utils/enumMapper";
 
+// Helper Type
+type BackendDTO = Record<string, unknown>;
+
 // --- USERS ---
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
-    const data = await apiClient.get<any[]>("/users");
-    return data.map(transformBackendUser);
+    const data = await apiClient.get<BackendDTO[]>("/users");
+    return data.map((item) => transformBackendUser(item));
   },
 
   getById: async (id: number): Promise<User | null> => {
     try {
-      const data = await apiClient.get<any>(`/users/${id}`);
+      const data = await apiClient.get<BackendDTO>(`/users/${id}`);
       return transformBackendUser(data);
     } catch {
       return null;
@@ -35,7 +38,7 @@ export const usersApi = {
       ...data,
       role: data.role ? toBackendUserRole(data.role) : undefined,
     };
-    const result = await apiClient.post<any>("/users", payload);
+    const result = await apiClient.post<BackendDTO>("/users", payload);
     return transformBackendUser(result);
   },
 
@@ -44,8 +47,19 @@ export const usersApi = {
       ...data,
       role: data.role ? toBackendUserRole(data.role) : undefined,
     };
-    const result = await apiClient.patch<any>(`/users/${id}`, payload);
+    // FIX: Hanya kirim data profil, jangan kirim password di sini
+    const result = await apiClient.patch<BackendDTO>(`/users/${id}`, payload);
     return transformBackendUser(result);
+  },
+
+  // FIX: Tambahkan metode khusus untuk ganti password sendiri
+  changePassword: async (
+    id: number,
+    data: { currentPassword: string; newPassword: string }
+  ): Promise<void> => {
+    // Asumsi endpoint backend: PATCH /users/:id/change-password
+    // Jika endpoint berbeda (misal /auth/change-password), sesuaikan path-nya
+    return apiClient.patch(`/users/${id}/change-password`, data);
   },
 
   delete: async (id: number): Promise<void> => {
@@ -57,16 +71,17 @@ export const usersApi = {
   },
 };
 
+// ... (Sisa kode Customers, Divisions, Categories TETAP SAMA) ...
 // --- CUSTOMERS ---
 export const customersApi = {
   getAll: async (): Promise<Customer[]> => {
-    const data = await apiClient.get<any[]>("/customers");
-    return data.map(transformBackendCustomer);
+    const data = await apiClient.get<BackendDTO[]>("/customers");
+    return data.map((item) => transformBackendCustomer(item));
   },
 
   getById: async (id: string): Promise<Customer | null> => {
     try {
-      const data = await apiClient.get<any>(`/customers/${id}`);
+      const data = await apiClient.get<BackendDTO>(`/customers/${id}`);
       return transformBackendCustomer(data);
     } catch {
       return null;
@@ -78,7 +93,7 @@ export const customersApi = {
       ...data,
       status: data.status ? toBackendCustomerStatus(data.status) : undefined,
     };
-    const result = await apiClient.post<any>("/customers", payload);
+    const result = await apiClient.post<BackendDTO>("/customers", payload);
     return transformBackendCustomer(result);
   },
 
@@ -87,7 +102,7 @@ export const customersApi = {
       ...data,
       status: data.status ? toBackendCustomerStatus(data.status) : undefined,
     };
-    const result = await apiClient.patch<any>(`/customers/${id}`, payload);
+    const result = await apiClient.patch<BackendDTO>(`/customers/${id}`, payload);
     return transformBackendCustomer(result);
   },
 
@@ -97,7 +112,7 @@ export const customersApi = {
 
   updateStatus: async (id: string, status: CustomerStatus): Promise<Customer> => {
     const backendStatus = toBackendCustomerStatus(status);
-    const result = await apiClient.patch<any>(`/customers/${id}/status`, {
+    const result = await apiClient.patch<BackendDTO>(`/customers/${id}/status`, {
       status: backendStatus,
     });
     return transformBackendCustomer(result);
@@ -181,36 +196,29 @@ export const categoriesApi = {
   },
 
   // --- TYPE MANAGEMENT (NEW) ---
-  // Menambahkan metode spesifik untuk mengelola Tipe agar tidak perlu menggunakan Bulk Update Kategori
-
-  createType: async (data: any) => {
-    // Panggil Endpoint: POST /api/v1/categories/types
-    // Endpoint ini harus ada di backend Anda (CategoriesController @Post('types'))
-    const response = await apiClient.post("/categories/types", data);
+  createType: async (data: Record<string, unknown>) => {
+    const response = await apiClient.post<BackendDTO>("/categories/types", data);
     return response;
   },
 
-  updateType: async (id: number, data: any) => {
-    // Panggil Endpoint: PATCH /api/v1/categories/types/:id
-    const response = await apiClient.patch(`/categories/types/${id}`, data);
+  updateType: async (id: number, data: Record<string, unknown>) => {
+    const response = await apiClient.patch<BackendDTO>(`/categories/types/${id}`, data);
     return response;
   },
 
   deleteType: async (id: number) => {
-    // Panggil Endpoint: DELETE /api/v1/categories/types/:id
     const response = await apiClient.delete(`/categories/types/${id}`);
     return response;
   },
 
   // --- MODEL MANAGEMENT (NEW - Opsional jika Backend support) ---
-
-  createModel: async (data: any) => {
-    const response = await apiClient.post("/categories/models", data);
+  createModel: async (data: Record<string, unknown>) => {
+    const response = await apiClient.post<BackendDTO>("/categories/models", data);
     return response;
   },
 
-  updateModel: async (id: number, data: any) => {
-    const response = await apiClient.patch(`/categories/models/${id}`, data);
+  updateModel: async (id: number, data: Record<string, unknown>) => {
+    const response = await apiClient.patch<BackendDTO>(`/categories/models/${id}`, data);
     return response;
   },
 

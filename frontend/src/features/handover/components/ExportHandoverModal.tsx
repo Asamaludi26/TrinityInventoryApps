@@ -16,15 +16,24 @@ import {
   BsClockHistory,
 } from "react-icons/bs";
 
+// FIX: Definisi tipe data yang lebih spesifik
+type MappedHandoverData = Record<string, string | number>;
+
+interface ExportHeader {
+  title: string;
+  metadata: Record<string, string>;
+}
+
 interface ExportHandoverModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User;
   data: Handover[];
+  // FIX: Ganti 'any' dengan tipe yang sudah didefinisikan
   onConfirmExport: (
-    mappedData: any[],
+    mappedData: MappedHandoverData[],
     filename: string,
-    extraHeader: any,
+    extraHeader: ExportHeader
   ) => void;
 }
 
@@ -81,27 +90,27 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
         case "today":
           dateMatch = itemDate.toDateString() === now.toDateString();
           break;
-        case "week":
+        // FIX: Tambahkan kurung kurawal {} untuk block scope
+        case "week": {
           const weekAgo = new Date();
           weekAgo.setDate(now.getDate() - 7);
-          dateMatch =
-            itemDate >= startOfDay(weekAgo) && itemDate <= endOfDay(now);
+          dateMatch = itemDate >= startOfDay(weekAgo) && itemDate <= endOfDay(now);
           break;
+        }
         case "month":
           dateMatch =
-            itemDate.getMonth() === now.getMonth() &&
-            itemDate.getFullYear() === now.getFullYear();
+            itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
           break;
         case "year":
           dateMatch = itemDate.getFullYear() === now.getFullYear();
           break;
-        case "custom":
+        // FIX: Tambahkan kurung kurawal {} untuk block scope
+        case "custom": {
           if (startDate && endDate) {
-            dateMatch =
-              itemDate >= startOfDay(startDate) &&
-              itemDate <= endOfDay(endDate);
+            dateMatch = itemDate >= startOfDay(startDate) && itemDate <= endOfDay(endDate);
           }
           break;
+        }
         case "all":
         default:
           dateMatch = true;
@@ -120,19 +129,12 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
   // --- LOGIC: DEEP STATISTICS ---
   const stats = useMemo(() => {
     const totalDocs = filteredData.length;
-    const completedCount = filteredData.filter(
-      (d) => d.status === ItemStatus.COMPLETED,
-    ).length;
-    const inProgressCount = filteredData.filter(
-      (d) => d.status !== ItemStatus.COMPLETED,
-    ).length;
+    const completedCount = filteredData.filter((d) => d.status === ItemStatus.COMPLETED).length;
+    const inProgressCount = filteredData.filter((d) => d.status !== ItemStatus.COMPLETED).length;
 
     return {
       totalDocs,
-      totalItems: filteredData.reduce(
-        (acc, curr) => acc + curr.items.length,
-        0,
-      ),
+      totalItems: filteredData.reduce((acc, curr) => acc + curr.items.length, 0),
       completedCount,
       inProgressCount,
       completionRate: totalDocs > 0 ? (completedCount / totalDocs) * 100 : 0,
@@ -141,8 +143,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
 
   // --- EFFECT: SMART AUTO-NAMING ---
   useEffect(() => {
-    const datePart =
-      rangeType === "custom" ? "CUSTOM" : rangeType.toUpperCase();
+    const datePart = rangeType === "custom" ? "CUSTOM" : rangeType.toUpperCase();
 
     const statusPart =
       statusFilter === "ALL"
@@ -157,7 +158,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
   }, [rangeType, statusFilter, startDate, endDate]);
 
   // --- DATA MAPPING ---
-  const prepareMappedData = (handovers: Handover[]) => {
+  const prepareMappedData = (handovers: Handover[]): MappedHandoverData[] => {
     return handovers.map((ho, index) => {
       const itemsFormatted = ho.items
         .map((i) => `• ${i.quantity}x ${i.itemName} (${i.conditionNotes})`)
@@ -190,19 +191,16 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
   const handleExport = () => {
     const mappedData = prepareMappedData(filteredData);
 
-    const extraHeader = {
+    const extraHeader: ExportHeader = {
       title: "LAPORAN BERITA ACARA SERAH TERIMA (HANDOVER)",
       metadata: {
         "Diekspor Oleh": currentUser.name,
         Divisi: currentUser.divisionId ? "Internal" : "-",
-        "Filter Status":
-          statusOptions.find((o) => o.value === statusFilter)?.label ||
-          statusFilter,
+        "Filter Status": statusOptions.find((o) => o.value === statusFilter)?.label || statusFilter,
         "Periode Data":
           rangeType === "custom"
             ? `${startDate?.toLocaleDateString("id-ID")} s/d ${endDate?.toLocaleDateString("id-ID")}`
-            : rangeOptions.find((o) => o.value === rangeType)?.label ||
-              rangeType,
+            : rangeOptions.find((o) => o.value === rangeType)?.label || rangeType,
         "Total Item Aset": `${stats.totalItems} Unit`,
         "Tanggal Cetak": new Date().toLocaleDateString("id-ID", {
           weekday: "long",
@@ -238,12 +236,10 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
               <BsCloudDownload className="w-6 h-6 text-primary-500" />
             </div>
             <div>
-              <h4 className="text-lg font-bold tracking-tight text-white">
-                Konfigurasi Laporan
-              </h4>
+              <h4 className="text-lg font-bold tracking-tight text-white">Konfigurasi Laporan</h4>
               <p className="text-xs text-slate-300 font-medium mt-1 max-w-lg leading-relaxed">
-                Sesuaikan filter periode dan status untuk menghasilkan laporan
-                CSV yang presisi. Data akan diunduh sesuai filter yang aktif.
+                Sesuaikan filter periode dan status untuk menghasilkan laporan CSV yang presisi.
+                Data akan diunduh sesuai filter yang aktif.
               </p>
             </div>
           </div>
@@ -258,11 +254,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
               Periode Data
             </label>
             <div className="flex flex-col gap-3">
-              <CustomSelect
-                options={rangeOptions}
-                value={rangeType}
-                onChange={setRangeType}
-              />
+              <CustomSelect options={rangeOptions} value={rangeType} onChange={setRangeType} />
               {/* Custom Date Range Animation */}
               <div
                 className={`transition-all duration-300 ease-in-out overflow-hidden ${rangeType === "custom" ? "max-h-24 opacity-100" : "max-h-0 opacity-0"}`}
@@ -282,11 +274,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
                     <span className="block text-[10px] font-bold text-slate-400 mb-1 ml-1">
                       Sampai
                     </span>
-                    <DatePicker
-                      id="export-end"
-                      selectedDate={endDate}
-                      onDateChange={setEndDate}
-                    />
+                    <DatePicker id="export-end" selectedDate={endDate} onDateChange={setEndDate} />
                   </div>
                 </div>
               </div>
@@ -306,8 +294,8 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
                 onChange={setStatusFilter}
               />
               <p className="text-[10px] text-slate-400 mt-2 leading-relaxed ml-1">
-                Pilih status 'Selesai' untuk laporan audit final, atau 'Dalam
-                Proses' untuk monitoring operasional harian.
+                Pilih status 'Selesai' untuk laporan audit final, atau 'Dalam Proses' untuk
+                monitoring operasional harian.
               </p>
             </div>
           </div>
@@ -357,10 +345,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
                   Total Dokumen
                 </span>
                 <p className="text-3xl font-black text-white">
-                  {stats.totalDocs}{" "}
-                  <span className="text-sm font-medium text-slate-500">
-                    File
-                  </span>
+                  {stats.totalDocs} <span className="text-sm font-medium text-slate-500">File</span>
                 </p>
               </div>
 
@@ -371,9 +356,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
                 </span>
                 <p className="text-3xl font-black text-primary-500">
                   {stats.totalItems}{" "}
-                  <span className="text-sm font-medium text-slate-500">
-                    Unit
-                  </span>
+                  <span className="text-sm font-medium text-slate-500">Unit</span>
                 </p>
               </div>
 
@@ -420,9 +403,7 @@ export const ExportHandoverModal: React.FC<ExportHandoverModalProps> = ({
               <p className="text-xs font-bold text-slate-700 truncate">
                 Operator: {currentUser.name}
               </p>
-              <p className="text-[10px] text-slate-400 truncate">
-                {currentUser.role} Division
-              </p>
+              <p className="text-[10px] text-slate-400 truncate">{currentUser.role} Division</p>
             </div>
           </div>
         </div>

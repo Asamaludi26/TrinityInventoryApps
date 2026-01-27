@@ -41,10 +41,7 @@ import {
   HandoverPreview,
   DismantlePreview,
 } from "./components/EntityPreviews";
-import {
-  StockItemAssetsPreview,
-  StockHistoryPreview,
-} from "./components/StockPreviews";
+import { StockItemAssetsPreview, StockHistoryPreview } from "./components/StockPreviews";
 
 interface PreviewModalProps {
   currentUser: User;
@@ -110,7 +107,7 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
       setHistory((prev) => {
         // Check if this item already exists in history
         const alreadyExists = prev.some(
-          (h) => h.id === previewData.id && h.type === previewData.type,
+          (h) => h.id === previewData.id && h.type === previewData.type
         );
         if (alreadyExists) {
           return prev; // No change - prevent re-render
@@ -133,28 +130,33 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
 
   const currentData = history.length > 0 ? history[history.length - 1] : null;
 
+  // FIX: Refactored to remove 'let item: any' and use specific variables in blocks
   const getDisplayName = (data: PreviewData) => {
-    let item: any = null;
     switch (data.type) {
-      case "asset":
-        item = assets.find((i) => i.id === data.id);
+      case "asset": {
+        const item = assets.find((i) => i.id === data.id);
         return item?.name || `Aset ${data.id}`;
-      case "customer":
-        item = customers.find((i) => i.id === data.id);
+      }
+      case "customer": {
+        const item = customers.find((i) => i.id === data.id);
         return item?.name || `Pelanggan ${data.id}`;
-      case "user":
-        item = users.find((i) => i.id === data.id || i.name === data.id);
+      }
+      case "user": {
+        const item = users.find((i) => i.id === data.id || i.name === data.id);
         return item?.name || `Pengguna ${data.id}`;
+      }
       case "request":
         return `Request ${data.id}`;
-      case "handover":
-        item = handovers.find((i) => i.id === data.id);
+      case "handover": {
+        const item = handovers.find((i) => i.id === data.id);
         return `Handover ${item?.docNumber || data.id}`;
+      }
       case "dismantle":
         return `Dismantle ${data.id}`;
-      case "customerAssets":
-        item = customers.find((i) => i.id === data.id);
+      case "customerAssets": {
+        const item = customers.find((i) => i.id === data.id);
         return `Aset Milik ${item?.name || data.id}`;
+      }
       case "stockItemAssets": {
         const [name] = String(data.id).split("|");
         return `Stok: ${name}`;
@@ -172,42 +174,32 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
   const renderContent = () => {
     if (!currentData) return null;
 
+    // FIX: Added curly braces {} to all cases declaring variables to create block scope
     switch (currentData.type) {
-      case "asset":
+      case "asset": {
         const asset = assets.find((a) => a.id === currentData.id);
-        if (!asset)
-          return <p className="text-gray-700">Aset tidak ditemukan.</p>;
+        if (!asset) return <p className="text-gray-700">Aset tidak ditemukan.</p>;
         return (
           <AssetPreview
             asset={asset}
-            canViewPrice={["Admin Purchase", "Super Admin"].includes(
-              currentUser.role,
-            )}
+            canViewPrice={["Admin Purchase", "Super Admin"].includes(currentUser.role)}
             onShowPreview={onShowPreview}
-            getCustomerName={(id) =>
-              customers.find((c) => c.id === id)?.name || id
-            }
+            getCustomerName={(id) => customers.find((c) => c.id === id)?.name || id}
           />
         );
+      }
 
-      case "customer":
+      case "customer": {
         const customer = customers.find((c) => c.id === currentData.id);
-        if (!customer)
-          return <p className="text-gray-700">Pelanggan tidak ditemukan.</p>;
+        if (!customer) return <p className="text-gray-700">Pelanggan tidak ditemukan.</p>;
         return (
-          <CustomerPreview
-            customer={customer}
-            assets={assets}
-            onShowPreview={onShowPreview}
-          />
+          <CustomerPreview customer={customer} assets={assets} onShowPreview={onShowPreview} />
         );
+      }
 
-      case "customerAssets":
-        const customerForAssets = customers.find(
-          (c) => c.id === currentData.id,
-        );
-        if (!customerForAssets)
-          return <p className="text-gray-700">Pelanggan tidak ditemukan.</p>;
+      case "customerAssets": {
+        const customerForAssets = customers.find((c) => c.id === currentData.id);
+        if (!customerForAssets) return <p className="text-gray-700">Pelanggan tidak ditemukan.</p>;
         return (
           <CustomerAssetsPreview
             customer={customerForAssets}
@@ -215,20 +207,17 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
             onShowPreview={onShowPreview}
           />
         );
+      }
 
-      case "stockItemAssets":
-        const [stkName, stkBrand, stkStatus] = String(currentData.id).split(
-          "|",
-        );
+      case "stockItemAssets": {
+        const [stkName, stkBrand, stkStatus] = String(currentData.id).split("|");
         if (!stkName || !stkBrand || !stkStatus)
           return <p className="text-gray-700">Data stok tidak valid.</p>;
         const stockAssets = assets.filter(
           (a) =>
             a.name === stkName &&
             a.brand === stkBrand &&
-            (stkStatus === "ALL"
-              ? a.status !== AssetStatus.DECOMMISSIONED
-              : a.status === stkStatus),
+            (stkStatus === "ALL" ? a.status !== AssetStatus.DECOMMISSIONED : a.status === stkStatus)
         );
         return (
           <StockItemAssetsPreview
@@ -238,16 +227,13 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
             onShowPreview={onShowPreview}
           />
         );
+      }
 
-      case "stockHistory":
+      case "stockHistory": {
         const [histName, histBrand] = String(currentData.id).split("|");
         if (!histName || !histBrand)
-          return (
-            <p className="text-gray-700">Data riwayat stok tidak valid.</p>
-          );
-        const historyAssets = assets.filter(
-          (a) => a.name === histName && a.brand === histBrand,
-        );
+          return <p className="text-gray-700">Data riwayat stok tidak valid.</p>;
+        const historyAssets = assets.filter((a) => a.name === histName && a.brand === histBrand);
         return (
           <StockHistoryPreview
             assets={historyAssets}
@@ -255,42 +241,34 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
             onShowPreview={onShowPreview}
           />
         );
+      }
 
-      case "user":
-        const user = users.find(
-          (u) => u.id === currentData.id || u.name === currentData.id,
-        );
-        if (!user)
-          return <p className="text-gray-700">Pengguna tidak ditemukan.</p>;
+      case "user": {
+        const user = users.find((u) => u.id === currentData.id || u.name === currentData.id);
+        if (!user) return <p className="text-gray-700">Pengguna tidak ditemukan.</p>;
         const divisionName = user.divisionId
           ? divisions.find((d) => d.id === user.divisionId)?.name || "N/A"
           : "N/A";
         return <UserPreview user={user} divisionName={divisionName} />;
+      }
 
-      case "request":
+      case "request": {
         const request = requests.find((r) => r.id === currentData.id);
-        if (!request)
-          return <p className="text-gray-700">Request tidak ditemukan.</p>;
+        if (!request) return <p className="text-gray-700">Request tidak ditemukan.</p>;
         return <RequestPreview request={request} />;
+      }
 
-      case "handover":
+      case "handover": {
         const handover = handovers.find((h) => h.id === currentData.id);
-        if (!handover)
-          return <p className="text-gray-700">Handover tidak ditemukan.</p>;
-        return (
-          <HandoverPreview handover={handover} onShowPreview={onShowPreview} />
-        );
+        if (!handover) return <p className="text-gray-700">Handover tidak ditemukan.</p>;
+        return <HandoverPreview handover={handover} onShowPreview={onShowPreview} />;
+      }
 
-      case "dismantle":
+      case "dismantle": {
         const dismantle = dismantles.find((d) => d.id === currentData.id);
-        if (!dismantle)
-          return <p className="text-gray-700">Dismantle tidak ditemukan.</p>;
-        return (
-          <DismantlePreview
-            dismantle={dismantle}
-            onShowPreview={onShowPreview}
-          />
-        );
+        if (!dismantle) return <p className="text-gray-700">Dismantle tidak ditemukan.</p>;
+        return <DismantlePreview dismantle={dismantle} onShowPreview={onShowPreview} />;
+      }
 
       default:
         return <p className="text-gray-700">Tipe pratinjau tidak dikenal.</p>;
@@ -333,17 +311,13 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
       if (!asset) return baseButtons;
       const category = assetCategories.find((c) => c.name === asset.category);
       const canBeInstalled = category?.isCustomerInstallable;
-      const isAdmin =
-        currentUser.role === "Admin Logistik" ||
-        currentUser.role === "Super Admin";
+      const isAdmin = currentUser.role === "Admin Logistik" || currentUser.role === "Super Admin";
       const isOwner = currentUser.name === asset.currentUser;
       const canReportDamage =
         isOwner &&
-        ![
-          AssetStatus.DAMAGED,
-          AssetStatus.UNDER_REPAIR,
-          AssetStatus.OUT_FOR_REPAIR,
-        ].includes(asset.status as AssetStatus);
+        ![AssetStatus.DAMAGED, AssetStatus.UNDER_REPAIR, AssetStatus.OUT_FOR_REPAIR].includes(
+          asset.status as AssetStatus
+        );
 
       return (
         <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center w-full gap-3">
@@ -384,7 +358,7 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
             )}
             {isAdmin &&
               [AssetStatus.UNDER_REPAIR, AssetStatus.OUT_FOR_REPAIR].includes(
-                asset.status as AssetStatus,
+                asset.status as AssetStatus
               ) && (
                 <button
                   onClick={() => {
@@ -465,18 +439,17 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
                 )}
               </>
             )}
-            {asset.status === AssetStatus.IN_USE &&
-              asset.currentUser?.startsWith("TMI-") && (
-                <button
-                  onClick={() => {
-                    onInitiateDismantle(asset);
-                    handleClose();
-                  }}
-                  className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors bg-red-600 rounded-lg shadow-sm hover:bg-red-700"
-                >
-                  <DismantleIcon className="w-4 h-4" /> Tarik dari Pelanggan
-                </button>
-              )}
+            {asset.status === AssetStatus.IN_USE && asset.currentUser?.startsWith("TMI-") && (
+              <button
+                onClick={() => {
+                  onInitiateDismantle(asset);
+                  handleClose();
+                }}
+                className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors bg-red-600 rounded-lg shadow-sm hover:bg-red-700"
+              >
+                <DismantleIcon className="w-4 h-4" /> Tarik dari Pelanggan
+              </button>
+            )}
           </div>
         </div>
       );
@@ -502,13 +475,7 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
     <Modal
       isOpen={!!previewData}
       onClose={handleClose}
-      title={
-        history.length > 1
-          ? ""
-          : currentData
-            ? getDisplayName(currentData)
-            : "Pratinjau"
-      }
+      title={history.length > 1 ? "" : currentData ? getDisplayName(currentData) : "Pratinjau"}
       size={currentData?.type === "asset" ? "3xl" : "xl"}
       zIndex="z-[60]"
       hideDefaultCloseButton={true}
@@ -522,9 +489,7 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
         >
           {history.map((item, index) => (
             <React.Fragment key={`${item.type}-${item.id}-${index}`}>
-              {index > 0 && (
-                <ChevronRightIcon className="w-4 h-4 mx-1 text-gray-400" />
-              )}
+              {index > 0 && <ChevronRightIcon className="w-4 h-4 mx-1 text-gray-400" />}
               <button
                 onClick={() => handleBreadcrumbClick(index)}
                 className={`truncate max-w-[150px] ${index === history.length - 1 ? "text-primary-600 font-semibold" : "hover:underline"}`}
@@ -536,9 +501,7 @@ const PreviewModal: React.FC<PreviewModalProps> = (props) => {
           ))}
         </nav>
       )}
-      <div className={`${currentData?.type === "asset" ? "px-6" : ""}`}>
-        {renderContent()}
-      </div>
+      <div className={`${currentData?.type === "asset" ? "px-6" : ""}`}>{renderContent()}</div>
     </Modal>
   );
 };

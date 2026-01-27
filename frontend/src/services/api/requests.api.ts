@@ -4,11 +4,11 @@
  */
 
 import { apiClient } from "./client";
-import { Request, PurchaseDetails } from "../../types";
-import {
-  transformBackendRequest,
-  toBackendRequestStatus,
-} from "../../utils/enumMapper";
+import { Request, PurchaseDetails, ItemStatus } from "../../types";
+import { transformBackendRequest, toBackendRequestStatus } from "../../utils/enumMapper";
+
+// Helper Type
+type BackendDTO = Record<string, unknown>;
 
 export interface RequestFilters {
   status?: string;
@@ -26,12 +26,7 @@ export interface ApproveRequestPayload {
   itemStatuses: Record<
     number,
     {
-      status:
-        | "approved"
-        | "rejected"
-        | "partial"
-        | "stock_allocated"
-        | "procurement_needed";
+      status: "approved" | "rejected" | "partial" | "stock_allocated" | "procurement_needed";
       reason?: string;
       approvedQuantity?: number;
     }
@@ -46,7 +41,7 @@ export const requestsApi = {
     const params = new URLSearchParams();
     if (filters) {
       if (filters.status) {
-        params.append("status", toBackendRequestStatus(filters.status as any));
+        params.append("status", toBackendRequestStatus(filters.status as ItemStatus));
       }
       if (filters.requester) params.append("requesterId", filters.requester);
       if (filters.division) params.append("division", filters.division);
@@ -56,10 +51,8 @@ export const requestsApi = {
       if (filters.take) params.append("take", String(filters.take));
     }
     const query = params.toString();
-    const response = await apiClient.get<any[]>(
-      `/requests${query ? `?${query}` : ""}`,
-    );
-    return (response || []).map(transformBackendRequest);
+    const response = await apiClient.get<BackendDTO[]>(`/requests${query ? `?${query}` : ""}`);
+    return (response || []).map((item) => transformBackendRequest(item));
   },
 
   /**
@@ -67,10 +60,18 @@ export const requestsApi = {
    */
   getById: async (id: string): Promise<Request | null> => {
     try {
-      const response = await apiClient.get<any>(`/requests/${id}`);
+      const response = await apiClient.get<BackendDTO>(`/requests/${id}`);
       return transformBackendRequest(response);
-    } catch (error: any) {
-      if (error?.status === 404) return null;
+    } catch (error: unknown) {
+      // FIX: Cek tipe error secara aman
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as Record<string, unknown>).status === 404
+      ) {
+        return null;
+      }
       throw error;
     }
   },
@@ -78,9 +79,7 @@ export const requestsApi = {
   /**
    * Create new request
    */
-  create: async (
-    data: Omit<Request, "id" | "docNumber" | "status">,
-  ): Promise<Request> => {
+  create: async (data: Omit<Request, "id" | "docNumber" | "status">): Promise<Request> => {
     const backendData = {
       requestDate: data.requestDate,
       division: data.division,
@@ -92,8 +91,7 @@ export const requestsApi = {
             : "REGULAR_STOCK",
       justification: data.order?.justification,
       project: data.order?.project,
-      allocationTarget:
-        data.order?.allocationTarget === "Inventory" ? "INVENTORY" : "USAGE",
+      allocationTarget: data.order?.allocationTarget === "Inventory" ? "INVENTORY" : "USAGE",
       items: data.items.map((item) => ({
         itemName: item.itemName,
         itemTypeBrand: item.itemTypeBrand,
@@ -102,7 +100,7 @@ export const requestsApi = {
         reason: item.keterangan,
       })),
     };
-    const response = await apiClient.post<any>("/requests", backendData);
+    const response = await apiClient.post<BackendDTO>("/requests", backendData);
     return transformBackendRequest(response);
   },
 
@@ -110,21 +108,15 @@ export const requestsApi = {
    * Update request
    */
   update: async (id: string, data: Partial<Request>): Promise<Request> => {
-    const response = await apiClient.patch<any>(`/requests/${id}`, data);
+    const response = await apiClient.patch<BackendDTO>(`/requests/${id}`, data);
     return transformBackendRequest(response);
   },
 
   /**
    * Approve request (logistic approval)
    */
-  approve: async (
-    id: string,
-    payload: ApproveRequestPayload,
-  ): Promise<Request> => {
-    const response = await apiClient.post<any>(
-      `/requests/${id}/approve`,
-      payload,
-    );
+  approve: async (id: string, payload: ApproveRequestPayload): Promise<Request> => {
+    const response = await apiClient.post<BackendDTO>(`/requests/${id}/approve`, payload);
     return transformBackendRequest(response);
   },
 
@@ -133,11 +125,15 @@ export const requestsApi = {
    */
   reject: async (
     id: string,
-    payload: { reason?: string; rejectedBy?: string; rejectionReason?: string },
+    payload: {
+      reason?: string;
+      rejectedBy?: string;
+      rejectionReason?: string;
+    }
   ): Promise<Request> => {
     // Support both formats
     const reason = payload.reason || payload.rejectionReason || "";
-    const response = await apiClient.post<any>(`/requests/${id}/reject`, {
+    const response = await apiClient.post<BackendDTO>(`/requests/${id}/reject`, {
       reason,
       rejectedBy: payload.rejectedBy,
     });
@@ -148,7 +144,7 @@ export const requestsApi = {
    * Mark request as arrived
    */
   markArrived: async (id: string): Promise<Request> => {
-    const response = await apiClient.patch<any>(`/requests/${id}/arrived`);
+    const response = await apiClient.patch<BackendDTO>(`/requests/${id}/arrived`);
     return transformBackendRequest(response);
   },
 
@@ -156,7 +152,7 @@ export const requestsApi = {
    * Complete request
    */
   complete: async (id: string): Promise<Request> => {
-    const response = await apiClient.patch<any>(`/requests/${id}/complete`);
+    const response = await apiClient.patch<BackendDTO>(`/requests/${id}/complete`);
     return transformBackendRequest(response);
   },
 
@@ -166,11 +162,11 @@ export const requestsApi = {
   fillPurchaseDetails: async (
     id: string,
     itemId: number,
-    details: PurchaseDetails,
+    details: PurchaseDetails
   ): Promise<Request> => {
-    const response = await apiClient.patch<any>(
+    const response = await apiClient.patch<BackendDTO>(
       `/requests/${id}/items/${itemId}/purchase`,
-      details,
+      details
     );
     return transformBackendRequest(response);
   },
@@ -186,7 +182,7 @@ export const requestsApi = {
    * Cancel request
    */
   cancel: async (id: string, reason?: string): Promise<Request> => {
-    const response = await apiClient.post<any>(`/requests/${id}/cancel`, {
+    const response = await apiClient.post<BackendDTO>(`/requests/${id}/cancel`, {
       reason,
     });
     return transformBackendRequest(response);
@@ -197,14 +193,11 @@ export const requestsApi = {
    */
   registerAssets: async (
     id: string,
-    assets: Array<{ itemId: number; assetData: any }>,
+    assets: Array<{ itemId: number; assetData: Record<string, unknown> }>
   ): Promise<Request> => {
-    const response = await apiClient.post<any>(
-      `/requests/${id}/register-assets`,
-      {
-        assets,
-      },
-    );
+    const response = await apiClient.post<BackendDTO>(`/requests/${id}/register-assets`, {
+      assets,
+    });
     return transformBackendRequest(response);
   },
 };

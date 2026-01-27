@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite"; // Hapus loadEnv
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -8,8 +8,7 @@ const __dirname = path.dirname(__filename);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current directory
-  const env = loadEnv(mode, process.cwd(), "");
+  // Variabel 'env' dihapus karena tidak digunakan di bawah ini
 
   return {
     plugins: [react()],
@@ -35,13 +34,7 @@ export default defineConfig(({ mode }) => {
       coverage: {
         provider: "v8",
         reporter: ["text", "json", "html"],
-        exclude: [
-          "node_modules/",
-          "src/test/",
-          "**/*.d.ts",
-          "**/*.config.*",
-          "**/types/**",
-        ],
+        exclude: ["node_modules/", "src/test/", "**/*.d.ts", "**/*.config.*", "**/types/**"],
       },
     },
     server: {
@@ -81,10 +74,7 @@ export default defineConfig(({ mode }) => {
             if (id.includes("node_modules/react-dom")) {
               return "vendor-react";
             }
-            if (
-              id.includes("node_modules/react") &&
-              !id.includes("react-icons")
-            ) {
+            if (id.includes("node_modules/react") && !id.includes("react-icons")) {
               return "vendor-react";
             }
             // State management

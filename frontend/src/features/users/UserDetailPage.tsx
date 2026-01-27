@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { User, Page } from "../../types";
+// FIX: Menghapus 'Page' dari import karena tidak digunakan
+import { User } from "../../types";
 import { DetailPageLayout } from "../../components/layout/DetailPageLayout";
 import { ClickableLink } from "../../components/ui/ClickableLink";
 import { PencilIcon } from "../../components/icons/PencilIcon";
@@ -15,7 +16,7 @@ import { ALL_PERMISSIONS } from "../../utils/permissions";
 import { CheckIcon } from "../../components/icons/CheckIcon";
 import { LockIcon } from "../../components/icons/LockIcon";
 import { BsShieldLock, BsExclamationTriangleFill } from "react-icons/bs";
-import { CopyIcon } from "../../components/icons/CopyIcon"; // Added CopyIcon
+import { CopyIcon } from "../../components/icons/CopyIcon";
 
 // Store
 import { useMasterDataStore } from "../../stores/useMasterDataStore";
@@ -23,9 +24,8 @@ import { useAssetStore } from "../../stores/useAssetStore";
 import { useRequestStore } from "../../stores/useRequestStore";
 
 interface UserDetailPageProps {
-  user?: User; // Made optional as we fetch by ID usually
+  user?: User;
   currentUser: User;
-  // Removed asset/request props
   onBack: () => void;
   onEdit: () => void;
   onShowAssetPreview: (assetId: string) => void;
@@ -65,8 +65,7 @@ const StatCard: React.FC<{
 
 // Helper for Secure Password Generation
 const generateSecurePassword = () => {
-  const chars =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
   const length = 12;
   const array = new Uint32Array(length);
   window.crypto.getRandomValues(array);
@@ -85,32 +84,34 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
   onShowAssetPreview,
   pageInitialState,
 }) => {
-  // Store Hooks
+  // --- 1. HOOKS DECLARATION (Harus Selalu di Paling Atas) ---
   const users = useMasterDataStore((state) => state.users);
-  const updateUser = useMasterDataStore((state) => state.updateUser); // Need update action
+  const updateUser = useMasterDataStore((state) => state.updateUser);
   const divisions = useMasterDataStore((state) => state.divisions);
   const assets = useAssetStore((state) => state.assets);
   const requests = useRequestStore((state) => state.requests);
   const addNotification = useNotification();
 
-  // Determine User
-  const userId = pageInitialState?.userId || propUser?.id;
-  const user = users.find((u) => u.id === userId) || propUser;
-  const division = divisions.find((d) => d.id === user?.divisionId);
-
-  if (!user) return <div>Pengguna tidak ditemukan.</div>;
-
-  // SECURITY CHECK: Admin Logistik cannot see sensitive data of other users
-  const isRestrictedView =
-    currentUser.role === "Admin Logistik" && user.id !== currentUser.id;
-
-  const userAssets = assets.filter((asset) => asset.currentUser === user.name);
-  const userRequests = requests.filter((req) => req.requester === user.name);
-
+  // FIX: Memindahkan useState ke atas sebelum conditional return
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isPasswordShown, setIsPasswordShown] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // --- 2. DATA DERIVATION ---
+  const userId = pageInitialState?.userId || propUser?.id;
+  const user = users.find((u) => u.id === userId) || propUser;
+  const division = divisions.find((d) => d.id === user?.divisionId);
+
+  // --- 3. CONDITIONAL RETURN (Guard Clause) ---
+  // Sekarang aman untuk return karena semua Hooks sudah dipanggil di atas
+  if (!user) return <div>Pengguna tidak ditemukan.</div>;
+
+  // --- 4. LOGIC YANG BERGANTUNG PADA 'user' ---
+  const isRestrictedView = currentUser.role === "Admin Logistik" && user.id !== currentUser.id;
+
+  const userAssets = assets.filter((asset) => asset.currentUser === user.name);
+  const userRequests = requests.filter((req) => req.requester === user.name);
 
   const openResetModal = () => {
     setIsResetModalOpen(true);
@@ -118,11 +119,9 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
 
   const handleConfirmReset = async () => {
     setIsLoading(true);
-    // FIX: Use Cryptographically Secure Generator instead of Math.random()
     const tempPassword = generateSecurePassword();
 
     try {
-      // Update the user: Set new password (simulated) AND clear the reset request flag
       await updateUser(user.id, {
         passwordResetRequested: false,
         passwordResetRequestDate: undefined,
@@ -199,9 +198,7 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
           <div className="p-6 bg-white border border-gray-200/80 rounded-xl shadow-sm">
             <div className="flex flex-col sm:flex-row items-start gap-6">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {user.name}
-                </h2>
+                <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
                 <p className="text-gray-500">
                   {isRestrictedView ? (
                     <span className="italic flex items-center gap-1">
@@ -233,88 +230,73 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
 
           {/* Statistics Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <StatCard
-              title="Aset Dipegang"
-              value={userAssets.length}
-              icon={AssetIcon}
-            />
-            <StatCard
-              title="Total Request"
-              value={userRequests.length}
-              icon={RequestIcon}
-            />
+            <StatCard title="Aset Dipegang" value={userAssets.length} icon={AssetIcon} />
+            <StatCard title="Total Request" value={userRequests.length} icon={RequestIcon} />
           </div>
 
           {/* Permissions Section - HIDDEN IN RESTRICTED VIEW */}
-          {hasPermission(currentUser, "users:manage-permissions") &&
-            !isRestrictedView && (
-              <div className="p-6 bg-white border border-gray-200/80 rounded-xl shadow-sm">
-                <div className="flex items-center gap-3 mb-4 border-b pb-3">
-                  <LockIcon className="w-5 h-5 text-primary-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Hak Akses Pengguna
-                  </h3>
-                </div>
-                <div className="overflow-x-auto border rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Grup Fitur
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Hak Akses yang Diberikan
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {ALL_PERMISSIONS.map((group) => {
-                        const grantedPermissions = group.permissions.filter(
-                          (p) => user.permissions.includes(p.key),
-                        );
-                        if (grantedPermissions.length === 0) {
-                          return null;
-                        }
-                        return (
-                          <tr key={group.group}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800 align-top">
-                              {group.group}
-                            </td>
-                            <td className="px-6 py-4 whitespace-normal">
-                              <ul className="space-y-2">
-                                {grantedPermissions.map((p) => (
-                                  <li
-                                    key={p.key}
-                                    className="flex items-center gap-2 text-sm text-gray-700"
-                                  >
-                                    <CheckIcon className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                                    <span>{p.label}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+          {hasPermission(currentUser, "users:manage-permissions") && !isRestrictedView && (
+            <div className="p-6 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+              <div className="flex items-center gap-3 mb-4 border-b pb-3">
+                <LockIcon className="w-5 h-5 text-primary-600" />
+                <h3 className="text-lg font-semibold text-gray-800">Hak Akses Pengguna</h3>
               </div>
-            )}
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Grup Fitur
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Hak Akses yang Diberikan
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {ALL_PERMISSIONS.map((group) => {
+                      const grantedPermissions = group.permissions.filter((p) =>
+                        user.permissions.includes(p.key)
+                      );
+                      if (grantedPermissions.length === 0) {
+                        return null;
+                      }
+                      return (
+                        <tr key={group.group}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800 align-top">
+                            {group.group}
+                          </td>
+                          <td className="px-6 py-4 whitespace-normal">
+                            <ul className="space-y-2">
+                              {grantedPermissions.map((p) => (
+                                <li
+                                  key={p.key}
+                                  className="flex items-center gap-2 text-sm text-gray-700"
+                                >
+                                  <CheckIcon className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                                  <span>{p.label}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Security Section (Super Admin only) */}
           {hasPermission(currentUser, "users:reset-password") &&
             user.id !== currentUser.id &&
             !isRestrictedView && (
               <div className="p-6 bg-white border border-gray-200/80 rounded-xl shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-3">
-                  Keamanan
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-3">Keamanan</h3>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-700">
-                      Reset Kata Sandi
-                    </p>
+                    <p className="font-medium text-gray-700">Reset Kata Sandi</p>
                     <p className="text-sm text-gray-500">
                       Buat kata sandi sementara jika pengguna lupa.
                     </p>
@@ -360,9 +342,7 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
                     userAssets.map((asset) => (
                       <tr key={asset.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          <ClickableLink
-                            onClick={() => onShowAssetPreview(asset.id)}
-                          >
+                          <ClickableLink onClick={() => onShowAssetPreview(asset.id)}>
                             {asset.name}
                           </ClickableLink>
                         </td>
@@ -382,10 +362,7 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
                     ))
                   ) : (
                     <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-6 text-center text-sm text-gray-500"
-                      >
+                      <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
                         Tidak ada aset yang sedang digunakan.
                       </td>
                     </tr>
@@ -407,12 +384,10 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
       >
         <div className="text-center">
           <ExclamationTriangleIcon className="w-12 h-12 mx-auto text-red-500" />
-          <h3 className="mt-4 text-lg font-semibold text-gray-800">
-            Anda yakin?
-          </h3>
+          <h3 className="mt-4 text-lg font-semibold text-gray-800">Anda yakin?</h3>
           <p className="mt-2 text-sm text-gray-600">
-            Anda akan membuat kata sandi sementara baru untuk{" "}
-            <strong>{user.name}</strong>. Akses pengguna akan dipulihkan.
+            Anda akan membuat kata sandi sementara baru untuk <strong>{user.name}</strong>. Akses
+            pengguna akan dipulihkan.
           </p>
         </div>
         <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
@@ -440,8 +415,7 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
         size="md"
       >
         <p className="text-sm text-gray-600">
-          Bagikan kata sandi sementara berikut kepada{" "}
-          <strong>{user.name}</strong>.
+          Bagikan kata sandi sementara berikut kepada <strong>{user.name}</strong>.
         </p>
 
         <div className="my-4 relative">
@@ -463,8 +437,8 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
             <strong>Penting:</strong>
           </div>
           <p>
-            Password ini hanya ditampilkan sekali. Pastikan Anda menyalinnya
-            sebelum menutup jendela ini.
+            Password ini hanya ditampilkan sekali. Pastikan Anda menyalinnya sebelum menutup jendela
+            ini.
           </p>
         </div>
 

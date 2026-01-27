@@ -5,14 +5,17 @@
  * NOTE: Mock mode has been deprecated. All API calls now go to the real backend.
  */
 
-// Lazy import functions to break circular dependency
-const getNotificationStore = () =>
-  require("../../stores/useNotificationStore").useNotificationStore;
+// Helper untuk lazy load store secara async guna menghindari circular dependency
+const getNotifier = async () => {
+  const { useNotificationStore } = await import("../../stores/useNotificationStore");
+  return useNotificationStore.getState();
+};
 
 // --- CONFIGURATION ---
-const getEnv = () => {
+const getEnv = (): Record<string, string> => {
   try {
-    return (import.meta as any).env || {};
+    // Casting aman melalui unknown
+    return (import.meta as unknown as { env: Record<string, string> }).env || {};
   } catch {
     return {};
   }
@@ -28,20 +31,30 @@ export const API_URL = env.VITE_API_URL || "http://localhost:3001/api/v1";
 export class ApiError extends Error {
   status: number;
   code?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 
-  constructor(
-    message: string,
-    status: number,
-    code?: string,
-    details?: Record<string, any>,
-  ) {
+  constructor(message: string, status: number, code?: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
   }
+}
+
+// Interface untuk struktur respons standar backend
+interface StandardResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+// Interface untuk respons paginasi
+interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  skip: number;
+  take: number;
 }
 
 // --- API CLIENT ---
@@ -86,15 +99,10 @@ class ApiClient {
       const rawData = await response.json();
 
       // Handle standard API response wrapper { success: boolean, data: T }
-      // This is the common pattern used by the backend
       let data = rawData;
-      if (
-        rawData &&
-        typeof rawData === "object" &&
-        "success" in rawData &&
-        "data" in rawData
-      ) {
-        data = rawData.data;
+      if (rawData && typeof rawData === "object" && "success" in rawData && "data" in rawData) {
+        const stdResponse = rawData as StandardResponse<T>;
+        data = stdResponse.data;
       }
 
       // Handle paginated responses - extract data array if present
@@ -102,16 +110,22 @@ class ApiClient {
         data &&
         typeof data === "object" &&
         "data" in data &&
-        Array.isArray(data.data)
+        Array.isArray((data as PaginatedResponse<unknown>).data)
       ) {
-        // Keep pagination info accessible on the array
-        const result = data.data as any;
-        result._pagination = {
-          total: data.total,
-          skip: data.skip,
-          take: data.take,
+        const paginated = data as PaginatedResponse<unknown>;
+        // Keep pagination info accessible on the array (using type intersection for safety)
+        const result = paginated.data as unknown as T & {
+          _pagination: { total: number; skip: number; take: number };
         };
-        return result as T;
+
+        // Inject pagination metadata (Frontend trick)
+        (result as any)._pagination = {
+          total: paginated.total,
+          skip: paginated.skip,
+          take: paginated.take,
+        };
+
+        return result;
       }
 
       return data as T;
@@ -122,8 +136,9 @@ class ApiClient {
       // Network error
       const message = "Koneksi jaringan bermasalah. Periksa internet Anda.";
       try {
-        getNotificationStore().getState().addToast(message, "error");
-      } catch (e) {
+        const notifier = await getNotifier();
+        notifier.addToast(message, "error");
+      } catch {
         console.error("[ApiClient] Network error:", message);
       }
       throw new ApiError(message, 0, "NETWORK_ERROR");
@@ -131,19 +146,18 @@ class ApiClient {
   }
 
   private async handleError(response: Response): Promise<never> {
-    let errorData: any = {};
+    let errorData: Record<string, unknown> = {};
 
     try {
-      errorData = await response.json();
+      errorData = (await response.json()) as Record<string, unknown>;
     } catch {
       // Response is not JSON
     }
 
     const message =
-      errorData.message ||
-      response.statusText ||
-      "Terjadi kesalahan pada server.";
-    const code = errorData.code || `HTTP_${response.status}`;
+      (errorData.message as string) || response.statusText || "Terjadi kesalahan pada server.";
+    const code = (errorData.code as string) || `HTTP_${response.status}`;
+    const details = errorData.details as Record<string, unknown> | undefined;
 
     // Handle 401 Unauthorized - Global redirect
     if (response.status === 401) {
@@ -157,53 +171,42 @@ class ApiClient {
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
-      throw new ApiError(
-        "Sesi berakhir. Silakan login kembali.",
-        401,
-        "AUTH_SESSION_EXPIRED",
-      );
+      throw new ApiError("Sesi berakhir. Silakan login kembali.", 401, "AUTH_SESSION_EXPIRED");
     }
 
     // Handle 403 Forbidden
     if (response.status === 403) {
       try {
-        getNotificationStore()
-          .getState()
-          .addToast("Anda tidak memiliki izin untuk aksi ini.", "error");
-      } catch (e) {
+        const notifier = await getNotifier();
+        notifier.addToast("Anda tidak memiliki izin untuk aksi ini.", "error");
+      } catch {
         console.error("[ApiClient] 403 Forbidden");
       }
-      throw new ApiError(
-        "Akses ditolak.",
-        403,
-        "AUTH_FORBIDDEN",
-        errorData.details,
-      );
+      throw new ApiError("Akses ditolak.", 403, "AUTH_FORBIDDEN", details);
     }
 
     // Handle validation errors (400, 422)
     if (response.status === 400 || response.status === 422) {
-      throw new ApiError(message, response.status, code, errorData.details);
+      throw new ApiError(message, response.status, code, details);
     }
 
     // Handle conflict (409)
     if (response.status === 409) {
-      throw new ApiError(message, 409, "CONFLICT", errorData.details);
+      throw new ApiError(message, 409, "CONFLICT", details);
     }
 
     // Handle server errors (5xx)
     if (response.status >= 500) {
       try {
-        getNotificationStore()
-          .getState()
-          .addToast("Terjadi kesalahan server. Coba lagi nanti.", "error");
-      } catch (e) {
+        const notifier = await getNotifier();
+        notifier.addToast("Terjadi kesalahan server. Coba lagi nanti.", "error");
+      } catch {
         console.error("[ApiClient] Server error");
       }
       throw new ApiError("Server error.", response.status, "SERVER_ERROR");
     }
 
-    throw new ApiError(message, response.status, code, errorData.details);
+    throw new ApiError(message, response.status, code, details);
   }
 
   // Convenience methods
@@ -211,21 +214,21 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "GET" });
   }
 
-  post<T>(endpoint: string, data?: any): Promise<T> {
+  post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  patch<T>(endpoint: string, data?: any): Promise<T> {
+  patch<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PATCH",
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  put<T>(endpoint: string, data?: any): Promise<T> {
+  put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PUT",
       body: data ? JSON.stringify(data) : undefined,

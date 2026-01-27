@@ -1,25 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import {
-  Customer,
-  CustomerStatus,
-  Asset,
-  User,
-  PreviewData,
-  Page,
-} from "../../../types";
+import { Customer, CustomerStatus, Asset, User, PreviewData, Page } from "../../../types";
 import { useSortableData } from "../../../hooks/useSortableData";
 import { useLongPress } from "../../../hooks/useLongPress";
 import { useNotification } from "../../../providers/NotificationProvider";
 import { exportToCSV } from "../../../utils/csvExporter";
-import { SortIcon } from "../../../components/icons/SortIcon";
-import { SortAscIcon } from "../../../components/icons/SortAscIcon";
-import { SortDescIcon } from "../../../components/icons/SortDescIcon";
+// FIX: Hapus import ikon yang tidak digunakan
 import { SearchIcon } from "../../../components/icons/SearchIcon";
 import { CloseIcon } from "../../../components/icons/CloseIcon";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { PaginationControls } from "../../../components/ui/PaginationControls";
 import Modal from "../../../components/ui/Modal";
-import { InboxIcon } from "../../../components/icons/InboxIcon";
 import { ExportIcon } from "../../../components/icons/ExportIcon";
 import { EyeIcon } from "../../../components/icons/EyeIcon";
 import { TrashIcon } from "../../../components/icons/TrashIcon";
@@ -31,26 +21,17 @@ import { UsersIcon } from "../../../components/icons/UsersIcon";
 import { FilterIcon } from "../../../components/icons/FilterIcon";
 import { CheckIcon } from "../../../components/icons/CheckIcon";
 import { SummaryCard } from "../../dashboard/components/SummaryCard";
-import { BsBoxSeam, BsLightningFill } from "react-icons/bs"; // New Icons
+import { BsBoxSeam, BsLightningFill } from "react-icons/bs";
 
 // Stores
 import { useMasterDataStore } from "../../../stores/useMasterDataStore";
 import { useAssetStore } from "../../../stores/useAssetStore";
 
-interface CustomerListPageProps {
-  currentUser: User;
-  // Legacy props kept for signature compatibility
-  customers?: Customer[];
-  setCustomers?: any;
-  assets?: Asset[];
-
-  onInitiateDismantle: (asset: Asset) => void;
-  onShowPreview: (data: PreviewData) => void;
-  setActivePage: (page: Page, filters?: any) => void;
-  initialFilters?: any;
-}
-
-export const getStatusClass = (status: CustomerStatus) => {
+// FIX: Pindahkan getStatusClass ke file terpisah atau di dalam komponen jika tidak digunakan di tempat lain
+// Untuk solusi cepat agar Fast Refresh tidak error, kita biarkan di sini tapi tidak di-export,
+// ATAU jika memang dipakai di tempat lain, sebaiknya dipindah ke utils.
+// Di sini saya hapus 'export' nya agar compliant dengan react-refresh di file komponen.
+const getStatusClass = (status: CustomerStatus) => {
   switch (status) {
     case CustomerStatus.ACTIVE:
       return "bg-success-light text-success-text";
@@ -62,6 +43,20 @@ export const getStatusClass = (status: CustomerStatus) => {
       return "bg-gray-100 text-gray-800";
   }
 };
+
+interface CustomerListPageProps {
+  currentUser: User;
+  // Legacy props kept for signature compatibility
+  customers?: Customer[];
+  setCustomers?: unknown;
+  assets?: Asset[];
+
+  onInitiateDismantle: (asset: Asset) => void;
+  onShowPreview: (data: PreviewData) => void;
+  // FIX: Ganti 'any' dengan tipe yang lebih spesifik
+  setActivePage: (page: Page, filters?: Record<string, unknown>) => void;
+  initialFilters?: { openEditFormFor?: string };
+}
 
 const CustomerListPage: React.FC<CustomerListPageProps> = ({
   currentUser,
@@ -78,10 +73,11 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
   const assets = useAssetStore((state) => state.assets);
   const fetchAssets = useAssetStore((state) => state.fetchAssets);
 
+  // FIX: Tambahkan dependency array yang lengkap untuk useEffect
   useEffect(() => {
     if (customers.length === 0) fetchMasterData();
     if (assets.length === 0) fetchAssets();
-  }, []);
+  }, [customers.length, assets.length, fetchMasterData, fetchAssets]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const initialFilterState = { status: "", servicePackage: "" };
@@ -96,23 +92,15 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
   const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
 
-  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
-    null,
-  );
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
-  const [targetStatus, setTargetStatus] = useState<CustomerStatus>(
-    CustomerStatus.ACTIVE,
-  );
+  const [targetStatus, setTargetStatus] = useState<CustomerStatus>(CustomerStatus.ACTIVE);
   const [isLoading, setIsLoading] = useState(false);
 
   const addNotification = useNotification();
 
-  const {
-    items: sortedCustomers,
-    requestSort,
-    sortConfig,
-  } = useSortableData<Customer>(customers, {
+  const { items: sortedCustomers } = useSortableData<Customer>(customers, {
     key: "name",
     direction: "ascending",
   });
@@ -127,10 +115,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        filterPanelRef.current &&
-        !filterPanelRef.current.contains(event.target as Node)
-      ) {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(event.target as Node)) {
         setIsFilterPanelOpen(false);
       }
     }
@@ -163,7 +148,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
   // Extract unique service packages for filter options
   const servicePackageOptions = useMemo(() => {
     const uniquePackages: string[] = Array.from(
-      new Set(customers.map((c) => c.servicePackage).filter(Boolean)),
+      new Set(customers.map((c) => c.servicePackage).filter(Boolean))
     );
     return uniquePackages.map((pkg) => ({ value: pkg, label: pkg }));
   }, [customers]);
@@ -217,11 +202,10 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
   }, [searchQuery, filters, itemsPerPage]);
 
   const { deletableCustomersCount, skippableCustomersCount } = useMemo(() => {
-    if (!isBulkDeleteModalOpen)
-      return { deletableCustomersCount: 0, skippableCustomersCount: 0 };
+    if (!isBulkDeleteModalOpen) return { deletableCustomersCount: 0, skippableCustomersCount: 0 };
 
     const deletableIds = selectedCustomerIds.filter(
-      (id) => !assets.some((a) => a.currentUser === id),
+      (id) => !assets.some((a) => a.currentUser === id)
     );
     return {
       deletableCustomersCount: deletableIds.length,
@@ -236,7 +220,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
     if (hasAssets) {
       addNotification(
         "Pelanggan tidak dapat dihapus karena masih memiliki aset terpasang.",
-        "error",
+        "error"
       );
       setCustomerToDelete(null);
       return;
@@ -245,11 +229,8 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
     setIsLoading(true);
     try {
       await deleteCustomer(customerToDelete.id);
-      addNotification(
-        `Pelanggan ${customerToDelete.name} berhasil dihapus.`,
-        "success",
-      );
-    } catch (e) {
+      addNotification(`Pelanggan ${customerToDelete.name} berhasil dihapus.`, "success");
+    } catch {
       addNotification("Gagal menghapus pelanggan.", "error");
     } finally {
       setCustomerToDelete(null);
@@ -259,13 +240,13 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
 
   const handleBulkDelete = async () => {
     const deletableCustomerIds = selectedCustomerIds.filter(
-      (id) => !assets.some((a) => a.currentUser === id),
+      (id) => !assets.some((a) => a.currentUser === id)
     );
 
     if (deletableCustomerIds.length === 0) {
       addNotification(
         "Tidak ada pelanggan yang dapat dihapus (semua memiliki aset terpasang).",
-        "error",
+        "error"
       );
       setIsBulkDeleteModalOpen(false);
       return;
@@ -299,33 +280,34 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
       }
       addNotification(
         `${selectedCustomerIds.length} pelanggan diubah statusnya menjadi "${targetStatus}".`,
-        "success",
+        "success"
       );
       setIsBulkStatusModalOpen(false);
       setSelectedCustomerIds([]);
       setIsBulkSelectMode(false);
-    } catch (e) {
+    } catch {
       addNotification("Gagal mengubah status pelanggan.", "error");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // FIX: Pindahkan pemanggilan useLongPress SEBELUM conditional return
+  const longPressHandlers = useLongPress(() => setIsBulkSelectMode(true), 500);
+
+  // FIX: Conditional rendering dilakukan setelah semua hooks dipanggil
   if (currentUser.role === "Staff") {
     return (
       <div className="flex items-center justify-center h-full p-8 text-center">
         <div>
           <h1 className="text-2xl font-bold text-danger-text">Akses Ditolak</h1>
           <p className="mt-2 text-gray-600">
-            Anda tidak memiliki izin untuk mengakses halaman ini. Silakan
-            hubungi administrator.
+            Anda tidak memiliki izin untuk mengakses halaman ini. Silakan hubungi administrator.
           </p>
         </div>
       </div>
     );
   }
-
-  const longPressHandlers = useLongPress(() => setIsBulkSelectMode(true), 500);
 
   return (
     <>
@@ -463,9 +445,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                             })),
                           ]}
                           value={tempFilters.status}
-                          onChange={(v) =>
-                            setTempFilters((f) => ({ ...f, status: v }))
-                          }
+                          onChange={(v) => setTempFilters((f) => ({ ...f, status: v }))}
                         />
                       </div>
                       <div>
@@ -473,13 +453,13 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                           Paket Layanan
                         </label>
                         <CustomSelect
-                          options={[
-                            { value: "", label: "Semua Paket" },
-                            ...servicePackageOptions,
-                          ]}
+                          options={[{ value: "", label: "Semua Paket" }, ...servicePackageOptions]}
                           value={tempFilters.servicePackage}
                           onChange={(v) =>
-                            setTempFilters((f) => ({ ...f, servicePackage: v }))
+                            setTempFilters((f) => ({
+                              ...f,
+                              servicePackage: v,
+                            }))
                           }
                         />
                       </div>
@@ -519,8 +499,7 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
               )}
               {filters.servicePackage && (
                 <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-100 rounded-full">
-                  Paket:{" "}
-                  <span className="font-bold">{filters.servicePackage}</span>
+                  Paket: <span className="font-bold">{filters.servicePackage}</span>
                   <button
                     onClick={() => handleRemoveFilter("servicePackage")}
                     className="p-0.5 ml-1 rounded-full hover:bg-purple-200 text-purple-500"
@@ -583,14 +562,11 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                       <Checkbox
                         checked={
                           selectedCustomerIds.length > 0 &&
-                          selectedCustomerIds.length ===
-                            paginatedCustomers.length
+                          selectedCustomerIds.length === paginatedCustomers.length
                         }
                         onChange={(e) =>
                           setSelectedCustomerIds(
-                            e.target.checked
-                              ? paginatedCustomers.map((c) => c.id)
-                              : [],
+                            e.target.checked ? paginatedCustomers.map((c) => c.id) : []
                           )
                         }
                       />
@@ -619,11 +595,8 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
               </thead>
               <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                 {paginatedCustomers.map((customer) => {
-                  const assetCount = assets.filter(
-                    (a) => a.currentUser === customer.id,
-                  ).length;
-                  const materialCount =
-                    customer.installedMaterials?.length || 0;
+                  const assetCount = assets.filter((a) => a.currentUser === customer.id).length;
+                  const materialCount = customer.installedMaterials?.length || 0;
 
                   return (
                     <tr
@@ -634,24 +607,24 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
                           ? setSelectedCustomerIds((prev) =>
                               prev.includes(customer.id)
                                 ? prev.filter((id) => id !== customer.id)
-                                : [...prev, customer.id],
+                                : [...prev, customer.id]
                             )
-                          : onShowPreview({ type: "customer", id: customer.id })
+                          : onShowPreview({
+                              type: "customer",
+                              id: customer.id,
+                            })
                       }
                       className={`cursor-pointer transition-colors ${selectedCustomerIds.includes(customer.id) ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-slate-700"}`}
                     >
                       {isBulkSelectMode && (
-                        <td
-                          className="px-6 py-4"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedCustomerIds.includes(customer.id)}
                             onChange={() =>
                               setSelectedCustomerIds((prev) =>
                                 prev.includes(customer.id)
                                   ? prev.filter((id) => id !== customer.id)
-                                  : [...prev, customer.id],
+                                  : [...prev, customer.id]
                               )
                             }
                           />
@@ -792,15 +765,15 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
               disabled={isLoading}
               className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-danger rounded-lg shadow-sm hover:bg-red-700"
             >
-              {isLoading && <SpinnerIcon className="w-4 h-4 mr-2" />}Konfirmasi
-              Hapus
+              {isLoading && <SpinnerIcon className="w-4 h-4 mr-2" />}
+              Konfirmasi Hapus
             </button>
           </>
         }
       >
         <p className="text-sm text-gray-600">
-          Anda yakin ingin menghapus <strong>{customerToDelete?.name}</strong>?
-          Aksi ini tidak dapat diurungkan.
+          Anda yakin ingin menghapus <strong>{customerToDelete?.name}</strong>? Aksi ini tidak dapat
+          diurungkan.
         </p>
       </Modal>
 
@@ -821,18 +794,14 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
           </h3>
           <p className="mt-2 text-sm text-gray-600">
             {" "}
-            Anda akan menghapus pelanggan yang dipilih secara permanen. Aksi ini
-            tidak dapat diurungkan.{" "}
+            Anda akan menghapus pelanggan yang dipilih secara permanen. Aksi ini tidak dapat
+            diurungkan.{" "}
           </p>
           <div className="w-full p-3 mt-4 text-sm text-left bg-gray-50 border rounded-lg">
             <div className="flex justify-between">
               {" "}
-              <span className="text-gray-600">
-                Total Pelanggan Dipilih:
-              </span>{" "}
-              <span className="font-semibold text-gray-800">
-                {selectedCustomerIds.length}
-              </span>{" "}
+              <span className="text-gray-600">Total Pelanggan Dipilih:</span>{" "}
+              <span className="font-semibold text-gray-800">{selectedCustomerIds.length}</span>{" "}
             </div>
             <div className="flex justify-between mt-1 text-green-700">
               {" "}
@@ -841,17 +810,15 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
             </div>
             <div className="flex justify-between mt-1 text-amber-700">
               {" "}
-              <span className="font-medium">
-                Dilewati (memiliki aset):
-              </span>{" "}
+              <span className="font-medium">Dilewati (memiliki aset):</span>{" "}
               <span className="font-bold">{skippableCustomersCount}</span>{" "}
             </div>
           </div>
           {deletableCustomersCount === 0 && skippableCustomersCount > 0 && (
             <p className="mt-4 text-sm font-semibold text-red-700">
               {" "}
-              Tidak ada pelanggan yang dapat dihapus. Semua pelanggan yang
-              dipilih memiliki aset terpasang.{" "}
+              Tidak ada pelanggan yang dapat dihapus. Semua pelanggan yang dipilih memiliki aset
+              terpasang.{" "}
             </p>
           )}
         </div>
@@ -899,8 +866,8 @@ const CustomerListPage: React.FC<CustomerListPageProps> = ({
         }
       >
         <p className="mb-4 text-sm text-gray-600">
-          Pilih status baru untuk <strong>{selectedCustomerIds.length}</strong>{" "}
-          pelanggan yang dipilih.
+          Pilih status baru untuk <strong>{selectedCustomerIds.length}</strong> pelanggan yang
+          dipilih.
         </p>
         <CustomSelect
           options={Object.values(CustomerStatus).map((s) => ({

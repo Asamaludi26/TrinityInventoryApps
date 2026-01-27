@@ -4,12 +4,15 @@
  */
 
 import { apiClient } from "./client";
-import { LoanRequest, AssetCondition, AssetReturn } from "../../types";
+import { LoanRequest, AssetCondition, AssetReturn, LoanRequestStatus } from "../../types";
 import {
   transformBackendLoanRequest,
   transformBackendAssetReturn,
   toBackendLoanStatus,
 } from "../../utils/enumMapper";
+
+// Helper Type
+type BackendDTO = Record<string, unknown>;
 
 export interface LoanFilters {
   status?: string;
@@ -49,17 +52,15 @@ export const loansApi = {
     const params = new URLSearchParams();
     if (filters) {
       if (filters.status) {
-        params.append("status", toBackendLoanStatus(filters.status as any));
+        params.append("status", toBackendLoanStatus(filters.status as LoanRequestStatus));
       }
       if (filters.requester) params.append("requesterId", filters.requester);
       if (filters.skip) params.append("skip", String(filters.skip));
       if (filters.take) params.append("take", String(filters.take));
     }
     const query = params.toString();
-    const response = await apiClient.get<any[]>(
-      `/loan-requests${query ? `?${query}` : ""}`,
-    );
-    return (response || []).map(transformBackendLoanRequest);
+    const response = await apiClient.get<BackendDTO[]>(`/loan-requests${query ? `?${query}` : ""}`);
+    return (response || []).map((item) => transformBackendLoanRequest(item));
   },
 
   /**
@@ -67,10 +68,17 @@ export const loansApi = {
    */
   getById: async (id: string): Promise<LoanRequest | null> => {
     try {
-      const response = await apiClient.get<any>(`/loan-requests/${id}`);
+      const response = await apiClient.get<BackendDTO>(`/loan-requests/${id}`);
       return transformBackendLoanRequest(response);
-    } catch (error: any) {
-      if (error?.status === 404) return null;
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as Record<string, unknown>).status === 404
+      ) {
+        return null;
+      }
       throw error;
     }
   },
@@ -78,9 +86,7 @@ export const loansApi = {
   /**
    * Create loan request
    */
-  create: async (
-    data: Omit<LoanRequest, "id" | "status">,
-  ): Promise<LoanRequest> => {
+  create: async (data: Omit<LoanRequest, "id" | "status">): Promise<LoanRequest> => {
     const backendData = {
       requestDate: data.requestDate,
       purpose: data.notes,
@@ -93,32 +99,23 @@ export const loansApi = {
         unit: item.unit,
       })),
     };
-    const response = await apiClient.post<any>("/loan-requests", backendData);
+    const response = await apiClient.post<BackendDTO>("/loan-requests", backendData);
     return transformBackendLoanRequest(response);
   },
 
   /**
    * Update loan request
    */
-  update: async (
-    id: string,
-    data: Partial<LoanRequest>,
-  ): Promise<LoanRequest> => {
-    const response = await apiClient.patch<any>(`/loan-requests/${id}`, data);
+  update: async (id: string, data: Partial<LoanRequest>): Promise<LoanRequest> => {
+    const response = await apiClient.patch<BackendDTO>(`/loan-requests/${id}`, data);
     return transformBackendLoanRequest(response);
   },
 
   /**
    * Approve loan request with asset assignment
    */
-  approve: async (
-    id: string,
-    payload: ApproveLoanPayload,
-  ): Promise<LoanRequest> => {
-    const response = await apiClient.post<any>(
-      `/loan-requests/${id}/approve`,
-      payload,
-    );
+  approve: async (id: string, payload: ApproveLoanPayload): Promise<LoanRequest> => {
+    const response = await apiClient.post<BackendDTO>(`/loan-requests/${id}/approve`, payload);
     return transformBackendLoanRequest(response);
   },
 
@@ -127,11 +124,11 @@ export const loansApi = {
    */
   reject: async (
     id: string,
-    payload: { reason?: string; rejectionReason?: string },
+    payload: { reason?: string; rejectionReason?: string }
   ): Promise<LoanRequest> => {
     // Support both formats
     const reason = payload.reason || payload.rejectionReason || "";
-    const response = await apiClient.post<any>(`/loan-requests/${id}/reject`, {
+    const response = await apiClient.post<BackendDTO>(`/loan-requests/${id}/reject`, {
       reason,
     });
     return transformBackendLoanRequest(response);
@@ -158,10 +155,10 @@ export const loansApi = {
           receivedBy?: string;
           notes?: string;
         },
-    items?: ReturnItem[],
+    items?: ReturnItem[]
   ): Promise<LoanRequest> => {
     // Support both signatures
-    let requestData: any;
+    let requestData: Record<string, unknown>;
     let loanRequestId: string;
 
     if (typeof loanRequestIdOrData === "string") {
@@ -173,12 +170,12 @@ export const loansApi = {
       };
     } else {
       loanRequestId = loanRequestIdOrData.loanRequestId;
-      requestData = loanRequestIdOrData;
+      requestData = loanRequestIdOrData as unknown as Record<string, unknown>;
     }
 
-    const response = await apiClient.post<any>(
+    const response = await apiClient.post<BackendDTO>(
       `/loan-requests/${loanRequestId}/return`,
-      requestData,
+      requestData
     );
     return transformBackendLoanRequest(response);
   },
@@ -191,8 +188,8 @@ export const returnsApi = {
    */
   getAll: async (loanRequestId?: string): Promise<AssetReturn[]> => {
     const params = loanRequestId ? `?loanRequestId=${loanRequestId}` : "";
-    const data = await apiClient.get<any[]>(`/returns${params}`);
-    return (data || []).map(transformBackendAssetReturn);
+    const data = await apiClient.get<BackendDTO[]>(`/returns${params}`);
+    return (data || []).map((item) => transformBackendAssetReturn(item));
   },
 
   /**
@@ -200,10 +197,17 @@ export const returnsApi = {
    */
   getById: async (id: string): Promise<AssetReturn | null> => {
     try {
-      const data = await apiClient.get<any>(`/returns/${id}`);
+      const data = await apiClient.get<BackendDTO>(`/returns/${id}`);
       return transformBackendAssetReturn(data);
-    } catch (error: any) {
-      if (error?.status === 404) return null;
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        (error as Record<string, unknown>).status === 404
+      ) {
+        return null;
+      }
       throw error;
     }
   },
@@ -215,19 +219,23 @@ export const returnsApi = {
   create: async (returnData: {
     loanRequestId: string;
     returnDate: string;
-    items: Array<ReturnItem | any>;
+    items: Array<ReturnItem | Record<string, unknown>>;
   }): Promise<AssetReturn> => {
     // Transform items to consistent format
     const transformedData = {
       ...returnData,
-      items: returnData.items.map((item: any) => ({
-        assetId: item.assetId,
-        assetName: item.assetName,
-        returnedCondition: item.returnedCondition || item.condition,
-        notes: item.notes,
-      })),
+      items: returnData.items.map((item) => {
+        // Safe access using type narrowing or casting
+        const it = item as Record<string, unknown>;
+        return {
+          assetId: it.assetId,
+          assetName: it.assetName,
+          returnedCondition: it.returnedCondition || it.condition,
+          notes: it.notes,
+        };
+      }),
     };
-    const response = await apiClient.post<any>("/returns", transformedData);
+    const response = await apiClient.post<BackendDTO>("/returns", transformedData);
     return transformBackendAssetReturn(response);
   },
 
@@ -238,20 +246,17 @@ export const returnsApi = {
     id: string,
     payload: {
       itemStatuses: Record<string, { accepted: boolean; notes?: string }>;
-    },
+    }
   ): Promise<AssetReturn> => {
-    const response = await apiClient.post<any>(`/returns/${id}/process`, payload);
+    const response = await apiClient.post<BackendDTO>(`/returns/${id}/process`, payload);
     return transformBackendAssetReturn(response);
   },
 
   /**
    * Update return
    */
-  update: async (
-    id: string,
-    data: Partial<AssetReturn>,
-  ): Promise<AssetReturn> => {
-    const response = await apiClient.patch<any>(`/returns/${id}`, data);
+  update: async (id: string, data: Partial<AssetReturn>): Promise<AssetReturn> => {
+    const response = await apiClient.patch<BackendDTO>(`/returns/${id}`, data);
     return transformBackendAssetReturn(response);
   },
 
@@ -261,12 +266,10 @@ export const returnsApi = {
    */
   verify: async (
     id: string,
-    acceptedAssetIdsOrPayload:
-      | string[]
-      | { verifiedBy: string; notes?: string },
-    verifiedBy?: string,
+    acceptedAssetIdsOrPayload: string[] | { verifiedBy: string; notes?: string },
+    verifiedBy?: string
   ): Promise<AssetReturn> => {
-    let payload: any;
+    let payload: Record<string, unknown>;
 
     if (Array.isArray(acceptedAssetIdsOrPayload)) {
       payload = {
@@ -274,10 +277,10 @@ export const returnsApi = {
         verifiedBy: verifiedBy || "",
       };
     } else {
-      payload = acceptedAssetIdsOrPayload;
+      payload = acceptedAssetIdsOrPayload as unknown as Record<string, unknown>;
     }
 
-    const response = await apiClient.post<any>(`/returns/${id}/verify`, payload);
+    const response = await apiClient.post<BackendDTO>(`/returns/${id}/verify`, payload);
     return transformBackendAssetReturn(response);
   },
 };

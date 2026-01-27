@@ -90,6 +90,7 @@ export const env = {
  * Log configuration in development
  */
 if (env.features.debug) {
+  // eslint-disable-next-line no-console
   console.log("[ENV] Configuration:", {
     apiUrl: env.apiUrl,
     appName: env.appName,

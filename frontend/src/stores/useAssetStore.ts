@@ -9,19 +9,16 @@ import {
   ActivityLogEntry,
   ItemStatus,
   AssetType,
+  ItemClassification,
+  TrackingMethod,
 } from "../types";
-import {
-  assetsApi,
-  stockApi,
-  categoriesApi, // Pastikan ini diimport dari master-data.api.ts atau file yang sesuai
-  unifiedApi,
-} from "../services/api";
+import { assetsApi, stockApi, categoriesApi, unifiedApi } from "../services/api";
 import { useNotificationStore } from "./useNotificationStore";
 import { useMasterDataStore } from "./useMasterDataStore";
 import { useAuthStore } from "./useAuthStore";
 import { useRequestStore } from "./useRequestStore";
 
-// --- INTERFACE DEFINITION (PERBAIKAN UTAMA DI SINI) ---
+// --- INTERFACE DEFINITION ---
 interface AssetState {
   assets: Asset[];
   categories: AssetCategory[];
@@ -45,7 +42,7 @@ interface AssetState {
   deleteCategory: (id: number) => Promise<void>;
   updateCategories: (categories: AssetCategory[]) => Promise<void>;
 
-  // --- TYPE ACTIONS (INI YANG HILANG SEBELUMNYA) ---
+  // --- TYPE ACTIONS ---
   createType: (data: any) => Promise<void>;
   updateTypeDetails: (id: number, data: any) => Promise<void>;
   deleteType: (id: number, categoryId: number) => Promise<void>;
@@ -132,9 +129,8 @@ const normalizeCategories = (categories: AssetCategory[]): AssetCategory[] => {
     ...cat,
     types: (cat.types || []).map((t) => ({
       ...t,
-      // Paksa menjadi lowercase agar cocok dengan logika Frontend (asset/material)
-      classification: (t.classification || "asset").toLowerCase() as any,
-      trackingMethod: (t.trackingMethod || "individual").toLowerCase() as any,
+      classification: (t.classification || "asset").toLowerCase() as ItemClassification,
+      trackingMethod: (t.trackingMethod || "individual").toLowerCase() as TrackingMethod,
     })),
   }));
 };
@@ -174,8 +170,6 @@ export const useAssetStore = create<AssetState>()(
         try {
           const assets = await unifiedApi.refreshAssets();
           const rawCategories = await unifiedApi.refreshCategories();
-
-          // FIX: Normalisasi kategori dari server sebelum disimpan ke state
           const categories = normalizeCategories(rawCategories);
 
           set({
@@ -192,10 +186,7 @@ export const useAssetStore = create<AssetState>()(
       fetchCategories: async () => {
         try {
           const rawCategories = await unifiedApi.refreshCategories();
-
-          // FIX: Normalisasi kategori dari server
           const categories = normalizeCategories(rawCategories);
-
           set({ categories });
         } catch (error) {
           console.error("[AssetStore] fetchCategories failed:", error);
@@ -205,15 +196,20 @@ export const useAssetStore = create<AssetState>()(
       addAsset: async (rawAsset) => {
         const asset = sanitizeBulkAsset(rawAsset, get().categories) as Asset;
 
-        if ((rawAsset as any).initialBalance !== undefined) {
-          asset.initialBalance = toInt((rawAsset as any).initialBalance);
-          asset.currentBalance = toInt(
-            (rawAsset as any).currentBalance ?? (rawAsset as any).initialBalance
-          );
+        type AssetInput = Asset & {
+          initialBalance?: number;
+          currentBalance?: number;
+          quantity?: number;
+        };
+        const input = rawAsset as AssetInput;
+
+        if (input.initialBalance !== undefined) {
+          asset.initialBalance = toInt(input.initialBalance);
+          asset.currentBalance = toInt(input.currentBalance ?? input.initialBalance);
         }
 
-        if ((rawAsset as any).quantity) {
-          (asset as any).quantity = toInt((rawAsset as any).quantity);
+        if (input.quantity) {
+          (asset as any).quantity = toInt(input.quantity);
         }
 
         try {
@@ -226,8 +222,8 @@ export const useAssetStore = create<AssetState>()(
           let logQty = 1;
           if (asset.initialBalance !== undefined) {
             logQty = asset.initialBalance;
-          } else if (type?.trackingMethod === "bulk" && (rawAsset as any).quantity) {
-            logQty = (rawAsset as any).quantity;
+          } else if (type?.trackingMethod === "bulk" && input.quantity) {
+            logQty = input.quantity;
           }
 
           await get().recordMovement({
@@ -286,13 +282,16 @@ export const useAssetStore = create<AssetState>()(
             }
 
             if (type) {
+              const extraData = data as Record<string, unknown>;
+              const refId = (extraData.woRoIntNumber as string) || "Status Update";
+
               await get().recordMovement({
                 assetName: originalAsset.name,
                 brand: originalAsset.brand,
                 date: new Date().toISOString(),
                 type: type,
                 quantity: qtyToLog,
-                referenceId: (data as any).woRoIntNumber || "Status Update",
+                referenceId: refId,
                 actor: "System",
                 notes: isMeasurement
                   ? `Perubahan status fisik (Log: ${qtyToLog} Base Unit): ${originalAsset.status} -> ${data.status}`
@@ -415,9 +414,8 @@ export const useAssetStore = create<AssetState>()(
 
       createCategory: async (data) => {
         try {
-          const response = await categoriesApi.create(data as any);
+          const response = await categoriesApi.create(data as unknown as AssetCategory);
 
-          // Normalisasi Data untuk Frontend (Inject types jika kosong)
           const newCategory = {
             ...response,
             types: response.types || [],
@@ -468,25 +466,24 @@ export const useAssetStore = create<AssetState>()(
         }
       },
 
-      // --- TYPE ACTIONS (IMPLEMENTASI LENGKAP) ---
-
-      // ... di dalam src/stores/useAssetStore.ts ...
+      // --- TYPE ACTIONS ---
 
       createType: async (data) => {
         try {
           const newTypeResponse = await categoriesApi.createType(data);
 
-          // FIX: Cast ke 'any' agar TypeScript tidak rewel soal tipe 'unknown'
-          const rawResponse = newTypeResponse as any;
+          const rawResponse = newTypeResponse as Record<string, unknown>;
 
-          // Normalisasi classification ke lowercase agar sesuai filter UI
-          const normalizedClassification = (rawResponse.classification || "asset").toLowerCase();
+          const normalizedClassification = (
+            (rawResponse.classification as string) || "asset"
+          ).toLowerCase();
 
+          // FIX: Gunakan double casting (as unknown as AssetType) untuk bypass error overlap
           const newTypeForState = {
-            ...rawResponse, // Spread dari rawResponse yang sudah di-cast
+            ...rawResponse,
             classification: normalizedClassification,
             standardItems: [],
-          } as AssetType;
+          } as unknown as AssetType;
 
           set((state) => ({
             categories: state.categories.map((cat) => {
@@ -509,20 +506,20 @@ export const useAssetStore = create<AssetState>()(
         try {
           const updatedTypeResponse = await categoriesApi.updateType(id, data);
 
-          // FIX: Cast ke 'any' agar TypeScript mengizinkan akses properti 'classification'
-          const rawResponse = updatedTypeResponse as any;
+          const rawResponse = updatedTypeResponse as Record<string, unknown>;
 
-          // Normalisasi classification (menjadi lowercase)
-          const normalizedClassification = (rawResponse.classification || "asset").toLowerCase();
+          const normalizedClassification = (
+            (rawResponse.classification as string) || "asset"
+          ).toLowerCase();
 
+          // FIX: Gunakan double casting (as unknown as AssetType)
           const updatedTypeForState = {
             ...rawResponse,
             classification: normalizedClassification,
-          } as AssetType;
+          } as unknown as AssetType;
 
           set((state) => ({
             categories: state.categories.map((cat) => {
-              // Pastikan types array ada sebelum melakukan .some
               if (cat.types && cat.types.some((t) => t.id === id)) {
                 return {
                   ...cat,
@@ -553,8 +550,6 @@ export const useAssetStore = create<AssetState>()(
               return cat;
             }),
           }));
-
-          // HAPUS BARIS INI: await get().fetchCategories();
         } catch (error) {
           console.error("[AssetStore] deleteType failed:", error);
           throw error;
@@ -597,7 +592,6 @@ export const useAssetStore = create<AssetState>()(
       },
 
       checkAvailability: (itemName, brand, qtyNeeded, requestUnit, excludeRequestId) => {
-        // ... (Kode checkAvailability tetap sama, disingkat agar fit)
         const assets = get().assets;
         const categories = get().categories;
         const requests = useRequestStore.getState().requests;
@@ -763,8 +757,6 @@ export const useAssetStore = create<AssetState>()(
       },
 
       consumeMaterials: async (materials, context) => {
-        // ... (KODE consumeMaterials TIDAK SAYA UBAH KARENA SUDAH BENAR & PANJANG) ...
-        // ... (Silakan copy-paste logika consumeMaterials dari kode Anda sebelumnya) ...
         const { assets, categories } = get();
         const errors: string[] = [];
 
@@ -801,7 +793,6 @@ export const useAssetStore = create<AssetState>()(
           const qtyToDeduct = Math.ceil(mat.quantity);
           let targetAssets: Asset[] = [];
 
-          // SMART LOGIC: Auto-Detect Source
           if (mat.materialAssetId) {
             const specificAsset = assets.find((a) => a.id === mat.materialAssetId);
             if (specificAsset) {
