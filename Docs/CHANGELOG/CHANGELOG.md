@@ -11,6 +11,35 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+#### Enhancement Kelola Akun - Tab Overview dengan Statistik Role & Divisi (2026-01-28)
+
+- **AccountOverviewTab Component**: Komponen baru untuk tab Ringkasan dengan:
+  - Summary cards (Total Akun Aktif, Total Divisi, Role Types)
+  - Role distribution dengan progress bar dan description (SUPER ADMIN ONLY)
+  - Role limits indicator: Super Admin (1), Admin Logistik (3), Admin Purchase (3)
+  - Division table dengan member count dan asset info
+  - Quick filter navigation ke tab lain dengan filter
+
+- **AccountProfileTab Component**: Komponen baru untuk Kelola Akun Saya:
+  - Identity card dengan gradient header dan avatar
+  - Role badge dengan deskripsi hak akses
+  - Stat cards: Aset Dipegang, Total Request, Request Pending
+  - Info detail: Nama, Email, Role, Divisi
+  - Quick preview aset yang sedang dipegang
+
+- **ManageAccountPage Enhancement**:
+  - Tab navigasi: Profil Saya | Keamanan
+  - Tab Profil: AccountProfileTab dengan info lengkap
+  - Tab Keamanan: Form ubah password dan request reset
+
+- **copilot-instructions.md Enhancement**:
+  - Agent Persona sebagai Senior Professional Software Engineer
+  - Critical Thinking & Quality Standards guidelines
+  - Project Structure Reference dengan folder dokumentasi
+  - Security Checklist dan Code Quality Checklist
+
+> **Dokumentasi session**: Lihat [2026-01-28_account-management-enhancement.md](../Develop/frontend/2026-01-28_account-management-enhancement.md)
+
 #### Model CRUD untuk Kategori Aset (2026-01-28)
 
 - **Backend**: Endpoint `POST/PATCH/DELETE /categories/models` sudah terintegrasi dengan tabel `standard_items`

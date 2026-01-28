@@ -12,6 +12,8 @@ import { hasPermission } from "../../utils/permissions";
 import { useAccountsLogic } from "./hooks/useAccountsLogic";
 import { UsersTable } from "./components/UsersTable";
 import { DivisionsTable } from "./components/DivisionsTable";
+import { AccountOverviewTab } from "./components/AccountOverviewTab";
+import { BsBarChartFill, BsPeopleFill, BsBuilding } from "react-icons/bs";
 
 interface AccountsPageProps {
   currentUser: User;
@@ -55,6 +57,7 @@ export function AccountsPage({
     divisionSearchQuery,
     setDivisionSearchQuery,
     userFilters,
+    setUserFilters,
     tempUserFilters,
     setTempUserFilters,
     activeUserFilterCount,
@@ -110,46 +113,77 @@ export function AccountsPage({
       <div className="flex flex-col items-start justify-between gap-4 mb-6 md:flex-row md:items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Akun & Divisi</h1>
         <div className="flex items-center space-x-2">
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            <ExportIcon className="w-4 h-4" /> Export CSV
-          </button>
-          {hasPermission(
-            currentUser,
-            activeView === "users" ? "users:create" : "divisions:manage"
-          ) && (
+          {activeView !== "overview" && (
             <button
-              onClick={() =>
-                activeView === "users" ? setActivePage("user-form") : setActivePage("division-form")
-              }
-              className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+              onClick={handleExport}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
             >
-              {activeView === "users" ? "Tambah Akun" : "Tambah Divisi"}
+              <ExportIcon className="w-4 h-4" /> Export CSV
             </button>
           )}
+          {hasPermission(
+            currentUser,
+            activeView === "divisions" ? "divisions:manage" : "users:create"
+          ) &&
+            activeView !== "overview" && (
+              <button
+                onClick={() =>
+                  activeView === "users"
+                    ? setActivePage("user-form")
+                    : setActivePage("division-form")
+                }
+                className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+              >
+                {activeView === "users" ? "Tambah Akun" : "Tambah Divisi"}
+              </button>
+            )}
         </div>
       </div>
 
       <div className="mb-6 border-b border-gray-200 dark:border-slate-700">
         <nav className="flex -mb-px space-x-6" aria-label="Tabs">
           <button
-            onClick={() => setActiveView("users")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeView === "users" ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400" : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
+            onClick={() => setActiveView("overview")}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeView === "overview" ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400" : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
           >
+            <BsBarChartFill className="w-4 h-4" />
+            Ringkasan
+          </button>
+          <button
+            onClick={() => setActiveView("users")}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeView === "users" ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400" : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
+          >
+            <BsPeopleFill className="w-4 h-4" />
             Manajemen Akun ({sortedUsers.length})
           </button>
           <button
             onClick={() => setActiveView("divisions")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeView === "divisions" ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400" : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeView === "divisions" ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400" : "border-transparent text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
           >
+            <BsBuilding className="w-4 h-4" />
             Manajemen Divisi ({sortedDivisions.length})
           </button>
         </nav>
       </div>
 
-      {activeView === "users" ? (
+      {activeView === "overview" ? (
+        // Overview Tab
+        <AccountOverviewTab
+          users={sortedUsers}
+          divisions={divisions}
+          currentUser={currentUser}
+          onViewUsersByRole={(role) => {
+            setTempUserFilters({ ...tempUserFilters, role });
+            setUserFilters({ ...userFilters, role });
+            setActiveView("users");
+          }}
+          onViewUsersByDivision={(divisionId) => {
+            setTempUserFilters({ ...tempUserFilters, divisionId: divisionId.toString() });
+            setUserFilters({ ...userFilters, divisionId: divisionId.toString() });
+            setActiveView("users");
+          }}
+        />
+      ) : activeView === "users" ? (
         // Users View
         <div>
           <div className="p-4 mb-4 bg-white border border-gray-200/80 rounded-xl shadow-md dark:bg-slate-800 dark:border-slate-700">
