@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  AssetCategory,
-  AssetType,
-  StandardItem,
-  Asset,
-  BulkTrackingMode,
-} from "../../types";
+import { AssetCategory, AssetType, StandardItem, Asset, BulkTrackingMode } from "../../types";
 import Modal from "./Modal";
 import { PencilIcon } from "../icons/PencilIcon";
 import { TrashIcon } from "../icons/TrashIcon";
@@ -28,11 +22,11 @@ interface ModelManagementModalProps {
   onSave?: (
     parentInfo: { category: AssetCategory; type: AssetType },
     modelData: Omit<StandardItem, "id">,
-    id?: number,
+    id?: number
   ) => void;
   onDelete?: (
     parentInfo: { category: AssetCategory; type: AssetType },
-    modelToDelete: StandardItem,
+    modelToDelete: StandardItem
   ) => void;
 }
 
@@ -68,22 +62,23 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
   // Store hooks
   const storeAssets = useAssetStore((state) => state.assets);
   const assetCategories = useAssetStore((state) => state.categories);
-  const updateCategories = useAssetStore((state) => state.updateCategories);
+
+  // NEW: Use dedicated Model actions from Store
+  const createModel = useAssetStore((state) => state.createModel);
+  const updateModelDetails = useAssetStore((state) => state.updateModelDetails);
+  const deleteModel = useAssetStore((state) => state.deleteModel);
 
   // Use store assets if available
   const assets = storeAssets.length > 0 ? storeAssets : propAssets || [];
 
   // Derived state from parentInfo ids to ensure freshness
   const category =
-    assetCategories.find((c) => c.id === parentInfo.category.id) ||
-    parentInfo.category;
-  const type =
-    category.types.find((t) => t.id === parentInfo.type.id) || parentInfo.type;
+    assetCategories.find((c) => c.id === parentInfo.category.id) || parentInfo.category;
+  const type = category.types.find((t) => t.id === parentInfo.type.id) || parentInfo.type;
   const models = type.standardItems || [];
 
   // Check if type is bulk/material to show extra options
-  const isBulkType =
-    type.classification === "material" || type.trackingMethod === "bulk";
+  const isBulkType = type.classification === "material" || type.trackingMethod === "bulk";
 
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
@@ -95,9 +90,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
   const [quantityPerUnit, setQuantityPerUnit] = useState<number | "">("");
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [modelToDelete, setModelToDelete] = useState<ModelToDelete | null>(
-    null,
-  );
+  const [modelToDelete, setModelToDelete] = useState<ModelToDelete | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const addNotification = useNotification();
 
@@ -147,43 +140,25 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
 
   const handleDeleteClick = (model: StandardItem) => {
     const assetCount = assets.filter(
-      (asset) => asset.name === model.name && asset.brand === model.brand,
+      (asset) => asset.name === model.name && asset.brand === model.brand
     ).length;
     setModelToDelete({ ...model, assetCount });
   };
 
   const handleConfirmDelete = async () => {
     if (modelToDelete && modelToDelete.assetCount === 0) {
-      if (propOnDelete) {
-        propOnDelete(parentInfo, modelToDelete);
-      } else {
-        // Store Logic
-        const updatedCategories = assetCategories.map((cat) => {
-          if (cat.id === category.id) {
-            return {
-              ...cat,
-              types: cat.types.map((t) => {
-                if (t.id === type.id) {
-                  return {
-                    ...t,
-                    standardItems: (t.standardItems || []).filter(
-                      (item) => item.id !== modelToDelete.id,
-                    ),
-                  };
-                }
-                return t;
-              }),
-            };
-          }
-          return cat;
-        });
-        await updateCategories(updatedCategories);
-        addNotification(
-          `Model "${modelToDelete.name}" berhasil dihapus.`,
-          "success",
-        );
+      setIsLoading(true);
+      try {
+        // Use Store action for delete
+        await deleteModel(modelToDelete.id, type.id);
+        addNotification(`Model "${modelToDelete.name}" berhasil dihapus.`, "success");
+      } catch (error) {
+        console.error(error);
+        addNotification("Gagal menghapus model.", "error");
+      } finally {
+        setIsLoading(false);
+        setModelToDelete(null);
       }
-      setModelToDelete(null);
     }
   };
 
@@ -199,7 +174,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
       if (!quantityPerUnit || Number(quantityPerUnit) <= 0) {
         addNotification(
           "Konversi isi harus diisi dengan angka lebih dari 0 untuk tipe Habis Perlahan.",
-          "error",
+          "error"
         );
         return;
       }
@@ -207,15 +182,17 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
 
     setIsLoading(true);
 
-    const modelData: Omit<StandardItem, "id"> = {
+    // Prepare data for backend API
+    const modelPayload = {
+      typeId: type.id,
       name,
       brand,
       ...(isBulkType
         ? {
-            bulkType,
+            // Map to uppercase enum values expected by backend
+            bulkType: bulkType === "measurement" ? "MEASUREMENT" : "COUNT",
             unitOfMeasure,
-            baseUnitOfMeasure:
-              bulkType === "measurement" ? baseUnitOfMeasure : undefined,
+            baseUnitOfMeasure: bulkType === "measurement" ? baseUnitOfMeasure : undefined,
             quantityPerUnit:
               bulkType === "measurement" && quantityPerUnit !== ""
                 ? Number(quantityPerUnit)
@@ -224,49 +201,23 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
         : {}),
     };
 
-    if (propOnSave) {
-      propOnSave(parentInfo, modelData, editingId || undefined);
-    } else {
-      // Store Logic
-      const updatedCategories = assetCategories.map((cat) => {
-        if (cat.id === category.id) {
-          return {
-            ...cat,
-            types: cat.types.map((t) => {
-              if (t.id === type.id) {
-                let updatedItems;
-                if (editingId) {
-                  updatedItems = (t.standardItems || []).map((item) =>
-                    item.id === editingId ? { ...item, ...modelData } : item,
-                  );
-                  addNotification(
-                    `Model "${name}" berhasil diperbarui.`,
-                    "success",
-                  );
-                } else {
-                  const newItem: StandardItem = {
-                    id: Date.now(),
-                    ...modelData,
-                  };
-                  updatedItems = [...(t.standardItems || []), newItem];
-                  addNotification(
-                    `Model "${name}" berhasil ditambahkan.`,
-                    "success",
-                  );
-                }
-                return { ...t, standardItems: updatedItems };
-              }
-              return t;
-            }),
-          };
-        }
-        return cat;
-      });
-      await updateCategories(updatedCategories);
+    try {
+      if (editingId) {
+        // UPDATE (PATCH)
+        await updateModelDetails(editingId, modelPayload);
+        addNotification(`Model "${name}" berhasil diperbarui.`, "success");
+      } else {
+        // CREATE (POST)
+        await createModel(modelPayload);
+        addNotification(`Model "${name}" berhasil ditambahkan.`, "success");
+      }
+      resetForm();
+    } catch (error) {
+      console.error(error);
+      addNotification("Gagal menyimpan model. Pastikan koneksi server aman.", "error");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
-    resetForm();
   };
 
   return (
@@ -281,11 +232,9 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
       >
         <div className="p-6 space-y-6">
           <div className="p-3 text-sm text-blue-800 bg-blue-50/70 rounded-lg border border-blue-200/50">
-            Mengelola Model untuk Tipe:{" "}
-            <strong className="font-semibold">{type.name}</strong>
+            Mengelola Model untuk Tipe: <strong className="font-semibold">{type.name}</strong>
             <br />
-            Dalam Kategori:{" "}
-            <strong className="font-semibold">{category.name}</strong>
+            Dalam Kategori: <strong className="font-semibold">{category.name}</strong>
           </div>
 
           {/* Form Section */}
@@ -296,10 +245,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label
-                    htmlFor="modelName"
-                    className="block text-sm font-medium text-gray-700"
-                  >
+                  <label htmlFor="modelName" className="block text-sm font-medium text-gray-700">
                     Nama Model
                   </label>
                   <input
@@ -313,10 +259,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label
-                    htmlFor="modelBrand"
-                    className="block text-sm font-medium text-gray-700"
-                  >
+                  <label htmlFor="modelBrand" className="block text-sm font-medium text-gray-700">
                     Brand
                   </label>
                   <input
@@ -350,8 +293,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                         />
                         <div className="text-sm">
                           <span className="font-bold text-gray-700 block flex items-center gap-1">
-                            <Bs123 className="text-orange-500" /> Langsung Habis
-                            (Count)
+                            <Bs123 className="text-orange-500" /> Langsung Habis (Count)
                           </span>
                           <span className="text-gray-500 text-xs">
                             Cth: Konektor, Adaptor (Pcs)
@@ -369,12 +311,9 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                         />
                         <div className="text-sm">
                           <span className="font-bold text-gray-700 block flex items-center gap-1">
-                            <BsRulers className="text-orange-500" /> Habis
-                            Perlahan (Measurement)
+                            <BsRulers className="text-orange-500" /> Habis Perlahan (Measurement)
                           </span>
-                          <span className="text-gray-500 text-xs">
-                            Cth: Kabel (Hasbal = Meter)
-                          </span>
+                          <span className="text-gray-500 text-xs">Cth: Kabel (Hasbal = Meter)</span>
                         </div>
                       </label>
                     </div>
@@ -396,9 +335,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                           value={unitOfMeasure}
                           onChange={setUnitOfMeasure}
                           placeholder={
-                            bulkType === "measurement"
-                              ? "Cth: Hasbal, Drum, Box"
-                              : "Cth: Pcs, Unit"
+                            bulkType === "measurement" ? "Cth: Hasbal, Drum, Box" : "Cth: Pcs, Unit"
                           }
                         />
                       </div>
@@ -447,9 +384,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                               value={quantityPerUnit}
                               onChange={(e) =>
                                 setQuantityPerUnit(
-                                  e.target.value === ""
-                                    ? ""
-                                    : Number(e.target.value),
+                                  e.target.value === "" ? "" : Number(e.target.value)
                                 )
                               }
                               placeholder="1000"
@@ -461,9 +396,8 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                             </span>
                           </div>
                           <p className="mt-2 text-xs text-gray-500">
-                            Contoh: Jika 1 Hasbal kabel berisi 1000 Meter,
-                            masukkan angka <strong>1000</strong>. Sistem akan
-                            melacak sisa meteran secara otomatis.
+                            Contoh: Jika 1 Hasbal kabel berisi 1000 Meter, masukkan angka{" "}
+                            <strong>1000</strong>. Sistem akan melacak sisa meteran secara otomatis.
                           </p>
                         </div>
                       </>
@@ -503,7 +437,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
               {models.length > 0 ? (
                 models.map((model) => {
                   const assetCount = assets.filter(
-                    (a) => a.name === model.name && a.brand === model.brand,
+                    (a) => a.name === model.name && a.brand === model.brand
                   ).length;
                   return (
                     <div
@@ -511,9 +445,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
                       className={`flex items-center justify-between p-3 rounded-lg transition-colors ${editingId === model.id ? "bg-blue-100 border border-primary-600" : "bg-gray-50/70 border border-transparent"}`}
                     >
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {model.name}
-                        </p>
+                        <p className="text-sm font-semibold text-gray-900">{model.name}</p>
                         <p className="text-xs text-gray-500">
                           {model.brand} &bull; {assetCount} Aset
                           {isBulkType && model.bulkType && (
@@ -549,9 +481,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center text-gray-500 border-2 border-dashed rounded-lg">
                   <InboxIcon className="w-10 h-10 text-gray-400" />
-                  <p className="mt-2 text-sm">
-                    Belum ada model untuk tipe ini.
-                  </p>
+                  <p className="mt-2 text-sm">Belum ada model untuk tipe ini.</p>
                 </div>
               )}
             </div>
@@ -563,11 +493,7 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
         <Modal
           isOpen={!!modelToDelete}
           onClose={() => setModelToDelete(null)}
-          title={
-            modelToDelete.assetCount > 0
-              ? "Tidak Dapat Menghapus"
-              : "Konfirmasi Hapus Model"
-          }
+          title={modelToDelete.assetCount > 0 ? "Tidak Dapat Menghapus" : "Konfirmasi Hapus Model"}
           size="md"
           hideDefaultCloseButton
         >
@@ -578,22 +504,20 @@ export const ModelManagementModal: React.FC<ModelManagementModalProps> = ({
               <ExclamationTriangleIcon className="w-8 h-8" />
             </div>
             <h3 className="mt-4 text-lg font-semibold text-gray-800">
-              {modelToDelete.assetCount > 0
-                ? `Model Sedang Digunakan`
-                : `Hapus Model?`}
+              {modelToDelete.assetCount > 0 ? `Model Sedang Digunakan` : `Hapus Model?`}
             </h3>
             {modelToDelete.assetCount > 0 ? (
               <p className="mt-2 text-sm text-gray-600">
                 Anda tidak dapat menghapus model{" "}
-                <span className="font-bold">"{modelToDelete.name}"</span> karena
-                masih ada {modelToDelete.assetCount} aset yang terhubung. Harap
-                pindahkan atau hapus aset tersebut terlebih dahulu.
+                <span className="font-bold">"{modelToDelete.name}"</span> karena masih ada{" "}
+                {modelToDelete.assetCount} aset yang terhubung. Harap pindahkan atau hapus aset
+                tersebut terlebih dahulu.
               </p>
             ) : (
               <p className="mt-2 text-sm text-gray-600">
                 Anda yakin ingin menghapus model{" "}
-                <span className="font-bold">"{modelToDelete.name}"</span>?
-                Tindakan ini tidak dapat diurungkan.
+                <span className="font-bold">"{modelToDelete.name}"</span>? Tindakan ini tidak dapat
+                diurungkan.
               </p>
             )}
           </div>

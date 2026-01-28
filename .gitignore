@@ -255,3 +255,6 @@ $RECYCLE.BIN/
 .Trash-*
 .nfs*
 
+backend/prisma/migrations/20260127175302_add_token_version/migration.sql
+backend/prisma/migrations/20260128081205_rename_standard_items_to_asset_models/migration.sql
+backend/prisma/schema.prisma

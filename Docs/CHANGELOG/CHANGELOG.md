@@ -11,6 +11,48 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
+#### Model CRUD untuk Kategori Aset (2026-01-28)
+
+- **Backend**: Endpoint `POST/PATCH/DELETE /categories/models` sudah terintegrasi dengan tabel `standard_items`
+- **Frontend Store**: Actions `createModel`, `updateModelDetails`, `deleteModel` di `useAssetStore`
+- **ModelManagementModal**: Refaktor untuk menggunakan Store actions bukan bulk update
+- **Type Normalization**: Otomatis normalisasi enum dari uppercase (backend) ke lowercase (frontend)
+- **Dokumentasi**: Arsitektur Kategori/Tipe/Model di `Docs/02_DEVELOPMENT_GUIDES/CATEGORY_TYPE_MODEL_ARCHITECTURE.md`
+
+**Struktur Database untuk Model (StandardItem):**
+
+- `standard_items` tabel menyimpan model dengan field: `name`, `brand`, `bulk_type`, `unit_of_measure`, dll
+- Relasi: `StandardItem` → `AssetType` → `AssetCategory`
+- Enum `BulkTrackingMode`: `COUNT` (jumlah unit) atau `MEASUREMENT` (ukuran/volume)
+
+> **Dokumentasi lengkap**: Lihat [CATEGORY_TYPE_MODEL_ARCHITECTURE.md](02_DEVELOPMENT_GUIDES/CATEGORY_TYPE_MODEL_ARCHITECTURE.md)
+
+#### Fitur Reset Password yang Aman (2026-01-27)
+
+- **Force Change Password Modal**: Modal modern yang memaksa user ganti password setelah reset oleh admin
+- **Notifikasi ke Super Admin**: Password reset request hanya dikirim ke Super Admin
+- **NotificationBell Update**: Handle tipe notifikasi `PASSWORD_RESET_REQUEST` dengan navigasi ke user detail
+- **ShieldIcon Component**: Icon baru untuk modal keamanan
+
+> **Dokumentasi lengkap**: Lihat [PASSWORD_RESET_SECURE_FLOW.md](06_FEATURES/02_USER_MANAGEMENT/PASSWORD_RESET_SECURE_FLOW.md)
+
+### Fixed
+
+#### Perbaikan Modal Force Change Password Tidak Muncul (2026-01-27)
+
+- **usersApi.resetPassword**: Perbaikan method API dari `POST` ke `PATCH` dan menambahkan parameter password
+- **UserDetailPage.handleConfirmReset**: Refaktor untuk menggunakan endpoint dedicated `resetPassword` bukan `update`
+- **BackendLoginResponse Interface**: Tambah field `mustChangePassword?: boolean` yang sebelumnya hilang
+- **transformBackendUser**: Tambah mapping `mustChangePassword: data.mustChangePassword || false`
+
+**Root Cause**: Frontend tidak menerima flag `mustChangePassword` karena:
+
+1. `BackendLoginResponse` interface tidak memiliki field `mustChangePassword`
+2. `transformBackendUser()` tidak meng-include field tersebut dalam transformasi
+3. `handleConfirmReset` menggunakan `usersApi.update()` yang tidak otomatis set `mustChangePassword = true`
+
+**Solusi**: Gunakan endpoint dedicated `PATCH /users/:id/reset-password` yang sudah pasti men-set flag
+
 #### Fitur Batasan Jumlah Akun Per Role (2026-01-27)
 
 - **Backend Role Limits**: Validasi jumlah akun maksimal per role (Super Admin: 1, Admin Logistik: 3, Admin Purchase: 3)
@@ -53,6 +95,21 @@ dan proyek ini mengikuti [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `create()`: Validasi batasan role sebelum membuat user baru
 - `update()`: Validasi batasan role saat mengubah role user
 - Response HTTP 409 (Conflict) jika batasan terlampaui
+
+#### Implementasi Reset Password yang Aman (2026-01-27)
+
+- `auth.module.ts`: Import `NotificationsModule` untuk dependency injection
+- `auth.service.ts`: Inject `NotificationsService`, kirim notifikasi ke Super Admin saat ada request reset
+- `users.service.ts`: Method `update()` auto-set `mustChangePassword = true` saat admin reset password
+- `update-user.dto.ts`: Tambah field `passwordResetRequested` dan `passwordResetRequestDate`
+- `App.tsx`: Render `ForceChangePasswordModal` ketika `mustChangePassword = true`
+- `NotificationBell.tsx`: Handle tipe `PASSWORD_RESET_REQUEST`, navigasi ke user detail
+- `UserDetailPage.tsx`: Kirim password ke backend saat reset
+
+**File Baru**:
+
+- `ForceChangePasswordModal.tsx`: Modal modern untuk paksa ganti password setelah reset
+- `ShieldIcon.tsx`: Icon untuk modal keamanan
 
 #### Implementasi Password Standar (2026-01-27)
 

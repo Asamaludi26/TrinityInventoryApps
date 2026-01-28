@@ -44,6 +44,8 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
   const createCategory = useAssetStore((state) => state.createCategory);
   const updateCategoryDetails = useAssetStore((state) => state.updateCategoryDetails); // Rename agar tidak bentrok dengan local func
   const deleteCategory = useAssetStore((state) => state.deleteCategory);
+  const deleteType = useAssetStore((state) => state.deleteType);
+  const deleteModel = useAssetStore((state) => state.deleteModel);
   // fetchCategories sebaiknya dipanggil saat mount jika data belum ada
   const fetchCategories = useAssetStore((state) => state.fetchCategories);
 
@@ -60,6 +62,8 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
     type: "category" | "type" | "model";
     data: any;
     assetCount: number;
+    parentCategory?: AssetCategory;
+    parentType?: AssetType;
   } | null>(null);
   const [categorySearch, setCategorySearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -79,9 +83,18 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
   }>({ isOpen: false, category: null, type: null });
 
   // --- DERIVED STATE ---
-  const isManager = ["Admin Logistik", "Admin Purchase", "Super Admin", "Leader"].includes(
+  // Hanya Super Admin, Admin Logistik, dan Admin Purchase yang bisa mengelola kategori
+  const canManageCategories = ["Admin Logistik", "Admin Purchase", "Super Admin"].includes(
     currentUser.role
   );
+
+  // Manager dapat melihat filter divisi (termasuk Leader untuk melihat saja)
+  const canViewAllDivisions = [
+    "Admin Logistik",
+    "Admin Purchase",
+    "Super Admin",
+    "Leader",
+  ].includes(currentUser.role);
 
   const divisionFilterOptions = useMemo(
     () => [
@@ -101,8 +114,9 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
       );
     }
 
-    // 2. Filter by division
-    if (isManager) {
+    // 2. Filter by division based on role
+    if (canViewAllDivisions) {
+      // Admin dan Leader bisa lihat semua atau filter per divisi
       if (divisionFilter !== "all") {
         const selectedDivisionId = parseInt(divisionFilter, 10);
         tempCategories = tempCategories.filter(
@@ -112,6 +126,7 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
         );
       }
     } else {
+      // Staff dan Teknisi hanya bisa lihat kategori divisi mereka
       if (currentUser.divisionId) {
         tempCategories = tempCategories.filter(
           (category) =>
@@ -119,6 +134,7 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
             category.associatedDivisions.includes(currentUser.divisionId!)
         );
       } else {
+        // User tanpa divisi hanya lihat kategori umum (tanpa divisi terkait)
         tempCategories = tempCategories.filter(
           (category) => category.associatedDivisions.length === 0
         );
@@ -126,7 +142,7 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
     }
 
     return tempCategories;
-  }, [categories, categorySearch, isManager, divisionFilter, currentUser.divisionId]);
+  }, [categories, categorySearch, canViewAllDivisions, divisionFilter, currentUser.divisionId]);
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -212,7 +228,7 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
       ).length;
     if (type === "model")
       assetCount = assets.filter((a) => a.name === data.name && a.brand === data.brand).length;
-    setItemToDelete({ type, data, assetCount });
+    setItemToDelete({ type, data, assetCount, parentCategory, parentType });
   };
 
   /**
@@ -220,36 +236,25 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
    */
   const handleConfirmDelete = async () => {
     if (!itemToDelete || itemToDelete.assetCount > 0) return;
-    const { type, data } = itemToDelete;
+    const { type, data, parentCategory, parentType } = itemToDelete;
 
     try {
       if (type === "category") {
         // DELETE: DELETE /api/v1/categories/:id
         await deleteCategory(data.id);
         if (expandedCategory === data.id) setExpandedCategory(categories[0]?.id || null);
-      }
-      // NOTE: Untuk "type" dan "model", karena mereka nested relation,
-      // biasanya tetap butuh update parent category atau endpoint delete spesifik (misal DELETE /categories/types/:id)
-      // Disini saya asumsikan Anda punya endpoint khusus atau logic update parent.
-      // Jika Backend Anda menangani Types/Models sebagai Sub-Resource, gunakan endpoint spesifik.
-      // Jika tidak, fallback ke logic lama (client-side manipulation) HANYA untuk child items.
-      else if (type === "type") {
-        // ... (Logic delete type - sebaiknya dibuatkan action store sendiri: deleteType(id))
-        // Contoh implementasi jika masih pakai update parent:
-        // const updatedCategory = { ...parentCat, types: parentCat.types.filter(...) }
-        // await updateCategoryDetails(parentCat.id, updatedCategory);
-        addNotification("Fitur hapus tipe perlu disesuaikan dengan Store.", "info");
-      } else if (type === "model") {
-        addNotification("Fitur hapus model perlu disesuaikan dengan Store.", "info");
-      }
-
-      if (type === "category") {
-        addNotification(
-          `${type.charAt(0).toUpperCase() + type.slice(1)} "${data.name}" berhasil dihapus.`,
-          "success"
-        );
+        addNotification(`Kategori "${data.name}" berhasil dihapus.`, "success");
+      } else if (type === "type" && parentCategory) {
+        // DELETE: DELETE /api/v1/categories/types/:id
+        await deleteType(data.id, parentCategory.id);
+        addNotification(`Tipe "${data.name}" berhasil dihapus.`, "success");
+      } else if (type === "model" && parentType) {
+        // DELETE: DELETE /api/v1/categories/models/:id
+        await deleteModel(data.id, parentType.id);
+        addNotification(`Model "${data.name}" berhasil dihapus.`, "success");
       }
     } catch (error) {
+      console.error("[Delete Error]", error);
       addNotification("Gagal menghapus item.", "error");
     }
 
@@ -275,7 +280,7 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
               className="w-full h-10 py-2 pl-9 pr-4 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
-          {isManager && (
+          {canViewAllDivisions && (
             <div className="md:w-48">
               <CustomSelect
                 options={divisionFilterOptions}
@@ -284,13 +289,15 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
               />
             </div>
           )}
-          <button
-            onClick={() => handleOpenCategoryModal(null)}
-            className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span>Kategori Baru</span>
-          </button>
+          {canManageCategories && (
+            <button
+              onClick={() => handleOpenCategoryModal(null)}
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span>Kategori Baru</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -329,15 +336,24 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
       <div className="flex-1 min-h-0 -mx-2 overflow-y-auto custom-scrollbar px-2 space-y-3">
         {filteredCategories.length > 0 ? (
           filteredCategories.map((cat) => {
-            const displayTypes = cat.types.filter(
-              (t) => (t.classification || "asset") === activeTab
-            );
-            const showCategory = displayTypes.length > 0 || cat.types.length === 0;
+            // Defensive check: ensure types array exists
+            const types = cat.types || [];
+            const displayTypes = types.filter((t) => (t.classification || "asset") === activeTab);
+            // Kategori ditampilkan jika:
+            // 1. Ada tipe yang sesuai dengan tab aktif, ATAU
+            // 2. Kategori belum punya tipe sama sekali (baru dibuat)
+            const showCategory = displayTypes.length > 0 || types.length === 0;
 
             if (!showCategory) return null;
 
             const isExpanded = expandedCategory === cat.id;
             const assetCount = assets.filter((a) => a.category === cat.name).length;
+
+            // Get division names for display
+            const categoryDivisions =
+              cat.associatedDivisions?.length > 0
+                ? divisions.filter((d) => cat.associatedDivisions.includes(d.id))
+                : [];
 
             return (
               <div
@@ -349,9 +365,29 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                   className="flex items-center p-4 cursor-pointer group"
                 >
                   <div className="flex-1">
-                    <p className="font-bold text-lg text-gray-800 group-hover:text-primary-600">
-                      {cat.name}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-lg text-gray-800 group-hover:text-primary-600">
+                        {cat.name}
+                      </p>
+                      {categoryDivisions.length > 0 && (
+                        <Tooltip
+                          text={`Khusus divisi: ${categoryDivisions.map((d) => d.name).join(", ")}`}
+                        >
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                            {categoryDivisions.length === 1
+                              ? categoryDivisions[0].name
+                              : `${categoryDivisions.length} Divisi`}
+                          </span>
+                        </Tooltip>
+                      )}
+                      {categoryDivisions.length === 0 && (
+                        <Tooltip text="Kategori global - dapat dilihat semua divisi">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Global
+                          </span>
+                        </Tooltip>
+                      )}
+                    </div>
                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                       <span>
                         <strong className="text-gray-700">{displayTypes.length}</strong> Tipe
@@ -367,24 +403,28 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenCategoryModal(cat);
-                      }}
-                      className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDeleteModal("category", cat);
-                      }}
-                      className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
+                    {canManageCategories && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCategoryModal(cat);
+                          }}
+                          className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDeleteModal("category", cat);
+                          }}
+                          className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                     <ChevronDownIcon
                       className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
                     />
@@ -401,16 +441,18 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                           ? "Tipe Aset (Fixed Asset)"
                           : "Tipe Material (Consumables)"}
                       </h4>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openTypeModal(cat, null);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-white bg-primary-500 rounded-md shadow-sm hover:bg-primary-600"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        <span>Tipe Baru</span>
-                      </button>
+                      {canManageCategories && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTypeModal(cat, null);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-white bg-primary-500 rounded-md shadow-sm hover:bg-primary-600"
+                        >
+                          <PlusIcon className="w-4 h-4" />
+                          <span>Tipe Baru</span>
+                        </button>
+                      )}
                     </div>
 
                     {displayTypes.length > 0 ? (
@@ -456,24 +498,28 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                                 </p>
                               </div>
                               <div className="flex items-center gap-1">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openTypeModal(cat, type);
-                                  }}
-                                  className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600 text-xs"
-                                >
-                                  <PencilIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenDeleteModal("type", type, cat);
-                                  }}
-                                  className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600 text-xs"
-                                >
-                                  <TrashIcon className="w-4 h-4" />
-                                </button>
+                                {canManageCategories && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openTypeModal(cat, type);
+                                      }}
+                                      className="p-2 text-gray-500 rounded-full hover:bg-yellow-100 hover:text-yellow-600 text-xs"
+                                    >
+                                      <PencilIcon className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenDeleteModal("type", type, cat);
+                                      }}
+                                      className="p-2 text-gray-500 rounded-full hover:bg-red-100 hover:text-red-600 text-xs"
+                                    >
+                                      <TrashIcon className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
                                 <ChevronDownIcon
                                   className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isTypeExpanded ? "rotate-180" : ""}`}
                                 />
@@ -485,21 +531,24 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                               <div className="pt-2 pb-3 px-3 border-t">
                                 <div className="flex justify-between items-center mb-2 px-2">
                                   <h5 className="text-xs font-semibold text-gray-500">
-                                    MODEL STANDAR ({type.standardItems?.length || 0})
+                                    MODEL STANDAR (
+                                    {type.models?.length || type.standardItems?.length || 0})
                                   </h5>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openModelModal(cat, type);
-                                    }}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-white bg-primary-500/80 rounded hover:bg-primary-500"
-                                  >
-                                    <PlusIcon className="w-3 h-3" />
-                                    <span>Model</span>
-                                  </button>
+                                  {canManageCategories && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openModelModal(cat, type);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-white bg-primary-500/80 rounded hover:bg-primary-500"
+                                    >
+                                      <PlusIcon className="w-3 h-3" />
+                                      <span>Model</span>
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="space-y-1">
-                                  {(type.standardItems || []).map((model) => (
+                                  {(type.models || type.standardItems || []).map((model) => (
                                     <div
                                       key={model.id}
                                       className="flex items-center justify-between p-2 rounded-md hover:bg-white/80 group/model"
@@ -510,34 +559,36 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                                         </p>
                                         <p className="text-xs text-gray-500">{model.brand}</p>
                                       </div>
-                                      <div className="flex items-center opacity-0 group-hover/model:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setModelModalState({
-                                              isOpen: true,
-                                              category: cat,
-                                              type: type,
-                                            });
-                                          }}
-                                          className="p-1.5 text-gray-400 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
-                                          title="Kelola/Edit"
-                                        >
-                                          <PencilIcon className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleOpenDeleteModal("model", model, cat, type);
-                                          }}
-                                          className="p-1.5 text-gray-400 rounded-full hover:bg-red-100 hover:text-red-600"
-                                        >
-                                          <TrashIcon className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
+                                      {canManageCategories && (
+                                        <div className="flex items-center opacity-0 group-hover/model:opacity-100 transition-opacity">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setModelModalState({
+                                                isOpen: true,
+                                                category: cat,
+                                                type: type,
+                                              });
+                                            }}
+                                            className="p-1.5 text-gray-400 rounded-full hover:bg-yellow-100 hover:text-yellow-600"
+                                            title="Kelola/Edit"
+                                          >
+                                            <PencilIcon className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenDeleteModal("model", model, cat, type);
+                                            }}
+                                            className="p-1.5 text-gray-400 rounded-full hover:bg-red-100 hover:text-red-600"
+                                          >
+                                            <TrashIcon className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
-                                  {(type.standardItems || []).length === 0 && (
+                                  {(type.models || type.standardItems || []).length === 0 && (
                                     <p className="text-center text-xs text-gray-400 py-2 italic">
                                       Belum ada model.
                                     </p>
@@ -554,15 +605,17 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
                           Belum ada tipe {activeTab === "asset" ? "aset" : "material"} di kategori
                           ini.
                         </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openTypeModal(cat, null);
-                          }}
-                          className="mt-2 text-xs font-semibold text-primary-600 hover:underline"
-                        >
-                          + Tambah Tipe Baru
-                        </button>
+                        {canManageCategories && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTypeModal(cat, null);
+                            }}
+                            className="mt-2 text-xs font-semibold text-primary-600 hover:underline"
+                          >
+                            + Tambah Tipe Baru
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -575,14 +628,18 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
             <InboxIcon className="w-16 h-16 text-gray-300" />
             <p className="mt-4 text-lg font-semibold">Tidak Ada Kategori</p>
             <p className="mt-1 text-sm">
-              Mulai dengan membuat kategori aset pertama Anda atau ubah filter Anda.
+              {canManageCategories
+                ? "Mulai dengan membuat kategori aset pertama Anda atau ubah filter Anda."
+                : "Tidak ada kategori yang tersedia untuk divisi Anda."}
             </p>
-            <button
-              onClick={() => handleOpenCategoryModal(null)}
-              className="inline-flex items-center justify-center gap-2 mt-4 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700"
-            >
-              <PlusIcon className="w-5 h-5" /> Buat Kategori Baru
-            </button>
+            {canManageCategories && (
+              <button
+                onClick={() => handleOpenCategoryModal(null)}
+                className="inline-flex items-center justify-center gap-2 mt-4 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700"
+              >
+                <PlusIcon className="w-5 h-5" /> Buat Kategori Baru
+              </button>
+            )}
           </div>
         )}
       </div>

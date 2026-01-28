@@ -2,15 +2,18 @@ import { Injectable, UnauthorizedException, BadRequestException, Logger } from '
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { PASSWORD_SALT_ROUNDS } from '../../common/constants';
+import { UserRole } from '@prisma/client';
 
 export interface JwtPayload {
   sub: number;
   email: string;
   role: string;
   name: string;
+  tokenVersion: number; // Untuk invalidasi token saat password di-reset
 }
 
 export interface AuthResponse {
@@ -33,6 +36,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -87,6 +91,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion, // Include tokenVersion untuk validasi
     };
 
     const token = this.jwtService.sign(payload);
@@ -133,6 +138,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       name: user.name,
+      tokenVersion: user.tokenVersion, // Include tokenVersion untuk validasi
     };
 
     const token = this.jwtService.sign(payload);
@@ -179,6 +185,7 @@ export class AuthService {
 
   /**
    * Request password reset
+   * Mengirim notifikasi ke semua Super Admin untuk review
    */
   async requestPasswordReset(email: string) {
     const user = await this.usersService.findByEmail(email);
@@ -188,7 +195,29 @@ export class AuthService {
       return { message: 'Jika email terdaftar, admin akan menghubungi Anda' };
     }
 
+    // Mark user as password reset requested
     await this.usersService.markPasswordResetRequested(user.id);
+
+    // Get all Super Admins to send notification
+    const superAdmins = await this.usersService.findAll({
+      role: UserRole.SUPER_ADMIN,
+    });
+
+    // Send notification to all Super Admins
+    if (superAdmins.data && superAdmins.data.length > 0) {
+      const superAdminIds = superAdmins.data.map(admin => admin.id);
+
+      await this.notificationsService.createBulk(superAdminIds, {
+        type: 'PASSWORD_RESET_REQUEST',
+        message: `${user.name} meminta reset password`,
+        actorName: user.name,
+        referenceId: String(user.id),
+      });
+
+      this.logger.log(
+        `Password reset requested by ${user.email}, notification sent to ${superAdminIds.length} Super Admin(s)`,
+      );
+    }
 
     return { message: 'Permintaan reset password telah dikirim ke admin' };
   }

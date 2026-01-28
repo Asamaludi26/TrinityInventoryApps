@@ -8,6 +8,7 @@ import { DemoAccounts } from "./components/DemoAccounts";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { useUIStore } from "../../stores/useUIStore";
 import { useNotification } from "../../providers/NotificationProvider";
+import { useSessionStore } from "../../stores/useSessionStore";
 
 interface LoginPageProps {
   onLogin: (email: string, pass: string) => Promise<User>;
@@ -18,6 +19,16 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const requestReset = useAuthStore((state) => state.requestPasswordReset);
   const setActivePage = useUIStore((state) => state.setActivePage);
   const addNotification = useNotification();
+  const setSessionExpired = useSessionStore((state) => state.setSessionExpired);
+
+  // DEV: Debug function untuk test session expired modal
+  const handleTestSessionExpired = () => {
+    console.log("[DEV] Testing session expired modal");
+    setSessionExpired(
+      "Password akun Anda telah direset oleh administrator. Silakan login kembali.",
+      "password_reset"
+    );
+  };
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,8 +94,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
 
     try {
-      await loginStore(email, password);
+      const user = await loginStore(email, password);
+
+      // Login berhasil, navigate ke dashboard
       setActivePage("dashboard");
+
       if (onLogin) await onLogin(email, password);
     } catch (err: any) {
       // Security: Increase attempts on failure
@@ -98,10 +112,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       } else {
         // Security: Mask specific errors
         const message = err.message || "Gagal untuk login.";
-        if (
-          message.includes("not found") ||
-          message.includes("Invalid credentials")
-        ) {
+        if (message.includes("not found") || message.includes("Invalid credentials")) {
           setError("Email atau kata sandi yang Anda masukkan salah.");
         } else {
           setError("Terjadi kesalahan pada server. Silakan coba lagi.");
@@ -123,10 +134,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     try {
       await requestReset(forgotEmail);
       // Security: Always show success message even if email doesn't exist (to prevent enumeration)
-      addNotification(
-        "Jika email terdaftar, instruksi reset akan dikirimkan ke Admin.",
-        "success",
-      );
+      addNotification("Jika email terdaftar, instruksi reset akan dikirimkan ke Admin.", "success");
       setIsForgotModalOpen(false);
       setForgotEmail("");
     } catch (err) {
@@ -156,14 +164,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       >
         <form onSubmit={handleForgotPassword} className="space-y-4">
           <p className="text-sm text-gray-600">
-            Masukkan alamat email akun Anda. Permintaan reset password akan
-            dikirimkan ke Super Admin untuk ditinjau.
+            Masukkan alamat email akun Anda. Permintaan reset password akan dikirimkan ke Super
+            Admin untuk ditinjau.
           </p>
           <div>
-            <label
-              htmlFor="forgot-email"
-              className="block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-700">
               Email
             </label>
             <input
@@ -189,8 +194,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               disabled={isLoading}
               className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg shadow-sm hover:bg-primary-700 disabled:opacity-70"
             >
-              {isLoading && <SpinnerIcon className="w-4 h-4 mr-2" />} Kirim
-              Permintaan
+              {isLoading && <SpinnerIcon className="w-4 h-4 mr-2" />} Kirim Permintaan
             </button>
           </div>
         </form>
@@ -203,25 +207,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900">
               Triniti<span className="font-light opacity-80">Asset</span>
             </h1>
-            <p className="mt-1 text-gray-600">
-              Sistem Manajemen Inventori Aset
-            </p>
+            <p className="mt-1 text-gray-600">Sistem Manajemen Inventori Aset</p>
           </div>
 
           <div className="p-8 bg-white border border-gray-200/80 rounded-xl shadow-md animate-zoom-in">
-            <h2 className="text-xl font-semibold text-center text-gray-800">
-              Selamat Datang
-            </h2>
+            <h2 className="text-xl font-semibold text-center text-gray-800">Selamat Datang</h2>
             <p className="mt-1 text-sm text-center text-gray-500">
               Silakan masuk untuk melanjutkan
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-6">
               <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                   Alamat Email
                 </label>
                 <div className="mt-1">
@@ -241,10 +238,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               </div>
 
               <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Kata Sandi
                 </label>
                 <div className="mt-1">
@@ -328,10 +322,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 Lihat Akun Demo
               </button>
             </div>
+
+            {/* DEV ONLY: Test buttons */}
+            {import.meta.env.DEV && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs text-yellow-700 mb-2 font-semibold">🔧 DEV TEST BUTTONS</p>
+                <button
+                  type="button"
+                  onClick={handleTestSessionExpired}
+                  className="w-full px-3 py-2 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
+                >
+                  Test: Session Expired Modal
+                </button>
+              </div>
+            )}
           </div>
           <p className="mt-8 text-xs text-center text-gray-500">
-            &copy; {new Date().getFullYear()} PT. Triniti Media Indonesia. All
-            rights reserved.
+            &copy; {new Date().getFullYear()} PT. Triniti Media Indonesia. All rights reserved.
           </p>
         </div>
       </div>

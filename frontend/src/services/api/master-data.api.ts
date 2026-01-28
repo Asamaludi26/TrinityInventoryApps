@@ -10,6 +10,7 @@ import { User, Customer, Division, AssetCategory, CustomerStatus } from "../../t
 import {
   transformBackendUser,
   transformBackendCustomer,
+  transformBackendCategory,
   toBackendUserRole,
   toBackendCustomerStatus,
 } from "../../utils/enumMapper";
@@ -89,8 +90,12 @@ export const usersApi = {
     return apiClient.delete(`/users/${id}`);
   },
 
-  resetPassword: async (id: number): Promise<void> => {
-    return apiClient.post(`/users/${id}/reset-password`);
+  /**
+   * Reset password user oleh admin.
+   * Backend akan set mustChangePassword = true sehingga user wajib ganti saat login.
+   */
+  resetPassword: async (id: number, newPassword: string): Promise<void> => {
+    return apiClient.patch(`/users/${id}/reset-password`, { password: newPassword });
   },
 };
 
@@ -164,23 +169,27 @@ export const divisionsApi = {
 // --- CATEGORIES ---
 export const categoriesApi = {
   getAll: async (): Promise<AssetCategory[]> => {
-    return apiClient.get<AssetCategory[]>("/categories");
+    const data = await apiClient.get<BackendDTO[]>("/categories");
+    return (data || []).map((item) => transformBackendCategory(item));
   },
 
   getById: async (id: number): Promise<AssetCategory | null> => {
     try {
-      return apiClient.get<AssetCategory>(`/categories/${id}`);
+      const data = await apiClient.get<BackendDTO>(`/categories/${id}`);
+      return transformBackendCategory(data);
     } catch {
       return null;
     }
   },
 
   create: async (data: Omit<AssetCategory, "id">): Promise<AssetCategory> => {
-    return apiClient.post<AssetCategory>("/categories", data);
+    const result = await apiClient.post<BackendDTO>("/categories", data);
+    return transformBackendCategory(result);
   },
 
   update: async (id: number, data: Partial<AssetCategory>): Promise<AssetCategory> => {
-    return apiClient.patch<AssetCategory>(`/categories/${id}`, data);
+    const result = await apiClient.patch<BackendDTO>(`/categories/${id}`, data);
+    return transformBackendCategory(result);
   },
 
   /**
@@ -206,8 +215,8 @@ export const categoriesApi = {
 
     try {
       // Use PUT for bulk update (atomic transaction on backend)
-      const results = await apiClient.put<AssetCategory[]>("/categories", payload);
-      return results;
+      const results = await apiClient.put<BackendDTO[]>("/categories", payload);
+      return (results || []).map((item) => transformBackendCategory(item));
     } catch (err) {
       console.error("[categoriesApi] Bulk update failed:", err);
       throw err;

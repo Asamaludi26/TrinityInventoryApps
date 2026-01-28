@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { User } from "../../types";
 import FormPageLayout from "../../components/layout/FormPageLayout";
 import { SpinnerIcon } from "../../components/icons/SpinnerIcon";
@@ -8,10 +8,14 @@ import { EyeIcon } from "../../components/icons/EyeIcon";
 import { EyeSlashIcon } from "../../components/icons/EyeSlashIcon";
 import { CheckIcon } from "../../components/icons/CheckIcon";
 import { CloseIcon } from "../../components/icons/CloseIcon";
+import { KeyIcon } from "../../components/icons/KeyIcon";
 import { useManageAccountLogic } from "./hooks/useManageAccountLogic";
 import { PasswordStrengthMeter } from "./components/PasswordStrengthMeter";
 import { PasswordAlert } from "./components/PasswordAlert";
 import { ReloginSuccessModal } from "./components/ReloginSuccessModal";
+import { authApi } from "../../services/api/auth.api";
+import { useNotification } from "../../providers/NotificationProvider";
+import Modal from "../../components/ui/Modal";
 
 interface ManageAccountPageProps {
   currentUser: User;
@@ -97,6 +101,15 @@ const InfoBox: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBack }) => {
+  const addNotification = useNotification();
+
+  // State untuk Request Reset Password
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isRequestingReset, setIsRequestingReset] = useState(false);
+  const [resetRequestSent, setResetRequestSent] = useState(
+    currentUser.passwordResetRequested || false
+  );
+
   const {
     name,
     setName,
@@ -132,6 +145,24 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
     handleSubmit,
     handleRelogin,
   } = useManageAccountLogic({ currentUser });
+
+  // Handle request reset password
+  const handleRequestReset = async () => {
+    setIsRequestingReset(true);
+    try {
+      await authApi.requestPasswordReset(currentUser.email);
+      setResetRequestSent(true);
+      setIsResetModalOpen(false);
+      addNotification(
+        "Permintaan reset password telah dikirim ke Super Admin. Anda akan dihubungi segera.",
+        "success"
+      );
+    } catch (error: any) {
+      addNotification(error.message || "Gagal mengirim permintaan reset password.", "error");
+    } finally {
+      setIsRequestingReset(false);
+    }
+  };
 
   // Determine border color for current password field
   const currentPasswordBorderClass = (() => {
@@ -436,6 +467,74 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
             )}
           </FormSection>
 
+          {/* === BANTUAN AKSES SECTION === */}
+          <FormSection
+            title="Bantuan Akses"
+            icon={<KeyIcon className="w-6 h-6 mr-3 text-amber-600 dark:text-amber-400" />}
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Lupa kata sandi lama Anda? Minta bantuan Super Admin untuk mereset kata sandi akun
+                Anda.
+              </p>
+
+              {/* Status Request */}
+              {resetRequestSent ? (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-800 rounded-lg">
+                      <SpinnerIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 animate-spin" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-amber-800 dark:text-amber-200">
+                        Permintaan Sedang Diproses
+                      </h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                        Permintaan reset password Anda telah dikirim ke Super Admin. Mohon tunggu
+                        konfirmasi dari administrator.
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                        {currentUser.passwordResetRequestDate
+                          ? `Diminta pada: ${new Date(currentUser.passwordResetRequestDate).toLocaleString("id-ID")}`
+                          : "Menunggu proses..."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600 rounded-xl">
+                  <div>
+                    <p className="font-medium text-gray-700 dark:text-gray-300">
+                      Reset Kata Sandi via Admin
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Admin akan membuat kata sandi sementara untuk Anda
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-amber-600 rounded-xl shadow-sm hover:bg-amber-700 transition-all duration-200"
+                  >
+                    <KeyIcon className="w-4 h-4" />
+                    Minta Reset
+                  </button>
+                </div>
+              )}
+
+              <InfoBox>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <span className="font-semibold">Catatan:</span> Setelah admin mereset kata sandi
+                  Anda, Anda akan menerima kata sandi sementara dan{" "}
+                  <span className="font-semibold text-primary-600 dark:text-primary-400">
+                    wajib menggantinya
+                  </span>{" "}
+                  saat login pertama kali.
+                </p>
+              </InfoBox>
+            </div>
+          </FormSection>
+
           {/* === ACTION BUTTONS === */}
           <div className="flex justify-end pt-6 space-x-3 border-t border-gray-200 dark:border-gray-600">
             <button
@@ -479,6 +578,66 @@ const ManageAccountPage: React.FC<ManageAccountPageProps> = ({ currentUser, onBa
         onRelogin={handleRelogin}
         isRedirecting={isRedirecting}
       />
+
+      {/* Modal Konfirmasi Request Reset Password */}
+      <Modal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        title="Minta Reset Kata Sandi?"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <span className="font-semibold">Perhatian:</span> Permintaan Anda akan dikirim ke
+              Super Admin untuk ditinjau. Setelah disetujui, Anda akan menerima kata sandi sementara
+              dari admin.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Proses reset kata sandi:</p>
+            <ol className="text-sm text-gray-600 dark:text-gray-400 list-decimal list-inside space-y-1">
+              <li>Permintaan dikirim ke Super Admin</li>
+              <li>Super Admin memverifikasi dan mereset kata sandi</li>
+              <li>Anda menerima kata sandi sementara dari admin</li>
+              <li>Login dengan kata sandi sementara</li>
+              <li>
+                <span className="font-medium text-primary-600 dark:text-primary-400">
+                  Wajib ganti kata sandi
+                </span>{" "}
+                sebelum melanjutkan
+              </li>
+            </ol>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button
+              type="button"
+              onClick={() => setIsResetModalOpen(false)}
+              disabled={isRequestingReset}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-60"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleRequestReset}
+              disabled={isRequestingReset}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-amber-600 rounded-lg shadow-sm hover:bg-amber-700 disabled:opacity-70"
+            >
+              {isRequestingReset ? (
+                <>
+                  <SpinnerIcon className="w-4 h-4 mr-2 animate-spin" />
+                  Mengirim...
+                </>
+              ) : (
+                "Ya, Kirim Permintaan"
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

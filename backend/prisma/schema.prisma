@@ -71,6 +71,7 @@ model User {
   // Session Management
   lastLoginAt  DateTime? @map("last_login_at")
   refreshToken String?   @db.Text
+  tokenVersion Int       @default(0) @map("token_version") // Increment to invalidate all tokens
 
   // Audit
   isActive  Boolean  @default(true) @map("is_active")
@@ -204,9 +205,9 @@ model AssetType {
   updatedAt      DateTime            @updatedAt @map("updated_at")
 
   // Relations
-  category      AssetCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  standardItems StandardItem[]
-  assets        Asset[]
+  category AssetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  models   AssetModel[]
+  assets   Asset[]
 
   @@unique([categoryId, name])
   @@index([name])
@@ -214,7 +215,7 @@ model AssetType {
   @@map("asset_types")
 }
 
-model StandardItem {
+model AssetModel {
   id                Int               @id @default(autoincrement())
   typeId            Int               @map("type_id")
   name              String            @db.VarChar(255)
@@ -231,7 +232,7 @@ model StandardItem {
   @@unique([typeId, name, brand])
   @@index([brand])
   @@index([name])
-  @@map("standard_items")
+  @@map("asset_models")
 }
 
 // ============================================

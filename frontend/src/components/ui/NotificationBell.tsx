@@ -11,6 +11,7 @@ import { WrenchIcon } from "../icons/WrenchIcon";
 import { SpinnerIcon } from "../icons/SpinnerIcon";
 import { ExclamationTriangleIcon } from "../icons/ExclamationTriangleIcon";
 import { InboxIcon } from "../icons/InboxIcon";
+import { LockIcon } from "../icons/LockIcon";
 import { Avatar } from "./Avatar";
 import { Notification, Page, PreviewData, User } from "../../types";
 import { HandoverIcon } from "../icons/HandoverIcon";
@@ -71,6 +72,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     // Set item to be highlighted when returning to the list view
     if (notification.referenceId) {
       setHighlightOnReturn(notification.referenceId);
+    }
+
+    // Handle Password Reset Request - navigate to user detail for Super Admin
+    if (notification.type === "PASSWORD_RESET_REQUEST") {
+      if (notification.referenceId && currentUser.role === "Super Admin") {
+        // referenceId contains user ID who requested the reset
+        setActivePage("user-detail", { userId: parseInt(notification.referenceId) });
+      }
+      setIsOpen(false);
+      return;
     }
 
     if (
@@ -187,6 +198,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       case "ASSET_HANDED_OVER":
         message = `menyerahkan aset baru kepada Anda`;
         Icon = HandoverIcon;
+        break;
+      case "PASSWORD_RESET_REQUEST":
+        message = `meminta reset password. Klik untuk melihat detail dan proses permintaan.`;
+        Icon = LockIcon;
         break;
     }
 

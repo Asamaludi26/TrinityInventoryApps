@@ -20,6 +20,10 @@ import {
   LoanRequest,
   Customer,
   AssetReturn,
+  AssetCategory,
+  AssetType,
+  ItemClassification,
+  TrackingMethod,
 } from "../types";
 
 // ============================================================================
@@ -369,6 +373,7 @@ export function transformBackendUser(backendUser: BackendDTO): User {
     permissions: data.permissions || [],
     passwordResetRequested: data.passwordResetRequested,
     passwordResetRequestDate: data.passwordResetRequestDate,
+    mustChangePassword: data.mustChangePassword || false,
   };
 }
 
@@ -517,5 +522,70 @@ export function transformBackendAssetReturn(backendReturn: BackendDTO): AssetRet
     verifiedBy: data.verifiedBy,
     verificationDate: data.verificationDate,
     verificationNotes: data.verificationNotes,
+  };
+}
+
+/**
+ * Transform backend category response to frontend AssetCategory type
+ * Backend returns associatedDivisions as array of Division objects,
+ * frontend expects array of division IDs
+ */
+export function transformBackendCategory(backendCategory: BackendDTO): AssetCategory {
+  if (!backendCategory) {
+    throw new Error("Cannot transform null/undefined category");
+  }
+  const data = backendCategory as DTO;
+
+  // Transform associatedDivisions from objects to IDs
+  const associatedDivisions: number[] = Array.isArray(data.associatedDivisions)
+    ? data.associatedDivisions
+        .map((div: DTO) => (typeof div === "number" ? div : (div?.id ?? 0)))
+        .filter((id: number) => id > 0)
+    : [];
+
+  // Transform types with nested models
+  const types: AssetType[] = Array.isArray(data.types)
+    ? data.types.map((t: DTO) => ({
+        id: t.id || 0,
+        name: t.name || "",
+        categoryId: t.categoryId || data.id || 0,
+        classification: (t.classification || "asset").toLowerCase() as ItemClassification,
+        trackingMethod: (t.trackingMethod || "individual").toLowerCase() as TrackingMethod,
+        unitOfMeasure: t.unitOfMeasure || undefined,
+        // Normalize models from backend
+        models: Array.isArray(t.models)
+          ? t.models.map((m: DTO) => ({
+              id: m.id || 0,
+              typeId: m.typeId || t.id || 0,
+              name: m.name || "",
+              brand: m.brand || "",
+              bulkType: m.bulkType || undefined,
+              unitOfMeasure: m.unitOfMeasure || undefined,
+              baseUnitOfMeasure: m.baseUnitOfMeasure || undefined,
+              quantityPerUnit: m.quantityPerUnit || undefined,
+            }))
+          : [],
+        // Backward compatibility
+        standardItems: Array.isArray(t.models)
+          ? t.models.map((m: DTO) => ({
+              id: m.id || 0,
+              typeId: m.typeId || t.id || 0,
+              name: m.name || "",
+              brand: m.brand || "",
+              bulkType: m.bulkType || undefined,
+              unitOfMeasure: m.unitOfMeasure || undefined,
+              baseUnitOfMeasure: m.baseUnitOfMeasure || undefined,
+              quantityPerUnit: m.quantityPerUnit || undefined,
+            }))
+          : [],
+      }))
+    : [];
+
+  return {
+    id: data.id || 0,
+    name: data.name || "",
+    types,
+    associatedDivisions,
+    isCustomerInstallable: data.isCustomerInstallable ?? false,
   };
 }

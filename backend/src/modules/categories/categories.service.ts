@@ -82,6 +82,9 @@ export class CategoriesService {
           : {}),
       },
       include: {
+        types: {
+          include: { models: true },
+        },
         associatedDivisions: true,
       },
     });
@@ -92,9 +95,10 @@ export class CategoriesService {
       include: {
         types: {
           include: {
-            standardItems: true,
+            models: true,
           },
         },
+        associatedDivisions: true,
       },
       orderBy: { name: 'asc' },
     });
@@ -105,8 +109,9 @@ export class CategoriesService {
       where: { id },
       include: {
         types: {
-          include: { standardItems: true },
+          include: { models: true },
         },
+        associatedDivisions: true,
       },
     });
 
@@ -135,6 +140,9 @@ export class CategoriesService {
           : {}),
       },
       include: {
+        types: {
+          include: { models: true },
+        },
         associatedDivisions: true,
       },
     });
@@ -163,7 +171,7 @@ export class CategoriesService {
 
     return this.prisma.assetType.findMany({
       where,
-      include: { category: true, standardItems: true },
+      include: { category: true, models: true },
       orderBy: { name: 'asc' },
     });
   }
@@ -171,7 +179,7 @@ export class CategoriesService {
   async findOneType(id: number) {
     const type = await this.prisma.assetType.findUnique({
       where: { id },
-      include: { category: true, standardItems: true },
+      include: { category: true, models: true },
     });
 
     if (!type) {
@@ -197,21 +205,20 @@ export class CategoriesService {
     });
   }
 
-  // --- StandardItems (Models) ---
+  // --- AssetModels ---
   async createModel(dto: CreateModelDto) {
     const sanitized = this.sanitizeModelData(dto);
-    return this.prisma.standardItem.create({
+    return this.prisma.assetModel.create({
       data: sanitized as CreateModelDto,
       include: { type: { include: { category: true } } },
     });
   }
 
   async findAllModels(typeId?: number) {
-    // PERBAIKAN BARIS 195: Menggunakan Prisma.StandardItemWhereInput
-    const where: Prisma.StandardItemWhereInput = {};
+    const where: Prisma.AssetModelWhereInput = {};
     if (typeId) where.typeId = typeId;
 
-    return this.prisma.standardItem.findMany({
+    return this.prisma.assetModel.findMany({
       where,
       include: { type: { include: { category: true } } },
       orderBy: { name: 'asc' },
@@ -219,7 +226,7 @@ export class CategoriesService {
   }
 
   async findOneModel(id: number) {
-    const model = await this.prisma.standardItem.findUnique({
+    const model = await this.prisma.assetModel.findUnique({
       where: { id },
       include: { type: { include: { category: true } } },
     });
@@ -234,7 +241,7 @@ export class CategoriesService {
   async updateModel(id: number, dto: Partial<CreateModelDto>) {
     await this.findOneModel(id);
     const sanitized = this.sanitizeModelData(dto);
-    return this.prisma.standardItem.update({
+    return this.prisma.assetModel.update({
       where: { id },
       data: sanitized,
     });
@@ -242,7 +249,7 @@ export class CategoriesService {
 
   async removeModel(id: number) {
     await this.findOneModel(id);
-    return this.prisma.standardItem.delete({
+    return this.prisma.assetModel.delete({
       where: { id },
     });
   }

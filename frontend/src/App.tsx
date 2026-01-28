@@ -1,25 +1,19 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  User,
-  Page,
-  PreviewData,
-  Asset,
-  Request,
-  LoanRequest,
-  AssetReturn,
-} from "./types";
+import { User, Page, PreviewData, Asset, Request, LoanRequest, AssetReturn } from "./types";
 
 // Providers
-import {
-  NotificationProvider,
-  useNotification,
-} from "./providers/NotificationProvider";
+import { NotificationProvider, useNotification } from "./providers/NotificationProvider";
 
 // Layout
 import { MainLayout } from "./components/layout/MainLayout";
 import { PageSkeleton } from "./components/ui/PageSkeleton";
 import { FullPageLoader } from "./components/ui/FullPageLoader";
 import ErrorBoundary from "./components/ErrorBoundary";
+
+// Security & Session UI Components
+import { SecurityBanner } from "./components/ui/SecurityBanner";
+import { SessionExpiredModal } from "./components/ui/SessionExpiredModal";
+import { ForceChangePasswordNotice } from "./components/ui/ForceChangePasswordNotice";
 
 // Feature Components
 import LoginPage from "./features/auth/LoginPage";
@@ -49,6 +43,11 @@ import { useRequestStore } from "./stores/useRequestStore";
 import { useTransactionStore } from "./stores/useTransactionStore";
 import { useMasterDataStore } from "./stores/useMasterDataStore";
 import { useNotificationStore } from "./stores/useNotificationStore";
+import { useSessionStore } from "./stores/useSessionStore";
+
+// Hooks
+import { useTokenHeartbeat } from "./hooks/useTokenHeartbeat";
+import { useSmartRefresh, usePeriodicRefresh } from "./hooks/useSmartRefresh";
 
 const AppContent: React.FC = () => {
   // --- UI State from Store ---
@@ -56,16 +55,41 @@ const AppContent: React.FC = () => {
   const setStoreActivePage = useUIStore((state) => state.setActivePage);
   const setPageLoading = useUIStore((state) => state.setPageLoading);
   const pageInitialState = useUIStore((state) => state.pageInitialState);
-  const clearPageInitialState = useUIStore(
-    (state) => state.clearPageInitialState,
-  );
+  const clearPageInitialState = useUIStore((state) => state.clearPageInitialState);
 
   // --- Auth State ---
   const currentUser = useAuthStore((state) => state.currentUser)!;
   const logout = useAuthStore((state) => state.logout);
 
+  // --- Force Change Password State ---
+  // Modal ini HARUS muncul dan tidak bisa di-dismiss jika mustChangePassword = true
+  const mustChangePassword = currentUser?.mustChangePassword === true;
+
   // --- Data Stores Initialization ---
   const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // --- Smart Data Refresh for Real-time SaaS Experience ---
+  // Refresh data saat tab aktif kembali atau window focus
+  useSmartRefresh({
+    onRefresh: async () => {
+      // Refresh semua data penting secara paralel
+      await Promise.all([
+        useAssetStore.getState().fetchAssets(),
+        useRequestStore.getState().fetchRequests(),
+        useNotificationStore.getState().fetchNotifications(),
+      ]);
+    },
+    minRefreshInterval: 5000, // Minimum 5 detik antar refresh
+    enabled: !isDataLoading,
+  });
+
+  // Periodic notification refresh (setiap 60 detik untuk real-time updates)
+  usePeriodicRefresh({
+    onRefresh: () => useNotificationStore.getState().fetchNotifications(),
+    intervalMs: 60000, // 1 menit
+    enabled: !isDataLoading,
+    pauseWhenHidden: true,
+  });
 
   useEffect(() => {
     const loadAllData = async () => {
@@ -75,7 +99,7 @@ const AppContent: React.FC = () => {
         useTransactionStore.getState().fetchTransactions(),
         useMasterDataStore.getState().fetchMasterData(),
         useNotificationStore.getState().fetchNotifications(),
-        new Promise((resolve) => setTimeout(resolve, 300)), // Reduced delay significantly for snappier load
+        // Hilangkan delay artificial untuk loading yang lebih cepat
       ]);
       setIsDataLoading(false);
     };
@@ -99,9 +123,7 @@ const AppContent: React.FC = () => {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
   const [scanContext, setScanContext] = useState<"global" | "form">("global");
-  const [formScanCallback, setFormScanCallback] = useState<
-    ((data: any) => void) | null
-  >(null);
+  const [formScanCallback, setFormScanCallback] = useState<((data: any) => void) | null>(null);
 
   const addNotification = useNotification();
 
@@ -148,10 +170,7 @@ const AppContent: React.FC = () => {
       setActivePage("customer-installation-form", { prefillAsset: asset.id });
       setPreviewData(null);
     },
-    onInitiateRegistrationFromRequest: (
-      request: Request,
-      itemToRegister: any,
-    ) => {
+    onInitiateRegistrationFromRequest: (request: Request, itemToRegister: any) => {
       setActivePage("registration", {
         prefillData: { request, itemToRegister },
       });
@@ -177,8 +196,7 @@ const AppContent: React.FC = () => {
           itemToEdit: { type: "asset", id: data.id },
         });
       }
-      if (data.type === "customer")
-        setActivePage("customer-edit", { customerId: data.id });
+      if (data.type === "customer") setActivePage("customer-edit", { customerId: data.id });
     },
   };
 
@@ -204,10 +222,7 @@ const AppContent: React.FC = () => {
   ];
 
   const renderPage = () => {
-    if (
-      currentUser.role === "Staff" &&
-      staffRestrictedPages.includes(activePage)
-    ) {
+    if (currentUser.role === "Staff" && staffRestrictedPages.includes(activePage)) {
       // FIX: Pass onBack to avoid dead-end page
       return <PermissionDeniedPage onBack={() => setActivePage("dashboard")} />;
     }
@@ -230,15 +245,9 @@ const AppContent: React.FC = () => {
             currentUser={currentUser}
             setActivePage={setActivePage}
             onShowPreview={handleShowPreview}
-            onInitiateRegistration={
-              navigationActions.onInitiateRegistrationFromRequest
-            }
-            onInitiateHandoverFromRequest={
-              navigationActions.onInitiateHandoverFromRequest
-            }
-            onInitiateHandoverFromLoan={
-              navigationActions.onInitiateHandoverFromLoan
-            }
+            onInitiateRegistration={navigationActions.onInitiateRegistrationFromRequest}
+            onInitiateHandoverFromRequest={navigationActions.onInitiateHandoverFromRequest}
+            onInitiateHandoverFromLoan={navigationActions.onInitiateHandoverFromLoan}
             initialFilters={pageInitialState}
             onClearInitialFilters={clearPageInitialState}
             setIsGlobalScannerOpen={setIsGlobalScannerOpen}
@@ -312,10 +321,7 @@ const AppContent: React.FC = () => {
           .loanRequests.find((lr) => lr.id === pageInitialState?.loanId);
 
         let assetsToReturn: Asset[] = [];
-        if (
-          pageInitialState?.assetIds &&
-          Array.isArray(pageInitialState.assetIds)
-        ) {
+        if (pageInitialState?.assetIds && Array.isArray(pageInitialState.assetIds)) {
           assetsToReturn = useAssetStore
             .getState()
             .assets.filter((a) => pageInitialState.assetIds.includes(a.id));
@@ -361,17 +367,13 @@ const AppContent: React.FC = () => {
         // FIX: Accessing items via flatMap since AssetReturn now has 'items' array, not direct assetId
         const assetsForReturnDoc = allReturnDocuments
           .flatMap((r) => r.items)
-          .map((item) =>
-            useAssetStore.getState().assets.find((a) => a.id === item.assetId),
-          )
+          .map((item) => useAssetStore.getState().assets.find((a) => a.id === item.assetId))
           .filter((a): a is Asset => a !== undefined);
 
         return (
           <ReturnRequestDetailPage
             currentUser={currentUser}
-            onBackToList={() =>
-              setActivePage("request-pinjam", { initialTab: "returns" })
-            }
+            onBackToList={() => setActivePage("request-pinjam", { initialTab: "returns" })}
             loanRequest={loanRequestForDetail}
             returnDocuments={allReturnDocuments}
             assetsToReturn={assetsForReturnDoc}
@@ -454,9 +456,7 @@ const AppContent: React.FC = () => {
                   .users.find((u) => u.id === pageInitialState?.userId),
               })
             }
-            onShowAssetPreview={(id) =>
-              handleShowPreview({ type: "asset", id })
-            }
+            onShowAssetPreview={(id) => handleShowPreview({ type: "asset", id })}
           />
         );
 
@@ -470,18 +470,13 @@ const AppContent: React.FC = () => {
                 editingDivisionId: pageInitialState?.divisionId,
               })
             }
-            onViewMember={(uid) =>
-              setActivePage("user-detail", { userId: uid })
-            }
+            onViewMember={(uid) => setActivePage("user-detail", { userId: uid })}
           />
         );
 
       case "pengaturan-akun":
         return (
-          <ManageAccountPage
-            currentUser={currentUser}
-            onBack={() => setActivePage("dashboard")}
-          />
+          <ManageAccountPage currentUser={currentUser} onBack={() => setActivePage("dashboard")} />
         );
 
       case "kategori":
@@ -498,39 +493,78 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Handler untuk navigasi ke halaman ganti password
+  const handleForceChangePassword = () => {
+    setActivePage("pengaturan-akun");
+  };
+
   return (
-    <MainLayout
-      currentUser={currentUser}
-      onLogout={logout}
-      setActivePage={setActivePage}
-      onShowPreview={handleShowPreview}
-      onOpenScanner={() => {
-        setScanContext("global");
-        setIsGlobalScannerOpen(true);
-      }}
-      isGlobalScannerOpen={isGlobalScannerOpen}
-      setIsGlobalScannerOpen={setIsGlobalScannerOpen}
-      onScanSuccess={handleScanSuccess}
-      previewData={previewData}
-      setPreviewData={setPreviewData}
-      previewActions={navigationActions}
-    >
-      {renderPage()}
-    </MainLayout>
+    <>
+      {/* Force Change Password Modal - WAJIB ditampilkan, tidak bisa di-dismiss */}
+      {mustChangePassword && activePage !== "pengaturan-akun" && (
+        <ForceChangePasswordNotice
+          isOpen={true}
+          userName={currentUser?.name}
+          reason="admin_reset"
+          onChangePassword={handleForceChangePassword}
+        />
+      )}
+
+      <MainLayout
+        currentUser={currentUser}
+        onLogout={logout}
+        setActivePage={setActivePage}
+        onShowPreview={handleShowPreview}
+        onOpenScanner={() => {
+          setScanContext("global");
+          setIsGlobalScannerOpen(true);
+        }}
+        isGlobalScannerOpen={isGlobalScannerOpen}
+        setIsGlobalScannerOpen={setIsGlobalScannerOpen}
+        onScanSuccess={handleScanSuccess}
+        previewData={previewData}
+        setPreviewData={setPreviewData}
+        previewActions={navigationActions}
+      >
+        {renderPage()}
+      </MainLayout>
+    </>
   );
 };
 
 const App: React.FC = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
+  const token = useAuthStore((state) => state.token);
   const checkSession = useAuthStore((state) => state.checkSession);
+  const logout = useAuthStore((state) => state.logout);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Session expiry state from store
+  const isSessionExpired = useSessionStore((state) => state.isSessionExpired);
+  const sessionExpiredMessage = useSessionStore((state) => state.sessionExpiredMessage);
+  const sessionExpiredReason = useSessionStore((state) => state.sessionExpiredReason);
+  const clearSessionExpired = useSessionStore((state) => state.clearSessionExpired);
+
+  // Debug: Log session state changes
+  useEffect(() => {
+    console.log("[App] Session State:", {
+      isSessionExpired,
+      sessionExpiredReason,
+      hasCurrentUser: !!currentUser,
+      mustChangePassword: currentUser?.mustChangePassword,
+    });
+  }, [isSessionExpired, sessionExpiredReason, currentUser]);
+
+  // Real-time token validation - checks every 30 seconds
+  // Akan langsung mendeteksi jika admin reset password user
+  useTokenHeartbeat({
+    intervalMs: 30000, // 30 detik
+    enabled: isHydrated && !!token,
+  });
 
   useEffect(() => {
     const checkHydration = setInterval(() => {
-      if (
-        useAuthStore.persist.hasHydrated() &&
-        useUIStore.persist.hasHydrated()
-      ) {
+      if (useAuthStore.persist.hasHydrated() && useUIStore.persist.hasHydrated()) {
         setIsHydrated(true);
         clearInterval(checkHydration);
       }
@@ -540,8 +574,52 @@ const App: React.FC = () => {
     return () => clearInterval(checkHydration);
   }, [checkSession]);
 
+  // Handler for session expired modal
+  const handleSessionExpiredClose = () => {
+    console.log("[App] Session expired modal closed - clearing session");
+    // Clear storage first
+    localStorage.removeItem("auth-storage");
+    localStorage.removeItem("ui-storage");
+    // Then clear state
+    clearSessionExpired();
+    logout();
+  };
+
   if (!isHydrated) {
     return <FullPageLoader message="Memulai Sistem..." />;
+  }
+
+  // PRIORITAS 1: Tampilkan session expired modal jika ada
+  // Ini HARUS dicek sebelum cek currentUser agar modal sempat muncul
+  if (isSessionExpired) {
+    // Determine modal type based on reason
+    const isPasswordReset = sessionExpiredReason === "password_reset";
+
+    return (
+      <>
+        <SessionExpiredModal
+          isOpen={true}
+          type={isPasswordReset ? "success" : "warning"}
+          title={isPasswordReset ? "Password Berhasil Diubah!" : "Sesi Berakhir"}
+          message={
+            sessionExpiredMessage ||
+            (isPasswordReset
+              ? "Demi keamanan akun Anda, silakan login kembali dengan password baru Anda untuk melanjutkan sesi."
+              : "Sesi Anda telah berakhir. Silakan login kembali.")
+          }
+          infoText={
+            isPasswordReset
+              ? "Sesi Anda saat ini akan berakhir. Anda akan diarahkan ke halaman login."
+              : undefined
+          }
+          buttonText="Login Kembali"
+          onConfirm={handleSessionExpiredClose}
+          autoRedirectSeconds={5}
+        />
+        {/* Keep showing login page in background */}
+        <LoginPage onLogin={async () => ({}) as any} />
+      </>
+    );
   }
 
   if (!currentUser) {

@@ -460,7 +460,7 @@ const allMenuItems: MenuItem[] = [
         page: "kategori",
         label: "Kategori & Model",
         icon: icons.category,
-        permission: "categories:manage",
+        permission: "categories:view",
       },
     ],
   },
@@ -947,7 +947,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
             title={isCollapsed ? "Perluas Sidebar" : "Perkecil Sidebar"}
           >
-            <div className={cn("transition-transform duration-300", isCollapsed ? "rotate-180" : "rotate-0")}>
+            <div
+              className={cn(
+                "transition-transform duration-300",
+                isCollapsed ? "rotate-180" : "rotate-0"
+              )}
+            >
               <ChevronLeftIcon className="w-5 h-5" />
             </div>
           </button>

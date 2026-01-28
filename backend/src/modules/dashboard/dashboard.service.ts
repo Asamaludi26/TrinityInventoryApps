@@ -187,7 +187,7 @@ export class DashboardService {
   }
 
   /**
-   * Get stock summary by type (schema uses StandardItem, not AssetModel)
+   * Get stock summary by type (uses AssetModel for models)
    */
   async getStockSummary(): Promise<StockSummary[]> {
     const types = await this.prisma.assetType.findMany({

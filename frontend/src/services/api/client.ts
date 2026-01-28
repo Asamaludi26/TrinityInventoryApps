@@ -3,12 +3,22 @@
  * Centralized fetch wrapper for all API calls
  *
  * NOTE: Mock mode has been deprecated. All API calls now go to the real backend.
+ *
+ * Security Notes:
+ * - Token diambil dari localStorage hanya untuk header Authorization
+ * - Tidak menyimpan data sensitif tambahan
+ * - Session expired handling melalui global store (bukan alert)
  */
 
-// Helper untuk lazy load store secara async guna menghindari circular dependency
+// Helper untuk lazy load stores secara async guna menghindari circular dependency
 const getNotifier = async () => {
   const { useNotificationStore } = await import("../../stores/useNotificationStore");
   return useNotificationStore.getState();
+};
+
+const getSessionStore = async () => {
+  const { useSessionStore } = await import("../../stores/useSessionStore");
+  return useSessionStore.getState();
 };
 
 // --- CONFIGURATION ---
@@ -159,18 +169,39 @@ class ApiClient {
     const code = (errorData.code as string) || `HTTP_${response.status}`;
     const details = errorData.details as Record<string, unknown> | undefined;
 
-    // Handle 401 Unauthorized - Global redirect
+    // Handle 401 Unauthorized - Token invalid/expired
     if (response.status === 401) {
-      // Clear auth storage and redirect
+      // PENTING: Trigger session expired modal DULU sebelum clear storage
+      // Agar modal sempat muncul sebelum state reset
       try {
-        localStorage.removeItem("auth-storage");
+        const sessionStore = await getSessionStore();
+        const errMessage = message || "Sesi telah berakhir. Silakan login ulang.";
+        // Jika pesan mengandung kata "password" atau "keamanan", kemungkinan karena password reset
+        const isPasswordReset =
+          errMessage.toLowerCase().includes("password") ||
+          errMessage.toLowerCase().includes("keamanan") ||
+          errMessage.toLowerCase().includes("security") ||
+          errMessage.toLowerCase().includes("reset");
+
+        console.log("[ApiClient] 401 Detected - Triggering session expired modal", {
+          errMessage,
+          isPasswordReset,
+        });
+        sessionStore.setSessionExpired(
+          errMessage,
+          isPasswordReset ? "password_reset" : "token_expired"
+        );
       } catch (e) {
-        console.error("[ApiClient] Failed to clear auth:", e);
+        console.error("[ApiClient] Failed to trigger session modal:", e);
+        // Fallback: Force reload jika store tidak tersedia
+        if (typeof window !== "undefined") {
+          window.location.reload();
+        }
       }
-      // Don't throw, just redirect
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+
+      // JANGAN hapus storage di sini - biarkan modal handler yang melakukannya
+      // Storage akan dihapus saat user klik tombol di modal
+
       throw new ApiError("Sesi berakhir. Silakan login kembali.", 401, "AUTH_SESSION_EXPIRED");
     }
 

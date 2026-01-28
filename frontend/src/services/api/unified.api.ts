@@ -30,6 +30,7 @@ import {
   transformBackendRequest,
   transformBackendLoanRequest,
   transformBackendCustomer,
+  transformBackendCategory,
 } from "../../utils/enumMapper";
 
 // Helper type untuk data mentah dari backend
@@ -80,7 +81,7 @@ export const unifiedApi = {
         apiClient.get<BackendDTO[]>("/requests").catch(() => []),
         apiClient.get<BackendDTO[]>("/users").catch(() => []),
         apiClient.get<Division[]>("/divisions").catch(() => []),
-        apiClient.get<AssetCategory[]>("/categories").catch(() => []),
+        apiClient.get<BackendDTO[]>("/categories").catch(() => []),
         apiClient.get<BackendDTO[]>("/customers").catch(() => []),
         apiClient.get<BackendDTO[]>("/loan-requests").catch(() => []),
         apiClient.get<Handover[]>("/transactions/handovers").catch(() => []),
@@ -97,6 +98,9 @@ export const unifiedApi = {
       const users = (usersRaw || []).map((item) => transformBackendUser(item));
       const customers = (customersRaw || []).map((item) => transformBackendCustomer(item));
       const loanRequests = (loanRequestsRaw || []).map((item) => transformBackendLoanRequest(item));
+      const categoriesTransformed = (categories || []).map((item) =>
+        transformBackendCategory(item)
+      );
 
       return {
         assets,
@@ -106,7 +110,7 @@ export const unifiedApi = {
         customers,
         users,
         divisions: divisions || [],
-        categories: categories || [],
+        categories: categoriesTransformed,
         notifications: notifications || [],
         loanRequests,
         maintenances: maintenances || [],
@@ -149,7 +153,8 @@ export const unifiedApi = {
   },
 
   refreshCategories: async (): Promise<AssetCategory[]> => {
-    return apiClient.get<AssetCategory[]>("/categories");
+    const response = await apiClient.get<BackendDTO[]>("/categories");
+    return (response || []).map((item) => transformBackendCategory(item));
   },
 
   refreshNotifications: async (): Promise<Notification[]> => {

@@ -264,14 +264,33 @@ export class UsersService {
 
     const sanitized = this.sanitizeUserData(updateUserDto);
 
-    // Jika password disertakan dalam update biasa (updateUserDto), hash juga
-    // Namun sebaiknya gunakan changePassword untuk keamanan lebih baik
+    // Deteksi apakah ini operasi reset password oleh admin
+    // Kondisi: ada password baru DAN passwordResetRequested di-set ke false
+    const isAdminPasswordReset =
+      sanitized.password &&
+      updateUserDto.passwordResetRequested === false &&
+      existingUser.passwordResetRequested === true;
+
+    // Jika password disertakan dalam update, hash password
     if (sanitized.password) {
       sanitized.password = await bcrypt.hash(sanitized.password, 10);
     }
 
     const updateData: Prisma.UserUncheckedUpdateInput = {
       ...sanitized,
+      // Handle reset password flags dari DTO
+      ...(updateUserDto.passwordResetRequested !== undefined && {
+        passwordResetRequested: updateUserDto.passwordResetRequested,
+      }),
+      ...(updateUserDto.passwordResetRequestDate !== undefined && {
+        passwordResetRequestDate: updateUserDto.passwordResetRequestDate
+          ? new Date(updateUserDto.passwordResetRequestDate)
+          : null,
+      }),
+      // Jika admin reset password, paksa user untuk ganti password saat login
+      ...(isAdminPasswordReset && {
+        mustChangePassword: true,
+      }),
     };
 
     const updated = await this.prisma.user.update({
@@ -348,6 +367,14 @@ export class UsersService {
     });
   }
 
+  /**
+   * Reset password user oleh Super Admin.
+   * - Set password baru
+   * - Increment tokenVersion untuk INVALIDATE semua sesi aktif
+   * - Reset flag passwordResetRequested
+   *
+   * Setelah ini, semua token JWT lama akan invalid dan user akan otomatis logout.
+   */
   async resetPassword(id: number, newPassword: string) {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -357,6 +384,8 @@ export class UsersService {
         password: hashedPassword,
         passwordResetRequested: false,
         passwordResetRequestDate: null,
+        mustChangePassword: false, // Tidak perlu force change lagi, user sudah dapat password baru
+        tokenVersion: { increment: 1 }, // INVALIDATE semua token aktif
       },
     });
   }

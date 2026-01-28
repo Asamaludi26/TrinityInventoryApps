@@ -15,6 +15,7 @@ export interface BackendLoginResponse {
     role: string;
     division?: string;
     permissions: string[];
+    mustChangePassword?: boolean;
   };
   token: string;
 }
@@ -65,9 +66,7 @@ export const authApi = {
    * Verify token validity
    */
   verifyToken: async (): Promise<{ valid: boolean; user: User }> => {
-    const response = await apiClient.post<{ valid: boolean; user: any }>(
-      "/auth/verify",
-    );
+    const response = await apiClient.post<{ valid: boolean; user: any }>("/auth/verify");
     return {
       valid: response.valid,
       user: transformBackendUser(response.user),
@@ -77,10 +76,7 @@ export const authApi = {
   /**
    * Update password
    */
-  updatePassword: async (
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<void> => {
+  updatePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
     await apiClient.patch("/auth/password", { currentPassword, newPassword });
   },
 };

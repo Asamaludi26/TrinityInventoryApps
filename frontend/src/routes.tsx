@@ -12,47 +12,27 @@ import { PageSkeleton } from "./components/ui/PageSkeleton";
 // Lazy load all page components
 const LoginPage = lazy(() => import("./features/auth/LoginPage"));
 const DashboardPage = lazy(() => import("./features/dashboard/DashboardPage"));
-const RegistrationPage = lazy(
-  () => import("./features/assetRegistration/RegistrationPage"),
-);
+const RegistrationPage = lazy(() => import("./features/assetRegistration/RegistrationPage"));
 const HandoverPage = lazy(() => import("./features/handover/HandoverPage"));
-const RepairManagementPage = lazy(
-  () => import("./features/repair/RepairManagementPage"),
-);
-const CustomerManagementPage = lazy(
-  () => import("./features/customers/CustomerManagementPage"),
-);
+const RepairManagementPage = lazy(() => import("./features/repair/RepairManagementPage"));
+const CustomerManagementPage = lazy(() => import("./features/customers/CustomerManagementPage"));
 const AccountsPage = lazy(() =>
   import("./features/users/AccountsPage").then((m) => ({
     default: m.AccountsPage,
-  })),
+  }))
 );
-const CategoryManagementPage = lazy(
-  () => import("./features/categories/CategoryManagementPage"),
-);
-const ManageAccountPage = lazy(
-  () => import("./features/users/ManageAccountPage"),
-);
+const CategoryManagementPage = lazy(() => import("./features/categories/CategoryManagementPage"));
+const ManageAccountPage = lazy(() => import("./features/users/ManageAccountPage"));
 const UserFormPage = lazy(() => import("./features/users/UserFormPage"));
-const DivisionFormPage = lazy(
-  () => import("./features/users/DivisionFormPage"),
-);
+const DivisionFormPage = lazy(() => import("./features/users/DivisionFormPage"));
 const UserDetailPage = lazy(() => import("./features/users/UserDetailPage"));
-const DivisionDetailPage = lazy(
-  () => import("./features/users/DivisionDetailPage"),
-);
-const StockOverviewPage = lazy(
-  () => import("./features/stock/StockOverviewPage"),
-);
-const PermissionDeniedPage = lazy(
-  () => import("./features/auth/PermissionDeniedPage"),
-);
+const DivisionDetailPage = lazy(() => import("./features/users/DivisionDetailPage"));
+const StockOverviewPage = lazy(() => import("./features/stock/StockOverviewPage"));
+const PermissionDeniedPage = lazy(() => import("./features/auth/PermissionDeniedPage"));
 const RequestHubPage = lazy(() => import("./features/requests/RequestHubPage"));
-const ReturnAssetFormPage = lazy(
-  () => import("./features/requests/loan/ReturnAssetFormPage"),
-);
+const ReturnAssetFormPage = lazy(() => import("./features/requests/loan/ReturnAssetFormPage"));
 const ReturnRequestDetailPage = lazy(
-  () => import("./features/requests/loan/ReturnRequestDetailPage"),
+  () => import("./features/requests/loan/ReturnRequestDetailPage")
 );
 
 // Lazy wrapper with skeleton fallback
@@ -285,11 +265,11 @@ export const protectedRoutes: RouteObject[] = [
 ];
 
 // Role-based route access
+// Paths yang hanya bisa diakses oleh Admin/Leader, bukan Staff
 export const staffRestrictedPaths = [
   ROUTES.REGISTRATION,
   ROUTES.ASSET_NEW,
   ROUTES.REPAIR,
-  ROUTES.CUSTOMERS,
   ROUTES.CUSTOMER_NEW,
   ROUTES.CUSTOMER_EDIT,
   ROUTES.USERS,
@@ -297,5 +277,5 @@ export const staffRestrictedPaths = [
   ROUTES.USER_EDIT,
   ROUTES.DIVISION_NEW,
   ROUTES.DIVISION_EDIT,
-  ROUTES.CATEGORIES,
+  // CATEGORIES dihapus dari sini - semua role bisa lihat kategori (view only untuk Staff)
 ];

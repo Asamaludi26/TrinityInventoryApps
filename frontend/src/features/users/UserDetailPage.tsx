@@ -23,6 +23,9 @@ import { useMasterDataStore } from "../../stores/useMasterDataStore";
 import { useAssetStore } from "../../stores/useAssetStore";
 import { useRequestStore } from "../../stores/useRequestStore";
 
+// API
+import { usersApi } from "../../services/api/master-data.api";
+
 interface UserDetailPageProps {
   user?: User;
   currentUser: User;
@@ -122,7 +125,12 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
     const tempPassword = generateSecurePassword();
 
     try {
-      await updateUser(user.id, {
+      // Gunakan endpoint dedicated resetPassword
+      // Backend akan otomatis set mustChangePassword = true
+      await usersApi.resetPassword(user.id, tempPassword);
+
+      // Update local state untuk UI
+      updateUser(user.id, {
         passwordResetRequested: false,
         passwordResetRequestDate: undefined,
       });
@@ -130,6 +138,7 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
       setNewPassword(tempPassword);
       setIsResetModalOpen(false);
       setIsPasswordShown(true);
+      addNotification("Password berhasil di-reset.", "success");
     } catch (e) {
       console.error(e);
       addNotification("Gagal mereset password.", "error");
@@ -167,33 +176,6 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
         }
       >
         <div className="space-y-6">
-          {/* Reset Password Request Banner */}
-          {user.passwordResetRequested && !isRestrictedView && (
-            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg shadow-sm flex justify-between items-center animate-fade-in-up">
-              <div className="flex items-center gap-3">
-                <BsExclamationTriangleFill className="w-6 h-6 text-red-500" />
-                <div>
-                  <h4 className="text-sm font-bold text-red-800">
-                    Permintaan Reset Password Aktif
-                  </h4>
-                  <p className="text-xs text-red-600">
-                    User ini meminta reset password pada{" "}
-                    {user.passwordResetRequestDate
-                      ? new Date(user.passwordResetRequestDate).toLocaleString()
-                      : "baru-baru ini"}
-                    .
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={openResetModal}
-                className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 shadow-sm"
-              >
-                Reset Sekarang
-              </button>
-            </div>
-          )}
-
           {/* User Info Section */}
           <div className="p-6 bg-white border border-gray-200/80 rounded-xl shadow-sm">
             <div className="flex flex-col sm:flex-row items-start gap-6">
@@ -288,25 +270,78 @@ const UserDetailPage: React.FC<UserDetailPageProps> = ({
             </div>
           )}
 
-          {/* Security Section (Super Admin only) */}
+          {/* Security Section (Super Admin / Admin with reset-password permission) */}
           {hasPermission(currentUser, "users:reset-password") &&
             user.id !== currentUser.id &&
             !isRestrictedView && (
-              <div className="p-6 bg-white border border-gray-200/80 rounded-xl shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-3">Keamanan</h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-700">Reset Kata Sandi</p>
-                    <p className="text-sm text-gray-500">
-                      Buat kata sandi sementara jika pengguna lupa.
+              <div className="p-6 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 border-b border-gray-200 dark:border-gray-600 pb-3 flex items-center gap-2">
+                  <LockIcon className="w-5 h-5 text-primary-600" />
+                  Keamanan Akun
+                </h3>
+
+                <div className="space-y-4">
+                  {/* Jika ada permintaan reset password aktif */}
+                  {user.passwordResetRequested && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-amber-100 dark:bg-amber-800 rounded-lg">
+                            <BsExclamationTriangleFill className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-amber-800 dark:text-amber-200">
+                              Permintaan Reset Password Aktif
+                            </h4>
+                            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                              User meminta reset password pada{" "}
+                              {user.passwordResetRequestDate
+                                ? new Date(user.passwordResetRequestDate).toLocaleString("id-ID")
+                                : "baru-baru ini"}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={openResetModal}
+                          disabled={isLoading}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-amber-600 rounded-lg shadow-sm hover:bg-amber-700 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          <KeyIcon className="w-4 h-4" />
+                          Approve Reset
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tombol Reset Manual - SELALU tampil untuk Super Admin */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl">
+                    <div>
+                      <p className="font-medium text-gray-700 dark:text-gray-200">
+                        Reset Kata Sandi Manual
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Reset password langsung tanpa perlu request dari user.
+                      </p>
+                    </div>
+                    <button
+                      onClick={openResetModal}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-danger rounded-lg shadow-sm hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <KeyIcon className="w-4 h-4" />
+                      Reset Manual
+                    </button>
+                  </div>
+
+                  {/* Info tentang alur reset */}
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      <span className="font-semibold">Info:</span> Setelah reset, user akan menerima
+                      password sementara dan{" "}
+                      <span className="font-semibold">wajib menggantinya</span> saat login pertama
+                      kali.
                     </p>
                   </div>
-                  <button
-                    onClick={openResetModal}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-danger rounded-lg shadow-sm hover:bg-red-700"
-                  >
-                    <KeyIcon className="w-4 h-4" /> Reset Manual
-                  </button>
                 </div>
               </div>
             )}

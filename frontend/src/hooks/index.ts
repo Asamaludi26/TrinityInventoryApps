@@ -26,5 +26,9 @@ export { useMediaQuery, useBreakpoint } from "./useMediaQuery";
 export { useOnClickOutside } from "./useOnClickOutside";
 export { useCopyToClipboard } from "./useCopyToClipboard";
 
+// Real-time & Session hooks
+export { useTokenHeartbeat } from "./useTokenHeartbeat";
+export { useSmartRefresh, usePeriodicRefresh } from "./useSmartRefresh";
+
 // Query hooks (re-export)
 export * from "./queries";

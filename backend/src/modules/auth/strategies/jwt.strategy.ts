@@ -30,6 +30,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User tidak ditemukan atau tidak aktif');
     }
 
+    // CRITICAL: Validasi tokenVersion - jika tidak match, token sudah di-invalidate
+    // Ini terjadi saat admin reset password user
+    if (payload.tokenVersion !== undefined && payload.tokenVersion !== user.tokenVersion) {
+      throw new UnauthorizedException('Sesi telah berakhir. Silakan login ulang.');
+    }
+
     return {
       id: user.id,
       email: user.email,

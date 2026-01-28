@@ -47,6 +47,11 @@ interface AssetState {
   updateTypeDetails: (id: number, data: any) => Promise<void>;
   deleteType: (id: number, categoryId: number) => Promise<void>;
 
+  // --- MODEL (StandardItem) ACTIONS ---
+  createModel: (data: any) => Promise<void>;
+  updateModelDetails: (id: number, data: any) => Promise<void>;
+  deleteModel: (id: number, typeId: number) => Promise<void>;
+
   updateThresholds: (thresholds: Record<string, number>) => void;
 
   // Stock Movement & Logic Actions
@@ -125,14 +130,54 @@ const sanitizeBulkAsset = (
 
 // --- HELPER BARU: NORMALISASI DATA SERVER ---
 const normalizeCategories = (categories: AssetCategory[]): AssetCategory[] => {
-  return categories.map((cat) => ({
-    ...cat,
-    types: (cat.types || []).map((t) => ({
-      ...t,
-      classification: (t.classification || "asset").toLowerCase() as ItemClassification,
-      trackingMethod: (t.trackingMethod || "individual").toLowerCase() as TrackingMethod,
-    })),
-  }));
+  if (!Array.isArray(categories)) {
+    console.warn("[normalizeCategories] Received non-array categories:", categories);
+    return [];
+  }
+
+  return categories.map((cat) => {
+    // Ensure cat is a valid object
+    if (!cat || typeof cat !== "object") {
+      console.warn("[normalizeCategories] Invalid category:", cat);
+      return {
+        id: 0,
+        name: "Invalid",
+        types: [],
+        associatedDivisions: [],
+        isCustomerInstallable: false,
+      };
+    }
+
+    // Ensure types is always an array
+    const rawTypes = Array.isArray(cat.types) ? cat.types : [];
+
+    return {
+      ...cat,
+      types: rawTypes.map((t) => {
+        if (!t || typeof t !== "object") {
+          console.warn("[normalizeCategories] Invalid type in category:", cat.name, t);
+          return {
+            id: 0,
+            name: "Invalid",
+            classification: "asset" as ItemClassification,
+            trackingMethod: "individual" as TrackingMethod,
+            models: [],
+            standardItems: [],
+          };
+        }
+
+        // Backend returns 'models', normalize to both 'models' and 'standardItems' for compatibility
+        const models = (t as any).models || t.standardItems || [];
+        return {
+          ...t,
+          classification: (t.classification || "asset").toLowerCase() as ItemClassification,
+          trackingMethod: (t.trackingMethod || "individual").toLowerCase() as TrackingMethod,
+          models: models,
+          standardItems: models, // Backward compatibility
+        };
+      }),
+    };
+  });
 };
 
 // Helper Notifikasi
@@ -476,13 +521,19 @@ export const useAssetStore = create<AssetState>()(
 
           const normalizedClassification = (
             (rawResponse.classification as string) || "asset"
-          ).toLowerCase();
+          ).toLowerCase() as ItemClassification;
+
+          const normalizedTrackingMethod = (
+            (rawResponse.trackingMethod as string) || "individual"
+          ).toLowerCase() as TrackingMethod;
 
           // FIX: Gunakan double casting (as unknown as AssetType) untuk bypass error overlap
           const newTypeForState = {
             ...rawResponse,
             classification: normalizedClassification,
-            standardItems: [],
+            trackingMethod: normalizedTrackingMethod,
+            models: [],
+            standardItems: [], // Backward compatibility
           } as unknown as AssetType;
 
           set((state) => ({
@@ -510,12 +561,17 @@ export const useAssetStore = create<AssetState>()(
 
           const normalizedClassification = (
             (rawResponse.classification as string) || "asset"
-          ).toLowerCase();
+          ).toLowerCase() as ItemClassification;
+
+          const normalizedTrackingMethod = (
+            (rawResponse.trackingMethod as string) || "individual"
+          ).toLowerCase() as TrackingMethod;
 
           // FIX: Gunakan double casting (as unknown as AssetType)
           const updatedTypeForState = {
             ...rawResponse,
             classification: normalizedClassification,
+            trackingMethod: normalizedTrackingMethod,
           } as unknown as AssetType;
 
           set((state) => ({
@@ -552,6 +608,93 @@ export const useAssetStore = create<AssetState>()(
           }));
         } catch (error) {
           console.error("[AssetStore] deleteType failed:", error);
+          throw error;
+        }
+      },
+
+      // --- MODEL (AssetModel) ACTIONS ---
+
+      createModel: async (data) => {
+        try {
+          const newModelResponse = await categoriesApi.createModel(data);
+
+          const rawResponse = newModelResponse as Record<string, unknown>;
+
+          // Cast untuk state
+          const newModelForState = {
+            ...rawResponse,
+          } as unknown as import("../types").AssetModel;
+
+          set((state) => ({
+            categories: state.categories.map((cat) => ({
+              ...cat,
+              types: cat.types.map((t) => {
+                if (Number(t.id) === Number(data.typeId)) {
+                  return {
+                    ...t,
+                    models: [...(t.models || []), newModelForState],
+                    standardItems: [...(t.standardItems || []), newModelForState], // Backward compat
+                  };
+                }
+                return t;
+              }),
+            })),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] createModel failed:", error);
+          throw error;
+        }
+      },
+
+      updateModelDetails: async (id, data) => {
+        try {
+          const updatedModelResponse = await categoriesApi.updateModel(id, data);
+
+          const rawResponse = updatedModelResponse as Record<string, unknown>;
+
+          const updatedModelForState = {
+            ...rawResponse,
+          } as unknown as import("../types").AssetModel;
+
+          set((state) => ({
+            categories: state.categories.map((cat) => ({
+              ...cat,
+              types: cat.types.map((t) => ({
+                ...t,
+                models: (t.models || []).map((m) => (m.id === id ? updatedModelForState : m)),
+                standardItems: (t.standardItems || []).map((m) =>
+                  m.id === id ? updatedModelForState : m
+                ),
+              })),
+            })),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] updateModelDetails failed:", error);
+          throw error;
+        }
+      },
+
+      deleteModel: async (id, typeId) => {
+        try {
+          await categoriesApi.deleteModel(id);
+
+          set((state) => ({
+            categories: state.categories.map((cat) => ({
+              ...cat,
+              types: cat.types.map((t) => {
+                if (t.id === typeId) {
+                  return {
+                    ...t,
+                    models: (t.models || []).filter((m) => m.id !== id),
+                    standardItems: (t.standardItems || []).filter((m) => m.id !== id),
+                  };
+                }
+                return t;
+              }),
+            })),
+          }));
+        } catch (error) {
+          console.error("[AssetStore] deleteModel failed:", error);
           throw error;
         }
       },

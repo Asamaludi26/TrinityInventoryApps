@@ -73,6 +73,7 @@ export type Permission =
   | "users:reset-password"
   | "users:manage-permissions"
   | "divisions:manage"
+  | "categories:view"
   | "categories:manage"
   | "account:manage";
 
@@ -228,16 +229,21 @@ export type ItemClassification = "asset" | "material";
 export type TrackingMethod = "individual" | "bulk";
 export type BulkTrackingMode = "count" | "measurement";
 
-export interface StandardItem {
+// Renamed from StandardItem to AssetModel for consistency with backend
+export interface AssetModel {
   id: number;
+  typeId?: number; // FK to AssetType - returned by backend
   name: string;
   brand: string;
-  // MOVED HERE: Define behavior for bulk items at model level
+  // Bulk tracking configuration at model level
   bulkType?: BulkTrackingMode;
   unitOfMeasure?: string;
   baseUnitOfMeasure?: string;
   quantityPerUnit?: number;
 }
+
+// Keep StandardItem as alias for backward compatibility
+export type StandardItem = AssetModel;
 
 export interface AssetType {
   id: number;
@@ -245,8 +251,10 @@ export interface AssetType {
   classification?: ItemClassification;
   trackingMethod?: TrackingMethod;
   unitOfMeasure?: string;
-  // Removed specific bulk configs from here
-  standardItems?: StandardItem[];
+  // Changed from standardItems to models for consistency
+  models?: AssetModel[];
+  // Backward compatibility alias
+  standardItems?: AssetModel[];
 }
 
 export interface AssetCategory {
