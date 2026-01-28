@@ -25,6 +25,8 @@ import { CustomSelect } from "../../components/ui/CustomSelect";
 import { CustomerIcon } from "../../components/icons/CustomerIcon";
 import { ModelManagementModal } from "../../components/ui/ModelManagementModal";
 import { TypeManagementModal } from "../../components/ui/TypeManagementModal";
+import { BulkImportModal } from "../../components/ui/BulkImportModal";
+import { ArrowUpTrayIcon } from "../../components/icons/ArrowUpTrayIcon";
 import { BsTools, BsBoxSeam, BsLightningFill } from "react-icons/bs";
 
 // Store
@@ -81,6 +83,7 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
     category: AssetCategory | null;
     type: AssetType | null;
   }>({ isOpen: false, category: null, type: null });
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
 
   // --- DERIVED STATE ---
   // Hanya Super Admin, Admin Logistik, dan Admin Purchase yang bisa mengelola kategori
@@ -290,13 +293,22 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
             </div>
           )}
           {canManageCategories && (
-            <button
-              onClick={() => handleOpenCategoryModal(null)}
-              className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700"
-            >
-              <PlusIcon className="w-5 h-5" />
-              <span>Kategori Baru</span>
-            </button>
+            <>
+              <button
+                onClick={() => setIsBulkImportModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold text-primary-700 transition-all duration-200 rounded-lg shadow-sm bg-primary-50 border border-primary-200 hover:bg-primary-100"
+              >
+                <ArrowUpTrayIcon className="w-5 h-5" />
+                <span>Import</span>
+              </button>
+              <button
+                onClick={() => handleOpenCategoryModal(null)}
+                className="inline-flex items-center justify-center gap-2 h-10 px-4 text-sm font-semibold text-white transition-all duration-200 rounded-lg shadow-sm bg-primary-600 hover:bg-primary-700"
+              >
+                <PlusIcon className="w-5 h-5" />
+                <span>Kategori Baru</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -730,6 +742,12 @@ const CategoryManagementPage: React.FC<CategoryManagementProps> = ({ currentUser
           </div>
         </Modal>
       )}
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal
+        isOpen={isBulkImportModalOpen}
+        onClose={() => setIsBulkImportModalOpen(false)}
+      />
     </div>
   );
 };
